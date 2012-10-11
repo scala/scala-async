@@ -5,7 +5,7 @@ package scala.async
 
 import language.{ reflectiveCalls, postfixOps }
 import scala.concurrent.{ Future, ExecutionContext, future, Await }
-import scala.concurrent.util.duration._
+import scala.concurrent.duration._
 import scala.async.Async.{ async, await }
 
 

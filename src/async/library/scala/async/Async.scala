@@ -20,29 +20,26 @@ object Async extends AsyncUtils {
   
   def await[T](awaitable: Future[T]): T = ???
   
-  def asyncImpl[T: c.AbsTypeTag](c: Context)(body: c.Expr[T]): c.Expr[Future[T]] = {
+  def asyncImpl[T: c.WeakTypeTag](c: Context)(body: c.Expr[T]): c.Expr[Future[T]] = {
     import c.universe._
     
-    def mkHandlers(rhs: c.Expr[Unit]): Seq[c.Expr[PartialFunction[Int, Unit]]] = {
-      //TODO: come up with much better way to do this
-      val handlers = ListBuffer[c.Expr[PartialFunction[Int, Unit]]]()
-      handlers += reify(new PartialFunction[Int, Unit] {
-        def isDefinedAt(x_synth: Int) = x_synth == 0
-        def apply(x_synth: Int) = x_synth match { case 0 => rhs.splice }
+    /* Make a partial function literal handling case #num:
+     * 
+     *     {
+     *       case any if any == num => rhs
+     *     }
+     */
+    def mkHandler(num: Int, rhs: c.Expr[Unit]): c.Expr[PartialFunction[Int, Unit]] = {
+      val numLiteral = c.Expr[Int](Literal(Constant(num)))
+      
+      reify(new PartialFunction[Int, Unit] {
+        def isDefinedAt(`x$1`: Int) =
+          `x$1` == numLiteral.splice
+        def apply(`x$1`: Int) = `x$1` match {
+          case any: Int if any == numLiteral.splice =>
+            rhs.splice
+        }
       })
-      handlers += reify(new PartialFunction[Int, Unit] {
-        def isDefinedAt(x_synth: Int) = x_synth == 1
-        def apply(x_synth: Int) = x_synth match { case 1 => rhs.splice }
-      })
-      handlers += reify(new PartialFunction[Int, Unit] {
-        def isDefinedAt(x_synth: Int) = x_synth == 2
-        def apply(x_synth: Int) = x_synth match { case 2 => rhs.splice }
-      })
-      handlers += reify(new PartialFunction[Int, Unit] {
-        def isDefinedAt(x_synth: Int) = x_synth == 3
-        def apply(x_synth: Int) = x_synth match { case 3 => rhs.splice }
-      })
-      handlers
     }
     
     class AsyncStateBuilder {
@@ -107,7 +104,7 @@ object Async extends AsyncUtils {
       /* Make a partial function literal handling case #num:
        * 
        *     {
-       *       case num =>
+       *       case any if any == num =>
        *         stats
        *         awaitable.onComplete {
        *           case tr =>
@@ -118,20 +115,9 @@ object Async extends AsyncUtils {
        */
       def mkHandlerForState(num: Int): c.Expr[PartialFunction[Int, Unit]] = {
         assert(awaitable != null)
-        
-        val nakedStats = stats.map(stat => c.resetAllAttrs(stat.duplicate)).toList
+        val nakedStats = stats.map(stat => c.resetAllAttrs(stat.duplicate))
         val block = Block((nakedStats :+ mkOnCompleteTree): _*)
-        val blockExpr = c.Expr(block).asInstanceOf[c.Expr[Unit]]
-        val numLiteral = c.Expr(Literal(Constant(num))).asInstanceOf[c.Expr[Int]]
-        
-        reify(new PartialFunction[Int, Unit] {
-          def isDefinedAt(`x$1`: Int) =
-            `x$1` == numLiteral.splice
-          def apply(`x$1`: Int) = `x$1` match {
-            case any: Int if any == numLiteral.splice =>
-              blockExpr.splice
-          }
-        })
+        mkHandler(num, c.Expr[Unit](block))
       }
       
       def lastExprTree: c.Tree = {
@@ -139,7 +125,7 @@ object Async extends AsyncUtils {
         if (stats.size == 1)
           c.resetAllAttrs(stats(0).duplicate)
         else {
-          val nakedStats = stats.map(stat => c.resetAllAttrs(stat.duplicate)).toList
+          val nakedStats = stats.map(stat => c.resetAllAttrs(stat.duplicate))
           Block(nakedStats: _*)
         }
       }
@@ -208,12 +194,11 @@ object Async extends AsyncUtils {
         if (localVarDefs.size < 5)
           for (_ <- localVarDefs.size until 5) localVarDefs += EmptyTree
         
-        val handlerForLastState: c.Expr[PartialFunction[Int, Unit]] =
-          mkHandlers({
-            val tree = Apply(Select(Ident("result"), c.universe.newTermName("success")),
-                             List(asyncStates(indexOfLastState).lastExprTree))
-            c.Expr(tree).asInstanceOf[c.Expr[Unit]]
-          })(indexOfLastState + 1)
+        val handlerForLastState: c.Expr[PartialFunction[Int, Unit]] = {
+          val tree = Apply(Select(Ident("result"), c.universe.newTermName("success")),
+                           List(asyncStates(indexOfLastState).lastExprTree))
+          mkHandler(indexOfLastState + 1, c.Expr[Unit](tree))
+        }
         
         vprintln("GENERATED handler for last state:")
         vprintln(handlerForLastState)

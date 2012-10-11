@@ -9,7 +9,7 @@ import scala.reflect.{ ClassTag, classTag }
 import scala.collection.mutable
 import scala.concurrent.{ Future, Awaitable, CanAwait }
 import java.util.concurrent.{ TimeoutException, CountDownLatch, TimeUnit }
-import scala.concurrent.util.Duration
+import scala.concurrent.duration.Duration
 
 
 
