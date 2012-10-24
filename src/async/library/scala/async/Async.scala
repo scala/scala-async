@@ -54,8 +54,12 @@ class ExprBuilder[C <: Context with Singleton](val c: C) {
     def += (stat: c.Tree): Unit =
       stats += stat
     
-    /* Result needs to be created as a var at the beginning of the transformed method bodyso that
-       it is visible in subsequent states of the state machine.
+    /* Result needs to be created as a var at the beginning of the transformed method body, so that
+     * it is visible in subsequent states of the state machine.
+     *
+     * @param awaitArg         the argument of await
+     * @param awaitResultName  the name of the variable that the result of await is assigned to
+     * @param awaitResultType  the type of the result of await
      */
     def complete(awaitArg: c.Tree, awaitResultName: c.universe.TermName, awaitResultType: Tree): Unit = {
       awaitable = c.resetAllAttrs(awaitArg.duplicate)
@@ -153,12 +157,12 @@ object Async extends AsyncUtils {
     import c.universe._
     
     val builder = new ExprBuilder[c.type](c)
+    val awaitMethod = awaitSym(c)
     
     body.tree match {
       case Block(stats, expr) =>
         val asyncStates = ListBuffer[builder.AsyncStateBuilder]()
         var stateBuilder = new builder.AsyncStateBuilder // current state builder
-        val awaitMethod = awaitSym(c)
         
         for (stat <- stats) {
           stat match {
