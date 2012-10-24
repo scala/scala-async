@@ -18,6 +18,7 @@ class ExprBuilder[C <: Context with Singleton](val c: C) {
   builder =>
   
   import c.universe._
+  import Flag._
   
   /* Make a partial function literal handling case #num:
    * 
@@ -26,6 +27,7 @@ class ExprBuilder[C <: Context with Singleton](val c: C) {
    *     }
    */
   def mkHandler(num: Int, rhs: c.Expr[Unit]): c.Expr[PartialFunction[Int, Unit]] = {
+/*
     val numLiteral = c.Expr[Int](Literal(Constant(num)))
     
     reify(new PartialFunction[Int, Unit] {
@@ -36,6 +38,36 @@ class ExprBuilder[C <: Context with Singleton](val c: C) {
           rhs.splice
       }
     })
+*/
+    val rhsTree = c.resetAllAttrs(rhs.tree.duplicate)
+    val handlerTree = mkHandlerTree(num, rhsTree)
+    c.Expr(handlerTree).asInstanceOf[c.Expr[PartialFunction[Int, Unit]]]
+  }
+
+  def mkHandlerTree(num: Int, rhs: c.Tree): c.Tree = {
+    val partFunClass = c.mirror.staticClass("scala.PartialFunction")
+    val partFunIdent = Ident(partFunClass)
+    val intIdent = Ident(definitions.IntClass)
+    val unitIdent = Ident(definitions.UnitClass)
+    
+    Block(List(
+      ClassDef(Modifiers(FINAL), newTypeName("$anon"), List(), Template(List(AppliedTypeTree(partFunIdent, List(intIdent, unitIdent))),
+        emptyValDef, List(
+          
+          DefDef(Modifiers(), nme.CONSTRUCTOR, List(), List(List()), TypeTree(), Block(List(Apply(Select(Super(This(tpnme.EMPTY), tpnme.EMPTY), nme.CONSTRUCTOR), List())), Literal(Constant(())))),
+          
+          DefDef(Modifiers(), newTermName("isDefinedAt"), List(), List(List(ValDef(Modifiers(PARAM), newTermName("x$1"), intIdent, EmptyTree))), TypeTree(), Apply(Select(Ident(newTermName("x$1")), newTermName("$eq$eq")), List(Literal(Constant(num))))),
+          
+          DefDef(Modifiers(), newTermName("apply"), List(), List(List(ValDef(Modifiers(PARAM), newTermName("x$1"), intIdent, EmptyTree))), TypeTree(),
+            Match(Ident(newTermName("x$1")), List(
+              CaseDef(Bind(newTermName("any"), Typed(Ident(nme.WILDCARD), intIdent)), Apply(Select(Ident(newTermName("any")), newTermName("$eq$eq")), List(Literal(Constant(num)))), rhs)
+            ))
+          )
+          
+        ))
+      )),
+      Apply(Select(New(Ident(newTypeName("$anon"))), nme.CONSTRUCTOR), List())
+    )
   }
   
   class AsyncStateBuilder {
@@ -195,7 +227,7 @@ object Async extends AsyncUtils {
             }
             i += 1
           }
-          // asyncStates(i) does not end with `await`
+          // asyncStates(i) does not end with `await` (asyncStates(i).awaitable == null)
           (handlerExpr, i)
         }
         
