@@ -314,16 +314,13 @@ object Async extends AsyncUtils {
           var handlerExpr = c.Expr(handlerTree).asInstanceOf[c.Expr[PartialFunction[Int, Unit]]]
 
           var i = 1
-          while (asyncStates(i).isInstanceOf[builder.AsyncStateWithAwait]) {
+          for (asyncState <- asyncStates.tail.init) {
             //val handlerForNextState = asyncStates(i).mkHandlerForState(i+1)
-            val handlerTreeForNextState = asyncStates(i).mkHandlerTreeForState(i)
-
+            val handlerTreeForNextState = asyncState.mkHandlerTreeForState(i)
             val currentHandlerTreeNaked = c.resetAllAttrs(handlerExpr.tree.duplicate)
-            handlerExpr = reify {
-              //c.Expr(currentHandlerTreeNaked).asInstanceOf[c.Expr[PartialFunction[Int, Unit]]].splice orElse handlerForNextState.splice
-              c.Expr(currentHandlerTreeNaked).asInstanceOf[c.Expr[PartialFunction[Int, Unit]]].splice.orElse(
-                c.Expr(handlerTreeForNextState).asInstanceOf[c.Expr[PartialFunction[Int, Unit]]].splice)
-            }
+            handlerExpr = c.Expr(
+              Apply(Select(currentHandlerTreeNaked, newTermName("orElse")), List(handlerTreeForNextState))
+            ).asInstanceOf[c.Expr[PartialFunction[Int, Unit]]]
             i += 1
           }
           // asyncStates(i) does not end with `await` (asyncStates(i).awaitable == null)
