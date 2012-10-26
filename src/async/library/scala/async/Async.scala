@@ -45,22 +45,30 @@ class ExprBuilder[C <: Context with Singleton](val c: C) {
   }
 
   def mkHandlerTree(num: Int, rhs: c.Tree): c.Tree = {
-    val partFunClass = c.mirror.staticClass("scala.PartialFunction")
-    val partFunIdent = Ident(partFunClass)
+    val partFunIdent = Ident(c.mirror.staticClass("scala.PartialFunction"))
     val intIdent = Ident(definitions.IntClass)
     val unitIdent = Ident(definitions.UnitClass)
     
     Block(List(
+      // anonymous subclass of PartialFunction[Int, Unit]
       ClassDef(Modifiers(FINAL), newTypeName("$anon"), List(), Template(List(AppliedTypeTree(partFunIdent, List(intIdent, unitIdent))),
         emptyValDef, List(
-          
-          DefDef(Modifiers(), nme.CONSTRUCTOR, List(), List(List()), TypeTree(), Block(List(Apply(Select(Super(This(tpnme.EMPTY), tpnme.EMPTY), nme.CONSTRUCTOR), List())), Literal(Constant(())))),
-          
-          DefDef(Modifiers(), newTermName("isDefinedAt"), List(), List(List(ValDef(Modifiers(PARAM), newTermName("x$1"), intIdent, EmptyTree))), TypeTree(), Apply(Select(Ident(newTermName("x$1")), newTermName("$eq$eq")), List(Literal(Constant(num))))),
+
+          DefDef(Modifiers(), nme.CONSTRUCTOR, List(), List(List()), TypeTree(),
+            Block(List(Apply(Select(Super(This(tpnme.EMPTY), tpnme.EMPTY), nme.CONSTRUCTOR), List())), Literal(Constant(())))),
+
+          DefDef(Modifiers(), newTermName("isDefinedAt"), List(), List(List(ValDef(Modifiers(PARAM), newTermName("x$1"), intIdent, EmptyTree))), TypeTree(),
+            Apply(Select(Ident(newTermName("x$1")), newTermName("$eq$eq")), List(Literal(Constant(num))))),
           
           DefDef(Modifiers(), newTermName("apply"), List(), List(List(ValDef(Modifiers(PARAM), newTermName("x$1"), intIdent, EmptyTree))), TypeTree(),
             Match(Ident(newTermName("x$1")), List(
-              CaseDef(Bind(newTermName("any"), Typed(Ident(nme.WILDCARD), intIdent)), Apply(Select(Ident(newTermName("any")), newTermName("$eq$eq")), List(Literal(Constant(num)))), rhs)
+              CaseDef(
+                // pattern
+                Bind(newTermName("any"), Typed(Ident(nme.WILDCARD), intIdent)),
+                // guard
+                Apply(Select(Ident(newTermName("any")), newTermName("$eq$eq")), List(Literal(Constant(num)))),
+                rhs
+              )
             ))
           )
           
@@ -70,6 +78,9 @@ class ExprBuilder[C <: Context with Singleton](val c: C) {
     )
   }
   
+  /*
+   * Builder for a single state of an async method.
+   */
   class AsyncStateBuilder {
     /* Statements preceding an await call. */
     private val stats = ListBuffer[c.Tree]()
@@ -133,6 +144,41 @@ class ExprBuilder[C <: Context with Singleton](val c: C) {
       )
     }
     
+    /* Make an `onComplete` invocation which increments the state upon resuming:
+     * 
+     *     awaitable.onComplete {
+     *       case tr =>
+     *         resultName = tr.get
+     *         state += 1
+     *         resume()
+     *     }
+     */
+    def mkOnCompleteTreeIncrState: c.Tree = {
+      val tryGetTree =
+        Assign(
+          Ident(resultName.toString),
+          Select(Ident("tr"), c.universe.newTermName("get"))
+        )
+      val incrementStateTree =
+        Assign(
+          Ident(newTermName("state")),
+          Apply(Select(Ident(newTermName("state")), newTermName("$plus")), List(Literal(Constant(1))))
+        )
+      val handlerTree =
+        Match(
+          EmptyTree,
+          List(
+            CaseDef(Bind(c.universe.newTermName("tr"), Ident("_")), EmptyTree,
+              Block(tryGetTree, incrementStateTree, Apply(Ident("resume"), List())) // rhs of case
+            )
+          )
+        )
+      Apply(
+        Select(awaitable, c.universe.newTermName("onComplete")),
+        List(handlerTree)
+      )
+    }
+
     /* Make a partial function literal handling case #num:
      * 
      *     {
@@ -148,8 +194,26 @@ class ExprBuilder[C <: Context with Singleton](val c: C) {
     def mkHandlerForState(num: Int): c.Expr[PartialFunction[Int, Unit]] = {
       assert(awaitable != null)
       val nakedStats = stats.map(stat => c.resetAllAttrs(stat.duplicate))
-      val block = Block((nakedStats :+ mkOnCompleteTree): _*)
-      builder.mkHandler(num, c.Expr[Unit](block))
+      builder.mkHandler(num, c.Expr[Unit](Block((nakedStats :+ mkOnCompleteTree): _*)))
+    }
+    
+    /* Make a partial function literal handling case #num:
+     * 
+     *     {
+     *       case any if any == num =>
+     *         stats
+     *         awaitable.onComplete {
+     *           case tr =>
+     *             resultName = tr.get
+     *             state += 1
+     *             resume()
+     *         }
+     *     }
+     */
+    def mkHandlerTreeForState(num: Int): c.Tree = {
+      assert(awaitable != null)
+      val nakedStats = stats.map(stat => c.resetAllAttrs(stat.duplicate))
+      builder.mkHandlerTree(num, Block((nakedStats :+ mkOnCompleteTreeIncrState): _*))
     }
     
     def lastExprTree: c.Tree = {
@@ -214,24 +278,33 @@ object Async extends AsyncUtils {
         
         vprintln("states of current method:")
         asyncStates foreach vprintln
-        
-        // also return index of last state
+
+        /* Builds the handler expression for a sequence of async states.
+         * Also returns the index of the last state.
+         */
         def buildHandlerExpr(): (c.Expr[PartialFunction[Int, Unit]], Int) = {
-          var handlerExpr = asyncStates(0).mkHandlerForState(1) // state 0 but { case 1 => ... }
+          //var handlerExpr = asyncStates(0).mkHandlerForState(1) // state 0 but { case 1 => ... }
+          var handlerTree = asyncStates(0).mkHandlerTreeForState(0)
+          var handlerExpr = c.Expr(handlerTree).asInstanceOf[c.Expr[PartialFunction[Int, Unit]]]
+
           var i = 1
           while (asyncStates(i).awaitable != null) {
-            val handlerForNextState = asyncStates(i).mkHandlerForState(i+1)
+            //val handlerForNextState = asyncStates(i).mkHandlerForState(i+1)
+            val handlerTreeForNextState = asyncStates(i).mkHandlerTreeForState(i)
+
             val currentHandlerTreeNaked = c.resetAllAttrs(handlerExpr.tree.duplicate)
             handlerExpr = reify {
-              c.Expr(currentHandlerTreeNaked).asInstanceOf[c.Expr[PartialFunction[Int, Unit]]].splice orElse handlerForNextState.splice
+              //c.Expr(currentHandlerTreeNaked).asInstanceOf[c.Expr[PartialFunction[Int, Unit]]].splice orElse handlerForNextState.splice
+              c.Expr(currentHandlerTreeNaked).asInstanceOf[c.Expr[PartialFunction[Int, Unit]]].splice.orElse(
+                c.Expr(handlerTreeForNextState).asInstanceOf[c.Expr[PartialFunction[Int, Unit]]].splice)
             }
             i += 1
           }
           // asyncStates(i) does not end with `await` (asyncStates(i).awaitable == null)
           (handlerExpr, i)
         }
-        
         val (handlerExpr, indexOfLastState) = buildHandlerExpr()
+        
         vprintln(s"GENERATED handler expr ($indexOfLastState):")
         vprintln(handlerExpr)
         
@@ -245,13 +318,14 @@ object Async extends AsyncUtils {
         val handlerForLastState: c.Expr[PartialFunction[Int, Unit]] = {
           val tree = Apply(Select(Ident("result"), c.universe.newTermName("success")),
                            List(asyncStates(indexOfLastState).lastExprTree))
-          builder.mkHandler(indexOfLastState + 1, c.Expr[Unit](tree))
+          //builder.mkHandler(indexOfLastState + 1, c.Expr[Unit](tree))
+          builder.mkHandler(indexOfLastState, c.Expr[Unit](tree))
         }
         
         vprintln("GENERATED handler for last state:")
         vprintln(handlerForLastState)
         
-        reify {
+        val methodBody = reify {
           val result = Promise[T]()
           var state = 0
           
@@ -262,7 +336,7 @@ object Async extends AsyncUtils {
           c.Expr(localVarDefs(4)).splice
           
           def resume(): Unit = {
-            state += 1
+            //state += 1
             
             var handler: PartialFunction[Int, Unit] =
               handlerExpr.splice
@@ -277,6 +351,10 @@ object Async extends AsyncUtils {
           resume()
           result.future
         }
+        
+        //println("ASYNC: Generated method body:")
+        //println(c.universe.showRaw(methodBody))
+        methodBody
 
       case _ =>
         // issue error message
