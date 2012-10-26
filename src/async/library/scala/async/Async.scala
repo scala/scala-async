@@ -14,7 +14,7 @@ import scala.collection.mutable.{ ListBuffer, Builder }
 /*
  * @author Philipp Haller
  */
-class ExprBuilder[C <: Context with Singleton](val c: C) {
+class ExprBuilder[C <: Context with Singleton](val c: C) extends AsyncUtils {
   builder =>
   
   import c.universe._
@@ -267,6 +267,46 @@ class ExprBuilder[C <: Context with Singleton](val c: C) {
     }
   }
 
+  class AsyncBlockBuilder(stats: List[c.Tree], expr: c.Tree, startState: Int, endState: Int) {
+    val asyncStates = ListBuffer[builder.AsyncState]()
+    private var stateBuilder = new builder.AsyncStateBuilder // current state builder
+    private val awaitMethod = awaitSym(c)
+    
+    // populate asyncStates
+    for (stat <- stats) stat match {
+      // the val name = await(..) pattern
+      case ValDef(mods, name, tpt, Apply(fun, args)) if fun.symbol == awaitMethod =>
+        asyncStates += stateBuilder.complete(args(0), name, tpt).result // complete with await
+        stateBuilder = new builder.AsyncStateBuilder
+
+      case _ =>
+        stateBuilder += stat
+    }
+    // complete last state builder (representing the expressions after the last await)
+    asyncStates += (stateBuilder += expr).result
+    
+    /* Builds the handler expression for a sequence of async states.
+     * Also returns the index of the last state.
+     */
+    def mkHandlerExpr(): (c.Expr[PartialFunction[Int, Unit]], Int) = {
+      //var handlerExpr = asyncStates(0).mkHandlerForState(1) // state 0 but { case 1 => ... }
+      var handlerTree = asyncStates(0).mkHandlerTreeForState(0)
+      var handlerExpr = c.Expr(handlerTree).asInstanceOf[c.Expr[PartialFunction[Int, Unit]]]
+
+      var i = 1
+      for (asyncState <- asyncStates.tail.init) {
+        //val handlerForNextState = asyncStates(i).mkHandlerForState(i+1)
+        val handlerTreeForNextState = asyncState.mkHandlerTreeForState(i)
+        val currentHandlerTreeNaked = c.resetAllAttrs(handlerExpr.tree.duplicate)
+        handlerExpr = c.Expr(
+          Apply(Select(currentHandlerTreeNaked, newTermName("orElse")), List(handlerTreeForNextState))).asInstanceOf[c.Expr[PartialFunction[Int, Unit]]]
+        i += 1
+      }
+      // asyncStates(i) does not end with `await` (asyncStates(i).awaitable == null)
+      (handlerExpr, i)
+    }
+
+  }
 }
 
 
@@ -287,52 +327,18 @@ object Async extends AsyncUtils {
     
     body.tree match {
       case Block(stats, expr) =>
-        val asyncStates = ListBuffer[builder.AsyncState]()
-        var stateBuilder = new builder.AsyncStateBuilder // current state builder
-        
-        for (stat <- stats) stat match {
-          // the val name = await(..) pattern
-          case ValDef(mods, name, tpt, Apply(fun, args)) if fun.symbol == awaitMethod =>
-            asyncStates += stateBuilder.complete(args(0), name, tpt).result // complete with await
-            stateBuilder = new builder.AsyncStateBuilder
-
-          case _ =>
-            stateBuilder += stat
-        }
-        // complete last state builder (representing the expressions after the last await)
-        asyncStates += (stateBuilder += expr).result
+        val asyncBlockBuilder = new builder.AsyncBlockBuilder(stats, expr, 0, 1000)
         
         vprintln("states of current method:")
-        asyncStates foreach vprintln
+        asyncBlockBuilder.asyncStates foreach vprintln
 
-        /* Builds the handler expression for a sequence of async states.
-         * Also returns the index of the last state.
-         */
-        def buildHandlerExpr(): (c.Expr[PartialFunction[Int, Unit]], Int) = {
-          //var handlerExpr = asyncStates(0).mkHandlerForState(1) // state 0 but { case 1 => ... }
-          var handlerTree = asyncStates(0).mkHandlerTreeForState(0)
-          var handlerExpr = c.Expr(handlerTree).asInstanceOf[c.Expr[PartialFunction[Int, Unit]]]
-
-          var i = 1
-          for (asyncState <- asyncStates.tail.init) {
-            //val handlerForNextState = asyncStates(i).mkHandlerForState(i+1)
-            val handlerTreeForNextState = asyncState.mkHandlerTreeForState(i)
-            val currentHandlerTreeNaked = c.resetAllAttrs(handlerExpr.tree.duplicate)
-            handlerExpr = c.Expr(
-              Apply(Select(currentHandlerTreeNaked, newTermName("orElse")), List(handlerTreeForNextState))
-            ).asInstanceOf[c.Expr[PartialFunction[Int, Unit]]]
-            i += 1
-          }
-          // asyncStates(i) does not end with `await` (asyncStates(i).awaitable == null)
-          (handlerExpr, i)
-        }
-        val (handlerExpr, indexOfLastState) = buildHandlerExpr()
+        val (handlerExpr, indexOfLastState) = asyncBlockBuilder.mkHandlerExpr()
         
         vprintln(s"GENERATED handler expr ($indexOfLastState):")
         vprintln(handlerExpr)
         
         val localVarDefs = ListBuffer[c.Tree]()
-        for (state <- asyncStates.init) // exclude last state (doesn't have await result)
+        for (state <- asyncBlockBuilder.asyncStates.init) // exclude last state (doesn't have await result)
           localVarDefs ++= state.varDefForResult.toList
         // pad up to 5 var defs
         if (localVarDefs.size < 5)
@@ -340,7 +346,7 @@ object Async extends AsyncUtils {
         
         val handlerForLastState: c.Expr[PartialFunction[Int, Unit]] = {
           val tree = Apply(Select(Ident("result"), c.universe.newTermName("success")),
-                           List(asyncStates(indexOfLastState).body))
+                           List(asyncBlockBuilder.asyncStates(indexOfLastState).body))
           //builder.mkHandler(indexOfLastState + 1, c.Expr[Unit](tree))
           builder.mkHandler(indexOfLastState, c.Expr[Unit](tree))
         }
