@@ -10,7 +10,7 @@ import scala.reflect.macros.Context
  */
 trait AsyncUtils {
 
-  val verbose = false
+  val verbose = true
   
   protected def vprintln(s: Any): Unit = if (verbose)
     println("[async] "+s)
