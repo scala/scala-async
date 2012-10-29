@@ -20,7 +20,7 @@ class Test1Class {
   import ExecutionContext.Implicits.global
   
   def m1(x: Int): Future[Int] = future {
-    Thread.sleep(2000)
+    Thread.sleep(1000)
     x + 2
   }
   
@@ -67,7 +67,7 @@ object AsyncSpec extends MinimalScalaTest {
     "support several awaits in sequence" in {
       val o = new Test1Class
       val fut = o.m3(10)
-      val res = Await.result(fut, 10 seconds)
+      val res = Await.result(fut, 4 seconds)
       res mustBe(26)
     }
   }
