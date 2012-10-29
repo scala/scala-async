@@ -99,7 +99,7 @@ class ExprBuilder[C <: Context with Singleton](val c: C) extends AsyncUtils {
     )
   }
   
-  class AsyncState(stats: List[c.Tree], protected val state: Int, protected val nextState: Int) {
+  class AsyncState(stats: List[c.Tree], val state: Int, val nextState: Int) {
     val body: c.Tree =
       if (stats.size == 1) stats.head
       else Block(stats: _*)
@@ -107,10 +107,10 @@ class ExprBuilder[C <: Context with Singleton](val c: C) extends AsyncUtils {
     val varDefs: List[(c.universe.TermName, c.universe.Type)] = List()
     
     def mkHandlerTreeForState(): c.Tree =
-      mkHandlerTree(state, Block((stats :+ mkStateTree(nextState)): _*))
+      mkHandlerTree(state, Block((stats :+ mkStateTree(nextState) :+ Apply(Ident("resume"), List())): _*))
     
     def mkHandlerTreeForState(nextState: Int): c.Tree =
-      mkHandlerTree(state, Block((stats :+ mkStateTree(nextState)): _*))
+      mkHandlerTree(state, Block((stats :+ mkStateTree(nextState) :+ Apply(Ident("resume"), List())): _*))
     
     def varDefForResult: Option[c.Tree] =
       None
@@ -362,7 +362,9 @@ class ExprBuilder[C <: Context with Singleton](val c: C) extends AsyncUtils {
       // 1. build changed if-else tree
       // 2. insert that tree at the end of the current state
       val cond = c.resetAllAttrs(condTree.duplicate)
-      this += If(cond, mkStateTree(thenState), mkStateTree(elseState))
+      this += If(cond,
+          Block(mkStateTree(thenState), Apply(Ident("resume"), List())),
+          Block(mkStateTree(elseState), Apply(Ident("resume"), List())))
       new AsyncStateWithIf(stats.toList, state) {
         override val varDefs = self.varDefs.toList
       }
@@ -374,19 +376,6 @@ class ExprBuilder[C <: Context with Singleton](val c: C) extends AsyncUtils {
     }
   }
 
-  /* current issue:
-  def m2(y: Int): Future[Int] = async {
-    val f = m1(y)
-    if (y > 0) {
-      val x = await(f)
-      x + 2
-    } else {
-      val x = await(f)
-      x - 2
-    }
-  }
-
-   */
   class AsyncBlockBuilder(stats: List[c.Tree], expr: c.Tree, startState: Int, endState: Int, budget: Int) {
     val asyncStates = ListBuffer[builder.AsyncState]()
     
@@ -400,6 +389,10 @@ class ExprBuilder[C <: Context with Singleton](val c: C) extends AsyncUtils {
       // the val name = await(..) pattern
       case ValDef(mods, name, tpt, Apply(fun, args)) if fun.symbol == awaitMethod =>
         asyncStates += stateBuilder.complete(args(0), name, tpt).result // complete with await
+        if (remainingBudget > 0)
+          remainingBudget -= 1
+        else
+          assert(false, "too many invocations of `await` in current method")
         currState += 1
         stateBuilder = new builder.AsyncStateBuilder(currState)
         
@@ -410,7 +403,7 @@ class ExprBuilder[C <: Context with Singleton](val c: C) extends AsyncUtils {
         
       case If(cond, thenp, elsep) =>
         val ifBudget: Int = remainingBudget / 2
-        remainingBudget -= ifBudget
+        remainingBudget -= ifBudget //TODO test if budget > 0
         println(s"ASYNC IF: ifBudget = $ifBudget")
         // state that we continue with after if-else: currState + ifBudget
         
@@ -418,6 +411,7 @@ class ExprBuilder[C <: Context with Singleton](val c: C) extends AsyncUtils {
         val elseBudget = ifBudget - thenBudget
         
         asyncStates +=
+          // the two Int arguments are the start state of the then branch and the else branch, respectively
           stateBuilder.resultWithIf(cond, currState + 1, currState + thenBudget)
         
         val thenBuilder = thenp match {
@@ -426,6 +420,7 @@ class ExprBuilder[C <: Context with Singleton](val c: C) extends AsyncUtils {
           case _ =>
             new AsyncBlockBuilder(List(thenp), Literal(Constant(())), currState + 1, currState + ifBudget, thenBudget)
         }
+        println("ASYNC IF: thenBuilder: "+thenBuilder)
         println("ASYNC IF: states of thenp:")
         for (s <- thenBuilder.asyncStates)
           println(s.toString)
@@ -439,6 +434,11 @@ class ExprBuilder[C <: Context with Singleton](val c: C) extends AsyncUtils {
           case _ =>
             new AsyncBlockBuilder(List(elsep), Literal(Constant(())), currState + thenBudget, currState + ifBudget, elseBudget)
         }
+        println("ASYNC IF: elseBuilder: "+elseBuilder)
+        println("ASYNC IF: states of elsep:")
+        for (s <- elseBuilder.asyncStates)
+          println(s.toString)
+        
         // insert states of elseBuilder into asyncStates
         asyncStates ++= elseBuilder.asyncStates
         
@@ -452,6 +452,8 @@ class ExprBuilder[C <: Context with Singleton](val c: C) extends AsyncUtils {
     // complete last state builder (representing the expressions after the last await)
     stateBuilder += expr
     val lastState = stateBuilder.complete(endState).result
+    println("ASYNC: last state of current AsyncBlockBuilder "+this+":")
+    println("ASYNC: "+lastState)
     asyncStates += lastState
     
     /* Builds the handler expression for a sequence of async states.
@@ -478,23 +480,21 @@ class ExprBuilder[C <: Context with Singleton](val c: C) extends AsyncUtils {
           Apply(Select(currentHandlerTreeNaked, newTermName("orElse")),
                 List(handlerTreeForLastState))).asInstanceOf[c.Expr[PartialFunction[Int, Unit]]]
       } else { // asyncStates.size > 3
-        var i = startState + 1
-      
         println("!!ASYNC start for loop")
         
         // do not traverse first state: asyncStates.tail
         // do not traverse last state:  asyncStates.tail.init
         // handle second to last state specially: asyncStates.tail.init.init
-        for (asyncState <- asyncStates.tail.init.init) {
+        for (asyncState <- asyncStates.tail.init) {
           println(s"!!ASYNC current asyncState: $asyncState")
           val handlerTreeForNextState = asyncState.mkHandlerTreeForState()
           val currentHandlerTreeNaked = c.resetAllAttrs(handlerExpr.tree.duplicate)
           handlerExpr = c.Expr(
             Apply(Select(currentHandlerTreeNaked, newTermName("orElse")),
                   List(handlerTreeForNextState))).asInstanceOf[c.Expr[PartialFunction[Int, Unit]]]
-          i += 1
         }
-        
+        handlerExpr
+/*        
         val lastState = asyncStates.tail.init.last
         println(s"!!ASYNC current asyncState (forced to $endState): $lastState")
         val handlerTreeForLastState = lastState.mkHandlerTreeForState(endState)
@@ -502,6 +502,8 @@ class ExprBuilder[C <: Context with Singleton](val c: C) extends AsyncUtils {
         c.Expr(
           Apply(Select(currentHandlerTreeNaked, newTermName("orElse")),
                 List(handlerTreeForLastState))).asInstanceOf[c.Expr[PartialFunction[Int, Unit]]]
+
+*/ 
       }
     }
 
@@ -548,7 +550,7 @@ object Async extends AsyncUtils {
           val tree = Apply(Select(Ident("result"), c.universe.newTermName("success")),
                            List(asyncBlockBuilder.asyncStates.last.body))
           //builder.mkHandler(indexOfLastState + 1, c.Expr[Unit](tree))
-          builder.mkHandler(1000, c.Expr[Unit](tree))
+          builder.mkHandler(asyncBlockBuilder.asyncStates.last.state, c.Expr[Unit](tree))
         }
         
         vprintln("GENERATED handler for last state:")

@@ -36,47 +36,18 @@ class TestIfElseClass {
     }
     z
   }
-/*
-  def m3(y: Int): Future[Int] = async {
-    val f1 = m1(y)
-    val x1 = await(f1)
-    val f2 = m1(y + 2)
-    val x2 = await(f2)
-    x1 + x2
-  }
-*/
-  // currently fails with: error: not found: value f2
-/*
-  def m4(y: Int): Future[Int] = async {
-    val f1 = m1(y)
-    val f2 = m1(y + 2)
-    val x1 = await(f1)
-    println("between two awaits")
-    val x2 = await(f2)
-    x1 + x2
-  }
-*/
 }
 
 
 object IfElseSpec extends MinimalScalaTest {
 
   "An async method" should {
-    "support a simple await" in {
-      val o = new Test1Class
+    "support await in a simple if-else expression" in {
+      val o = new TestIfElseClass
       val fut = o.m2(10)
       val res = Await.result(fut, 2 seconds)
       res mustBe(14)
     }
   }
-/*  
-  "An async method" should {
-    "support several awaits in sequence" in {
-      val o = new Test1Class
-      val fut = o.m3(10)
-      val res = Await.result(fut, 4 seconds)
-      res mustBe(26)
-    }
-  }
-*/
+
 }
