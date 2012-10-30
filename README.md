@@ -5,6 +5,7 @@ Building
 --------
 
 The async macro can be built using the `build.sh` script.
+It requires either Scala 2.10.0-RC1 or a nightly build of Scala 2.10.x.
 
 Running the test suite
 ----------------------
