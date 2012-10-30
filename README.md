@@ -23,14 +23,14 @@ Moreover, in the Scala build it's necessary to copy the directory
 
 Finally, it's necessary to set the following environment variables:
 
-{{{
+```
 SCALAC_OPTS='-cp classes'
 JAVA_OPTS='-cp classes'
-}}}
+```
 
 After this setup, we can run `partest` as follows:
 
-{{{
+```
 $ ../scala/test/partest --classpath ../scala/build/quick/classes --run
-}}}
+```
 
