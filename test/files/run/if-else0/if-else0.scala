@@ -1,20 +1,17 @@
 /**
  * Copyright (C) 2012 Typesafe Inc. <http://www.typesafe.com>
  */
-package scala.async
 
 import language.{ reflectiveCalls, postfixOps }
 import scala.concurrent.{ Future, ExecutionContext, future, Await }
 import scala.concurrent.duration._
 import scala.async.Async.{ async, await }
 
-
 object Test extends App {
 
   IfElseSpec.check()
 
 }
-
 
 class TestIfElseClass {
   import ExecutionContext.Implicits.global
