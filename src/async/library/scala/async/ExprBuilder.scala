@@ -267,12 +267,16 @@ class ExprBuilder[C <: Context with Singleton](val c: C) extends AsyncUtils {
       mkHandlerTree(state, Block((stats :+ mkOnCompleteStateTree(nextState)): _*))
     }
     
-    //TODO: complete for other primitive types, how to handle value classes?
     override def varDefForResult: Option[c.Tree] = {
       val rhs =
         if (resultType <:< definitions.IntTpe) Literal(Constant(0))
         else if (resultType <:< definitions.LongTpe) Literal(Constant(0L))
         else if (resultType <:< definitions.BooleanTpe) Literal(Constant(false))
+        else if (resultType <:< definitions.FloatTpe) Literal(Constant(0.0f))
+        else if (resultType <:< definitions.DoubleTpe) Literal(Constant(0.0d))
+        else if (resultType <:< definitions.CharTpe) Literal(Constant(0.toChar))
+        else if (resultType <:< definitions.ShortTpe) Literal(Constant(0.toShort))
+        else if (resultType <:< definitions.ByteTpe) Literal(Constant(0.toByte))
         else Literal(Constant(null))
       Some(
         ValDef(Modifiers(Flag.MUTABLE), resultName, TypeTree(resultType), rhs)
