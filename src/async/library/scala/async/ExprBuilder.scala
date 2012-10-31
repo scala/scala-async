@@ -383,6 +383,12 @@ class ExprBuilder[C <: Context with Singleton](val c: C) extends AsyncUtils {
     
     private var remainingBudget = budget
     
+    /* Fall back to CPS plug-in if tree contains an `await` call. */
+    def checkForUnsupportedAwait(tree: c.Tree) = if (tree exists {
+      case Apply(fun, _) if fun.symbol == awaitMethod => true
+      case _ => false
+    }) throw new FallbackToCpsException
+    
     // populate asyncStates
     for (stat <- stats) stat match {
       // the val name = await(..) pattern
@@ -396,11 +402,15 @@ class ExprBuilder[C <: Context with Singleton](val c: C) extends AsyncUtils {
         stateBuilder = new builder.AsyncStateBuilder(currState)
         
       case ValDef(mods, name, tpt, rhs) =>
+        checkForUnsupportedAwait(rhs)
+        
         stateBuilder.addVarDef(mods, name, tpt)
         stateBuilder += // instead of adding `stat` we add a simple assignment
           Assign(Ident(name), c.resetAllAttrs(rhs.duplicate))
         
       case If(cond, thenp, elsep) =>
+        checkForUnsupportedAwait(cond)
+        
         val ifBudget: Int = remainingBudget / 2
         remainingBudget -= ifBudget //TODO test if budget > 0
         vprintln(s"ASYNC IF: ifBudget = $ifBudget")
@@ -446,6 +456,7 @@ class ExprBuilder[C <: Context with Singleton](val c: C) extends AsyncUtils {
         stateBuilder = new builder.AsyncStateBuilder(currState)
         
       case _ =>
+        checkForUnsupportedAwait(stat)
         stateBuilder += stat
     }
     // complete last state builder (representing the expressions after the last await)

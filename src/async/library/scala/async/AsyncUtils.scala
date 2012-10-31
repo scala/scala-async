@@ -22,5 +22,11 @@ trait AsyncUtils {
     val tpe = asyncMod.moduleClass.asType.toType
     tpe.member(c.universe.newTermName("await"))
   }
+  
+  protected def awaitCpsSym(c: Context): c.universe.Symbol = {
+    val asyncMod = c.mirror.staticModule("scala.async.Async")
+    val tpe = asyncMod.moduleClass.asType.toType
+    tpe.member(c.universe.newTermName("awaitCps"))
+  }
 
 }
