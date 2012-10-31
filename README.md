@@ -35,6 +35,13 @@ After this setup, we can run `partest` as follows:
 $ ../scala/test/partest --classpath ../scala/build/quick/classes --run
 ```
 
+This runs all tests in the directory `test/files/run`.
+It is also possible to run only a single test:
+
+```
+$ ../scala/test/partest --classpath ../scala/build/quick/classes test/files/run/await0
+```
+
 If you are interested in contributing code, we ask you to complete and submit
 to us the Scala Contributor License Agreement, which allows us to ensure that
 all code submitted to the project is unencumbered by copyrights or patents.
