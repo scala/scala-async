@@ -44,7 +44,7 @@ object Async extends AsyncUtils {
     try {
       body.tree match {
         case Block(stats, expr) =>
-          val asyncBlockBuilder = new builder.AsyncBlockBuilder(stats, expr, 0, 1000, 1000)
+          val asyncBlockBuilder = new builder.AsyncBlockBuilder(stats, expr, 0, 1000, 1000, Map())
 
           vprintln(s"states of current method (${asyncBlockBuilder.asyncStates}):")
           asyncBlockBuilder.asyncStates foreach vprintln

@@ -28,5 +28,9 @@ trait AsyncUtils {
     val tpe = asyncMod.moduleClass.asType.toType
     tpe.member(c.universe.newTermName("awaitCps"))
   }
+  
+  private var cnt = 0
+  protected[async] def freshString(prefix: String): String =
+    prefix + "$async$" + { cnt += 1; cnt }
 
 }

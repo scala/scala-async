@@ -287,7 +287,7 @@ class ExprBuilder[C <: Context with Singleton](val c: C) extends AsyncUtils {
   /*
    * Builder for a single state of an async method.
    */
-  class AsyncStateBuilder(state: Int) extends Builder[c.Tree, AsyncState] {
+  class AsyncStateBuilder(state: Int, private var nameMap: Map[c.Symbol, c.Name]) extends Builder[c.Tree, AsyncState] {
     self =>
     
     /* Statements preceding an await call. */
@@ -306,14 +306,25 @@ class ExprBuilder[C <: Context with Singleton](val c: C) extends AsyncUtils {
     
     private val varDefs = ListBuffer[(c.universe.TermName, c.universe.Type)]()
     
+    private val renamer = new Transformer {
+      override def transform(tree: Tree) = tree match {
+        case Ident(_) if nameMap.keySet contains tree.symbol =>
+          Ident(nameMap(tree.symbol))
+        case _ =>
+          super.transform(tree)
+      }
+    }
+    
     def += (stat: c.Tree): this.type = {
-      stats += c.resetAllAttrs(stat.duplicate)
+      stats += c.resetAllAttrs(renamer.transform(stat).duplicate)
       this
     }
     
     //TODO do not ignore `mods`
-    def addVarDef(mods: Any, name: c.universe.TermName, tpt: c.Tree): this.type = {
+    def addVarDef(mods: Any, name: c.universe.TermName, tpt: c.Tree, rhs: c.Tree, extNameMap: Map[c.Symbol, c.Name]): this.type = {
       varDefs += (name -> tpt.tpe)
+      nameMap ++= extNameMap // update name map
+      this += Assign(Ident(name), c.resetAllAttrs(renamer.transform(rhs).duplicate))
       this
     }
     
@@ -344,8 +355,9 @@ class ExprBuilder[C <: Context with Singleton](val c: C) extends AsyncUtils {
      * @param awaitResultName  the name of the variable that the result of await is assigned to
      * @param awaitResultType  the type of the result of await
      */
-    def complete(awaitArg: c.Tree, awaitResultName: c.universe.TermName, awaitResultType: Tree, nextState: Int = state + 1): this.type = {
-      awaitable = c.resetAllAttrs(awaitArg.duplicate)
+    def complete(awaitArg: c.Tree, awaitResultName: c.universe.TermName, awaitResultType: Tree, extNameMap: Map[c.Symbol, c.Name], nextState: Int = state + 1): this.type = {
+      nameMap ++= extNameMap
+      awaitable = c.resetAllAttrs(renamer.transform(awaitArg).duplicate)
       resultName = awaitResultName
       resultType = awaitResultType.tpe
       this.nextState = nextState
@@ -375,10 +387,10 @@ class ExprBuilder[C <: Context with Singleton](val c: C) extends AsyncUtils {
     }
   }
 
-  class AsyncBlockBuilder(stats: List[c.Tree], expr: c.Tree, startState: Int, endState: Int, budget: Int) {
+  class AsyncBlockBuilder(stats: List[c.Tree], expr: c.Tree, startState: Int, endState: Int, budget: Int, private var toRename: Map[c.Symbol, c.Name]) {
     val asyncStates = ListBuffer[builder.AsyncState]()
     
-    private var stateBuilder = new builder.AsyncStateBuilder(startState) // current state builder
+    private var stateBuilder = new builder.AsyncStateBuilder(startState, toRename) // current state builder
     private var currState = startState
     
     private var remainingBudget = budget
@@ -393,20 +405,24 @@ class ExprBuilder[C <: Context with Singleton](val c: C) extends AsyncUtils {
     for (stat <- stats) stat match {
       // the val name = await(..) pattern
       case ValDef(mods, name, tpt, Apply(fun, args)) if fun.symbol == awaitMethod =>
-        asyncStates += stateBuilder.complete(args(0), name, tpt).result // complete with await
+        val newName = newTermName(Async.freshString(name.toString()))
+        toRename += (stat.symbol -> newName)
+        
+        asyncStates += stateBuilder.complete(args(0), newName, tpt, toRename).result // complete with await
         if (remainingBudget > 0)
           remainingBudget -= 1
         else
           assert(false, "too many invocations of `await` in current method")
         currState += 1
-        stateBuilder = new builder.AsyncStateBuilder(currState)
+        stateBuilder = new builder.AsyncStateBuilder(currState, toRename)
         
       case ValDef(mods, name, tpt, rhs) =>
         checkForUnsupportedAwait(rhs)
         
-        stateBuilder.addVarDef(mods, name, tpt)
-        stateBuilder += // instead of adding `stat` we add a simple assignment
-          Assign(Ident(name), c.resetAllAttrs(rhs.duplicate))
+        val newName = newTermName(Async.freshString(name.toString()))
+        toRename += (stat.symbol -> newName)
+        // when adding assignment need to take `toRename` into account
+        stateBuilder.addVarDef(mods, newName, tpt, rhs, toRename)
         
       case If(cond, thenp, elsep) =>
         checkForUnsupportedAwait(cond)
@@ -425,9 +441,9 @@ class ExprBuilder[C <: Context with Singleton](val c: C) extends AsyncUtils {
         
         val thenBuilder = thenp match {
           case Block(thenStats, thenExpr) =>
-            new AsyncBlockBuilder(thenStats, thenExpr, currState + 1, currState + ifBudget, thenBudget)
+            new AsyncBlockBuilder(thenStats, thenExpr, currState + 1, currState + ifBudget, thenBudget, toRename)
           case _ =>
-            new AsyncBlockBuilder(List(thenp), Literal(Constant(())), currState + 1, currState + ifBudget, thenBudget)
+            new AsyncBlockBuilder(List(thenp), Literal(Constant(())), currState + 1, currState + ifBudget, thenBudget, toRename)
         }
         vprintln("ASYNC IF: thenBuilder: "+thenBuilder)
         vprintln("ASYNC IF: states of thenp:")
@@ -436,12 +452,13 @@ class ExprBuilder[C <: Context with Singleton](val c: C) extends AsyncUtils {
         
         // insert states of thenBuilder into asyncStates
         asyncStates ++= thenBuilder.asyncStates
+        toRename ++= thenBuilder.toRename
         
         val elseBuilder = elsep match {
           case Block(elseStats, elseExpr) =>
-            new AsyncBlockBuilder(elseStats, elseExpr, currState + thenBudget, currState + ifBudget, elseBudget)
+            new AsyncBlockBuilder(elseStats, elseExpr, currState + thenBudget, currState + ifBudget, elseBudget, toRename)
           case _ =>
-            new AsyncBlockBuilder(List(elsep), Literal(Constant(())), currState + thenBudget, currState + ifBudget, elseBudget)
+            new AsyncBlockBuilder(List(elsep), Literal(Constant(())), currState + thenBudget, currState + ifBudget, elseBudget, toRename)
         }
         vprintln("ASYNC IF: elseBuilder: "+elseBuilder)
         vprintln("ASYNC IF: states of elsep:")
@@ -450,10 +467,11 @@ class ExprBuilder[C <: Context with Singleton](val c: C) extends AsyncUtils {
         
         // insert states of elseBuilder into asyncStates
         asyncStates ++= elseBuilder.asyncStates
+        toRename ++= elseBuilder.toRename
         
         // create new state builder for state `currState + ifBudget`
         currState = currState + ifBudget
-        stateBuilder = new builder.AsyncStateBuilder(currState)
+        stateBuilder = new builder.AsyncStateBuilder(currState, toRename)
         
       case _ =>
         checkForUnsupportedAwait(stat)
