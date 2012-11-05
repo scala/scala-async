@@ -37,7 +37,7 @@ class Test1Class {
 @RunWith(classOf[JUnit4])
 class Block1Spec extends MinimalScalaTest {
 
-  @Test def `support a simple await` {
+  @Test def `support a simple await`() {
     val o = new Test1Class
     val fut = o.m4(10)
     val res = Await.result(fut, 2 seconds)

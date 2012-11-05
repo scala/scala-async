@@ -42,7 +42,7 @@ class TestIfElse2Class {
 class IfElse2Spec extends MinimalScalaTest {
 
   @Test
-  def `variables of the same name in different blocks` {
+  def `variables of the same name in different blocks`() {
     val o = new TestIfElse2Class
     val fut = o.m(10)
     val res = Await.result(fut, 2 seconds)

@@ -45,7 +45,7 @@ class TestIfElse3Class {
 class IfElse3Spec extends MinimalScalaTest {
 
   @Test
-  def `variables of the same name in different blocks` {
+  def `variables of the same name in different blocks`() {
     val o = new TestIfElse3Class
     val fut = o.m(10)
     val res = Await.result(fut, 2 seconds)

@@ -12,7 +12,7 @@ class SampleNegSpec extends MinimalScalaTest {
   val f = new File("/Users/jason/code/scala-async/test/files/run/await0")
 
   @Test
-  def `missing symbol` {
+  def `missing symbol`() {
     intercept[ToolBoxError] {
       eval {
         """

@@ -42,7 +42,7 @@ class TestIfElseClass {
 @RunWith(classOf[JUnit4])
 class IfElseSpec extends MinimalScalaTest {
 
-  @Test def `support await in a simple if-else expression` {
+  @Test def `support await in a simple if-else expression`() {
     val o = new TestIfElseClass
     val fut = o.m2(10)
     val res = Await.result(fut, 2 seconds)

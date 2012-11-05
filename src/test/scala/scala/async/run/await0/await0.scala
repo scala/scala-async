@@ -68,7 +68,7 @@ class Await0Class {
 class Await0Spec extends MinimalScalaTest {
 
   @Test
-  def `An async method support a simple await` {
+  def `An async method support a simple await`() {
     val o = new Await0Class
     val fut = o.m0(10)
     val res = Await.result(fut, 10 seconds)

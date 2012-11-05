@@ -44,7 +44,7 @@ class Test1Class {
 class AsyncSpec extends MinimalScalaTest {
 
   @Test
-  def `simple await` {
+  def `simple await`() {
     val o = new Test1Class
     val fut = o.m2(10)
     val res = Await.result(fut, 2 seconds)
@@ -52,7 +52,7 @@ class AsyncSpec extends MinimalScalaTest {
   }
 
   @Test
-  def `several awaits in sequence` {
+  def `several awaits in sequence`() {
     val o = new Test1Class
     val fut = o.m3(10)
     val res = Await.result(fut, 4 seconds)
