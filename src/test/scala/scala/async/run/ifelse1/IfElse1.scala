@@ -2,25 +2,28 @@
  * Copyright (C) 2012 Typesafe Inc. <http://www.typesafe.com>
  */
 
-import language.{ reflectiveCalls, postfixOps }
-import scala.concurrent.{ Future, ExecutionContext, future, Await }
+package scala.async
+package run
+package ifelse1
+
+import language.{reflectiveCalls, postfixOps}
+import scala.concurrent.{Future, ExecutionContext, future, Await}
 import scala.concurrent.duration._
-import scala.async.Async.{ async, await }
+import scala.async.Async.{async, await}
+import org.junit.runner.RunWith
+import org.junit.runners.JUnit4
+import org.junit.Test
 
-object Test extends App {
-
-  IfElse1Spec.check()
-
-}
 
 class TestIfElse1Class {
+
   import ExecutionContext.Implicits.global
-  
+
   def base(x: Int): Future[Int] = future {
     Thread.sleep(1000)
     x + 2
   }
-  
+
   def m1(y: Int): Future[Int] = async {
     val f = base(y)
     var z = 0
@@ -37,7 +40,7 @@ class TestIfElse1Class {
     }
     z
   }
-  
+
   def m2(y: Int): Future[Int] = async {
     val f = base(y)
     var z = 0
@@ -54,7 +57,7 @@ class TestIfElse1Class {
     }
     z
   }
-  
+
   def m3(y: Int): Future[Int] = async {
     val f = base(y)
     var z = 0
@@ -71,7 +74,7 @@ class TestIfElse1Class {
     }
     z
   }
-  
+
   def m4(y: Int): Future[Int] = async {
     val f = base(y)
     var z = 0
@@ -87,46 +90,42 @@ class TestIfElse1Class {
     }
     z
   }
-
 }
 
+@RunWith(classOf[JUnit4])
+class IfElse1Spec extends MinimalScalaTest {
 
-object IfElse1Spec extends MinimalScalaTest {
-
-  "An async method" should {
-    "support await in a nested if-else expression" in {
-      val o = new TestIfElse1Class
-      val fut = o.m1(10)
-      val res = Await.result(fut, 2 seconds)
-      res mustBe(14)
-    }
+  @Test
+  def `await in a nested if-else expression` {
+    val o = new TestIfElse1Class
+    val fut = o.m1(10)
+    val res = Await.result(fut, 2 seconds)
+    res mustBe (14)
   }
 
-  "An async method" should {
-    "support await in a nested if-else expression" in {
-      val o = new TestIfElse1Class
-      val fut = o.m2(10)
-      val res = Await.result(fut, 2 seconds)
-      res mustBe(14)
-    }
+  @Test
+  def `await in a nested if-else expression 2` {
+    val o = new TestIfElse1Class
+    val fut = o.m2(10)
+    val res = Await.result(fut, 2 seconds)
+    res mustBe (14)
   }
 
-  "An async method" should {
-    "support await in a nested if-else expression" in {
-      val o = new TestIfElse1Class
-      val fut = o.m3(10)
-      val res = Await.result(fut, 2 seconds)
-      res mustBe(14)
-    }
+
+  @Test
+  def `await in a nested if-else expression 3` {
+    val o = new TestIfElse1Class
+    val fut = o.m3(10)
+    val res = Await.result(fut, 2 seconds)
+    res mustBe (14)
   }
 
-  "An async method" should {
-    "support await in a nested if-else expression" in {
-      val o = new TestIfElse1Class
-      val fut = o.m4(10)
-      val res = Await.result(fut, 2 seconds)
-      res mustBe(14)
-    }
-  }
 
+  @Test
+  def `await in a nested if-else expression 4` {
+    val o = new TestIfElse1Class
+    val fut = o.m4(10)
+    val res = Await.result(fut, 2 seconds)
+    res mustBe (14)
+  }
 }
