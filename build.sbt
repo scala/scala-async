@@ -42,7 +42,7 @@ pomExtra := (
   <developers>
     <developer>
       <id>phaller</id>
-      <name>Phillipe Haller</name>
+      <name>Philipp Haller</name>
       <timezone>+1</timezone>
       <url>http://github.com/phaller</url>
     </developer>
