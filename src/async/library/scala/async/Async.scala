@@ -49,7 +49,7 @@ object Async extends AsyncUtils {
           vprintln(s"states of current method:")
           asyncBlockBuilder.asyncStates foreach vprintln
 
-          val handlerExpr = asyncBlockBuilder.mkHandlerExpr()
+          val handlerExpr = asyncBlockBuilder.mkCombinedHandlerExpr()
 
           vprintln(s"GENERATED handler expr:")
           vprintln(handlerExpr)
