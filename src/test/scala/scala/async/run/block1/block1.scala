@@ -35,7 +35,7 @@ class Test1Class {
 }
 
 @RunWith(classOf[JUnit4])
-class Block1Spec extends MinimalScalaTest {
+class Block1Spec {
 
   @Test def `support a simple await`() {
     val o = new Test1Class

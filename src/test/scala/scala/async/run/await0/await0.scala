@@ -65,7 +65,7 @@ class Await0Class {
 }
 
 @RunWith(classOf[JUnit4])
-class Await0Spec extends MinimalScalaTest {
+class Await0Spec {
 
   @Test
   def `An async method support a simple await`() {

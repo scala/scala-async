@@ -93,7 +93,7 @@ class TestIfElse1Class {
 }
 
 @RunWith(classOf[JUnit4])
-class IfElse1Spec extends MinimalScalaTest {
+class IfElse1Spec {
 
   @Test
   def `await in a nested if-else expression`() {

@@ -42,7 +42,7 @@ class TestIfElse3Class {
 
 
 @RunWith(classOf[JUnit4])
-class IfElse3Spec extends MinimalScalaTest {
+class IfElse3Spec {
 
   @Test
   def `variables of the same name in different blocks`() {

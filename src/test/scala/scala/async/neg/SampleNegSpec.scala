@@ -8,7 +8,7 @@ import org.junit.Test
 import tools.reflect.ToolBoxError
 
 @RunWith(classOf[JUnit4])
-class SampleNegSpec extends MinimalScalaTest {
+class SampleNegSpec {
   val f = new File("/Users/jason/code/scala-async/test/files/run/await0")
 
   @Test

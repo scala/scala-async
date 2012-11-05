@@ -40,7 +40,7 @@ class TestIfElseClass {
 
 
 @RunWith(classOf[JUnit4])
-class IfElseSpec extends MinimalScalaTest {
+class IfElseSpec {
 
   @Test def `support await in a simple if-else expression`() {
     val o = new TestIfElseClass

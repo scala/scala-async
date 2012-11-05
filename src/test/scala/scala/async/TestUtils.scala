@@ -14,15 +14,7 @@ import org.junit.runner.RunWith
 import org.junit.runners.JUnit4
 
 
-trait Output {
-  val buffer = new StringBuilder
-
-  def bufferPrintln(a: Any): Unit = buffer.synchronized {
-    buffer.append(a.toString + "\n")
-  }
-}
-
-trait MinimalScalaTest extends Output {
+trait TestUtils {
   implicit class objectops(obj: Any) {
     def mustBe(other: Any) = assert(obj == other, obj + " is not " + other)
 
@@ -43,37 +35,4 @@ trait MinimalScalaTest extends Output {
         else t.asInstanceOf[T]
     }
   }
-}
-
-
-object TestLatch {
-  val DefaultTimeout = Duration(5, TimeUnit.SECONDS)
-
-  def apply(count: Int = 1) = new TestLatch(count)
-}
-
-
-class TestLatch(count: Int = 1) extends Awaitable[Unit] {
-  private var latch = new CountDownLatch(count)
-
-  def countDown() = latch.countDown()
-
-  def isOpen: Boolean = latch.getCount == 0
-
-  def open() = while (!isOpen) countDown()
-
-  def reset() = latch = new CountDownLatch(count)
-
-  @throws(classOf[TimeoutException])
-  def ready(atMost: Duration)(implicit permit: CanAwait) = {
-    val opened = latch.await(atMost.toNanos, TimeUnit.NANOSECONDS)
-    if (!opened) throw new TimeoutException(s"Timeout of ${(atMost.toString)}.")
-    this
-  }
-
-  @throws(classOf[Exception])
-  def result(atMost: Duration)(implicit permit: CanAwait): Unit = {
-    ready(atMost)
-  }
-
 }

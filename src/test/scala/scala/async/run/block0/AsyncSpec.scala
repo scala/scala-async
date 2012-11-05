@@ -41,7 +41,7 @@ class Test1Class {
 
 
 @RunWith(classOf[JUnit4])
-class AsyncSpec extends MinimalScalaTest {
+class AsyncSpec {
 
   @Test
   def `simple await`() {
