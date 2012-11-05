@@ -474,23 +474,13 @@ class ExprBuilder[C <: Context with Singleton](val c: C) extends AsyncUtils {
     def mkHandlerExpr(): c.Expr[PartialFunction[Int, Unit]] = {
       assert(asyncStates.size > 1)
       
-      var handlerTree =
-        if (asyncStates.size > 2) asyncStates(0).mkHandlerTreeForState()
-        else asyncStates(0).mkHandlerTreeForState()
       var handlerExpr =
-        c.Expr(handlerTree).asInstanceOf[c.Expr[PartialFunction[Int, Unit]]]
+        c.Expr(asyncStates(0).mkHandlerTreeForState()).asInstanceOf[c.Expr[PartialFunction[Int, Unit]]]
       
       if (asyncStates.size == 2)
         handlerExpr
-      else if (asyncStates.size == 3) {
-        val handlerTreeForLastState = asyncStates(1).mkHandlerTreeForState()
-        val currentHandlerTreeNaked = c.resetAllAttrs(handlerExpr.tree.duplicate)
-        c.Expr(
-          Apply(Select(currentHandlerTreeNaked, newTermName("orElse")),
-                List(handlerTreeForLastState))).asInstanceOf[c.Expr[PartialFunction[Int, Unit]]]
-      } else { // asyncStates.size > 3
-        // do not traverse first or last state:  asyncStates.tail.init
-        for (asyncState <- asyncStates.tail.init) {
+      else {
+        for (asyncState <- asyncStates.tail.init) { // do not traverse first or last state
           val handlerTreeForNextState = asyncState.mkHandlerTreeForState()
           val currentHandlerTreeNaked = c.resetAllAttrs(handlerExpr.tree.duplicate)
           handlerExpr = c.Expr(
