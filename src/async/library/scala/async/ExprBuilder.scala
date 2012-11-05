@@ -429,7 +429,6 @@ class ExprBuilder[C <: Context with Singleton](val c: C) extends AsyncUtils {
         
         val ifBudget: Int = remainingBudget / 2
         remainingBudget -= ifBudget //TODO test if budget > 0
-        vprintln(s"ASYNC IF: ifBudget = $ifBudget")
         // state that we continue with after if-else: currState + ifBudget
         
         val thenBudget: Int = ifBudget / 2
@@ -445,12 +444,6 @@ class ExprBuilder[C <: Context with Singleton](val c: C) extends AsyncUtils {
           case _ =>
             new AsyncBlockBuilder(List(thenp), Literal(Constant(())), currState + 1, currState + ifBudget, thenBudget, toRename)
         }
-        vprintln("ASYNC IF: thenBuilder: "+thenBuilder)
-        vprintln("ASYNC IF: states of thenp:")
-        for (s <- thenBuilder.asyncStates)
-          vprintln(s.toString)
-        
-        // insert states of thenBuilder into asyncStates
         asyncStates ++= thenBuilder.asyncStates
         toRename ++= thenBuilder.toRename
         
@@ -460,12 +453,6 @@ class ExprBuilder[C <: Context with Singleton](val c: C) extends AsyncUtils {
           case _ =>
             new AsyncBlockBuilder(List(elsep), Literal(Constant(())), currState + thenBudget, currState + ifBudget, elseBudget, toRename)
         }
-        vprintln("ASYNC IF: elseBuilder: "+elseBuilder)
-        vprintln("ASYNC IF: states of elsep:")
-        for (s <- elseBuilder.asyncStates)
-          vprintln(s.toString)
-        
-        // insert states of elseBuilder into asyncStates
         asyncStates ++= elseBuilder.asyncStates
         toRename ++= elseBuilder.toRename
         
@@ -480,17 +467,12 @@ class ExprBuilder[C <: Context with Singleton](val c: C) extends AsyncUtils {
     // complete last state builder (representing the expressions after the last await)
     stateBuilder += expr
     val lastState = stateBuilder.complete(endState).result
-    vprintln("ASYNC: last state of current AsyncBlockBuilder "+this+":")
-    vprintln("ASYNC: "+lastState)
     asyncStates += lastState
     
     /* Builds the handler expression for a sequence of async states.
      */
     def mkHandlerExpr(): c.Expr[PartialFunction[Int, Unit]] = {
       assert(asyncStates.size > 1)
-      
-      vprintln(s"!!ASYNC mkHandlerExpr: asyncStates.size = ${asyncStates.size}")
-      vprintln(s"!!ASYNC state 0: ${asyncStates(0)}")
       
       var handlerTree =
         if (asyncStates.size > 2) asyncStates(0).mkHandlerTreeForState()
@@ -501,19 +483,14 @@ class ExprBuilder[C <: Context with Singleton](val c: C) extends AsyncUtils {
       if (asyncStates.size == 2)
         handlerExpr
       else if (asyncStates.size == 3) {
-        // asyncStates(1) must continue with endState
         val handlerTreeForLastState = asyncStates(1).mkHandlerTreeForState()
         val currentHandlerTreeNaked = c.resetAllAttrs(handlerExpr.tree.duplicate)
         c.Expr(
           Apply(Select(currentHandlerTreeNaked, newTermName("orElse")),
                 List(handlerTreeForLastState))).asInstanceOf[c.Expr[PartialFunction[Int, Unit]]]
       } else { // asyncStates.size > 3
-        vprintln("!!ASYNC start for loop")
-        
-        // do not traverse first state: asyncStates.tail
-        // do not traverse last state:  asyncStates.tail.init
+        // do not traverse first or last state:  asyncStates.tail.init
         for (asyncState <- asyncStates.tail.init) {
-          vprintln(s"!!ASYNC current asyncState: $asyncState")
           val handlerTreeForNextState = asyncState.mkHandlerTreeForState()
           val currentHandlerTreeNaked = c.resetAllAttrs(handlerExpr.tree.duplicate)
           handlerExpr = c.Expr(

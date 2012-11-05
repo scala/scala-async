@@ -46,7 +46,7 @@ object Async extends AsyncUtils {
         case Block(stats, expr) =>
           val asyncBlockBuilder = new builder.AsyncBlockBuilder(stats, expr, 0, 1000, 1000, Map())
 
-          vprintln(s"states of current method (${asyncBlockBuilder.asyncStates}):")
+          vprintln(s"states of current method:")
           asyncBlockBuilder.asyncStates foreach vprintln
 
           val handlerExpr = asyncBlockBuilder.mkHandlerExpr()
@@ -55,7 +55,7 @@ object Async extends AsyncUtils {
           vprintln(handlerExpr)
 
           val handlerForLastState: c.Expr[PartialFunction[Int, Unit]] = {
-            val tree = Apply(Select(Ident("result"), c.universe.newTermName("success")),
+            val tree = Apply(Select(Ident("result"), newTermName("success")),
               List(asyncBlockBuilder.asyncStates.last.body))
             builder.mkHandler(asyncBlockBuilder.asyncStates.last.state, c.Expr[Unit](tree))
           }
@@ -64,10 +64,17 @@ object Async extends AsyncUtils {
           vprintln(handlerForLastState)
 
           val localVarTrees = asyncBlockBuilder.asyncStates.init.flatMap(_.allVarDefs).toList
-
-          val unitIdent = Ident(definitions.UnitClass)
-
-          val resumeFunTree: c.Tree = DefDef(Modifiers(), newTermName("resume"), List(), List(List()), unitIdent,
+          
+          /*
+            def resume(): Unit = {
+              try {
+                (handlerExpr.splice orElse handlerForLastState.splice)(state)
+              } catch {
+                case NonFatal(t) => result.failure(t)
+              }
+            }
+           */
+          val resumeFunTree: c.Tree = DefDef(Modifiers(), newTermName("resume"), List(), List(List()), Ident(definitions.UnitClass),
             Try(Apply(Select(
               Apply(Select(handlerExpr.tree, newTermName("orElse")), List(handlerForLastState.tree)),
               newTermName("apply")), List(Ident(newTermName("state")))),
@@ -78,33 +85,17 @@ object Async extends AsyncUtils {
                   Block(List(
                     Apply(Select(Ident(newTermName("result")), newTermName("failure")), List(Ident(newTermName("t"))))),
                     Literal(Constant(()))))), EmptyTree))
-
-          val methodBody = reify {
+          
+          reify {
             val result = Promise[T]()
             var state = 0
-
-            /*
-          def resume(): Unit = {
-            try {
-              (handlerExpr.splice orElse handlerForLastState.splice)(state)
-            } catch {
-              case NonFatal(t) => result.failure(t)
-            }
-          }
-          resume()
-          */
-
+            
             c.Expr(Block(
               localVarTrees :+ resumeFunTree,
               Apply(Ident(newTermName("resume")), List()))).splice
-
+            
             result.future
           }
-
-          //vprintln("ASYNC: Generated method body:")
-          //vprintln(c.universe.showRaw(methodBody))
-          //vprintln(c.universe.show(methodBody))
-          methodBody
 
         case _ =>
           // issue error message
