@@ -74,13 +74,14 @@ object Async extends AsyncUtils {
               }
             }
            */
+          val nonFatalModule = c.mirror.staticModule("scala.util.control.NonFatal")
           val resumeFunTree: c.Tree = DefDef(Modifiers(), newTermName("resume"), List(), List(List()), Ident(definitions.UnitClass),
             Try(Apply(Select(
               Apply(Select(handlerExpr.tree, newTermName("orElse")), List(handlerForLastState.tree)),
               newTermName("apply")), List(Ident(newTermName("state")))),
               List(
                 CaseDef(
-                  Apply(Select(Select(Select(Ident(newTermName("scala")), newTermName("util")), newTermName("control")), newTermName("NonFatal")), List(Bind(newTermName("t"), Ident(nme.WILDCARD)))),
+                  Apply(Ident(nonFatalModule), List(Bind(newTermName("t"), Ident(nme.WILDCARD)))),
                   EmptyTree,
                   Block(List(
                     Apply(Select(Ident(newTermName("result")), newTermName("failure")), List(Ident(newTermName("t"))))),
