@@ -89,11 +89,11 @@ object Async extends AsyncUtils {
           reify {
             val result = Promise[T]()
             var state = 0
-            
-            c.Expr(Block(
-              localVarTrees :+ resumeFunTree,
-              Apply(Ident(newTermName("resume")), List()))).splice
-            
+            future {
+              c.Expr(Block(
+                localVarTrees :+ resumeFunTree,
+                Apply(Ident(newTermName("resume")), List()))).splice
+            }
             result.future
           }
 
