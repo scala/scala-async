@@ -21,7 +21,9 @@ class FallbackToCpsException extends scala.util.control.ControlThrowable
 object Async extends AsyncUtils {
 
   def async[T](body: T): Future[T] = macro asyncImpl[T]
-  
+
+  // TODO Replace with `@compileTimeOnly when this is implemented SI-6539
+  @deprecated("`await` must be enclosed in an `async` block", "0.1")
   def await[T](awaitable: Future[T]): T = ???
   
   /* Fall back for `await` when it is called at an unsupported position.
@@ -132,5 +134,4 @@ object Async extends AsyncUtils {
         }
     }
   }
-
 }
