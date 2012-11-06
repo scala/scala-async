@@ -418,7 +418,7 @@ class ExprBuilder[C <: Context with Singleton](val c: C) extends AsyncUtils {
     for (stat <- stats) stat match {
       // the val name = await(..) pattern
       case ValDef(mods, name, tpt, Apply(fun, args)) if fun.symbol == awaitMethod =>
-        val newName = newTermName(Async.freshString(name.toString()))
+        val newName = c.fresh(name)
         toRename += (stat.symbol -> newName)
 
         asyncStates += stateBuilder.complete(args(0), newName, tpt, toRename).result // complete with await
@@ -432,7 +432,7 @@ class ExprBuilder[C <: Context with Singleton](val c: C) extends AsyncUtils {
       case ValDef(mods, name, tpt, rhs) =>
         checkForUnsupportedAwait(rhs)
 
-        val newName = newTermName(Async.freshString(name.toString()))
+        val newName = c.fresh(name)
         toRename += (stat.symbol -> newName)
         // when adding assignment need to take `toRename` into account
         stateBuilder.addVarDef(mods, newName, tpt, rhs, toRename)
