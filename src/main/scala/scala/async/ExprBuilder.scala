@@ -529,6 +529,9 @@ class ExprBuilder[C <: Context with Singleton](val c: C) extends AsyncUtils {
         currState = currState + matchBudget
         stateBuilder = new builder.AsyncStateBuilder(currState, toRename)
         
+      case ClassDef(_, name, _, _) =>
+        c.error(stat.pos, s"Local class $name illegal within `async` block")
+      
       case _ =>
         checkForUnsupportedAwait(stat)
         stateBuilder += stat
