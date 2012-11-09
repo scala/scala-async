@@ -59,6 +59,23 @@ class LocalClasses0Spec {
   }
 
   @Test
+  def `reject a local class with symbols in its name`() {
+    expectError("Local class :: illegal within `async` block", "-cp target/scala-2.10/classes -deprecation -Xfatal-warnings") {
+      """
+        | import scala.concurrent.{Future, ExecutionContext}
+        | import ExecutionContext.Implicits.global
+        | import scala.async.Async._
+        | async {
+        |   val fut = Future { 5 }
+        |   val x = await(fut)
+        |   case class ::(name: String)
+        |   x
+        | }
+      """.stripMargin
+    }
+  }
+
+  @Test
   def `reject a nested local class`() {
     expectError("Local class Person illegal within `async` block", "-cp target/scala-2.10/classes -deprecation -Xfatal-warnings") {
       """

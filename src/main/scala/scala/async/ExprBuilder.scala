@@ -530,7 +530,8 @@ class ExprBuilder[C <: Context with Singleton](val c: C) extends AsyncUtils {
         stateBuilder = new builder.AsyncStateBuilder(currState, toRename)
         
       case ClassDef(_, name, _, _) =>
-        c.error(stat.pos, s"Local class $name illegal within `async` block")
+        // do not allow local class definitions, because of SI-5467 (specific to case classes, though)
+        c.error(stat.pos, s"Local class ${name.decoded} illegal within `async` block")
       
       case _ =>
         checkForUnsupportedAwait(stat)
