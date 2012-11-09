@@ -13,7 +13,7 @@ import org.junit.Test
 class LocalClasses0Spec {
 
   @Test
-  def `An async block should reject local classes 1`() {
+  def `reject a local class`() {
     expectError("Local class Person illegal within `async` block", "-cp target/scala-2.10/classes -deprecation -Xfatal-warnings") {
       """
         | import scala.async.Async._
@@ -25,7 +25,7 @@ class LocalClasses0Spec {
   }
 
   @Test
-  def `An async block should reject local classes 2`() {
+  def `reject a local class 2`() {
     expectError("Local class Person illegal within `async` block", "-cp target/scala-2.10/classes -deprecation -Xfatal-warnings") {
       """
         | import scala.concurrent.{Future, ExecutionContext}
@@ -42,7 +42,7 @@ class LocalClasses0Spec {
   }
 
   @Test
-  def `An async block should reject local classes 3`() {
+  def `reject a local class 3`() {
     expectError("Local class Person illegal within `async` block", "-cp target/scala-2.10/classes -deprecation -Xfatal-warnings") {
       """
         | import scala.concurrent.{Future, ExecutionContext}
@@ -59,7 +59,7 @@ class LocalClasses0Spec {
   }
 
   @Test
-  def `An async block should reject a nested local class`() {
+  def `reject a nested local class`() {
     expectError("Local class Person illegal within `async` block", "-cp target/scala-2.10/classes -deprecation -Xfatal-warnings") {
       """
         | import scala.concurrent.{Future, ExecutionContext}
