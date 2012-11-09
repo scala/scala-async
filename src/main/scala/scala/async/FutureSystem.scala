@@ -82,11 +82,8 @@ object ScalaConcurrentFutureSystem extends FutureSystem {
     }
 
     def onComplete[A, U](future: Expr[Fut[A]], fun: Expr[scala.util.Try[A] => U],
-                         execContext: Expr[ExecContext]): Expr[Unit] = {
-      reify {
-        future.splice.onComplete(fun.splice)(execContext.splice)
-        context.literalUnit.splice
-      }
+                         execContext: Expr[ExecContext]): Expr[Unit] = reify {
+      future.splice.onComplete(fun.splice)(execContext.splice)
     }
 
     def completeProm[A](prom: Expr[Prom[A]], value: Expr[scala.util.Try[A]]): Expr[Unit] = reify {
