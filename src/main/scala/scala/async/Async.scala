@@ -56,8 +56,9 @@ abstract class AsyncBase extends AsyncUtils {
    *
    * A call to await does not block the thread, rather it is a delimiter
    * used by the enclosing `async` macro. Code following the `await`
-   * call
-   @ @param awaitable The future from which a value is awaited
+   * call.
+   *
+   * @param awaitable The future from which a value is awaited
    * @tparam T        The type of that value
    * @return          The value
    */
