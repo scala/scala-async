@@ -21,9 +21,10 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
 
   object name {
     // TODO do we need to freshen any of these?
-    val resume = newTermName("resume")
-    val state = newTermName("state")
-    val result = newTermName("result")
+    def expanded(prefix: String) = newTermName(prefix + "$async")
+    val resume = expanded("resume")
+    val state = expanded("state")
+    val result = expanded("result")
     val tr = newTermName("tr")
     val any = newTermName("any")
     val x1 = newTermName("x$1")
@@ -256,7 +257,7 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
      *       case any if any == num =>
      *         stats
      *         awaitable.onComplete {
-     *           (try: Try[A]) =>
+     *           (tr: Try[A]) =>
      *             resultName = tr.get
      *             resume()
      *         }

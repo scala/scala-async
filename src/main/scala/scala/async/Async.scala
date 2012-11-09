@@ -129,18 +129,24 @@ abstract class AsyncBase extends AsyncUtils {
 
 
         val prom: Expr[futureSystem.Prom[T]] = reify {
-          val result = futureSystemOps.createProm[T].splice
-          var state = 0
+          val result$async = futureSystemOps.createProm[T].splice
+          var state$async = 0
           futureSystemOps.future[Unit] {
             c.Expr[Unit](Block(
               localVarTrees :+ resumeFunTree,
               Apply(Ident(name.resume), List())))
           }(futureSystemOps.execContext).splice
-          result
+          result$async
         }
         val result = futureSystemOps.promiseToFuture(prom)
-        // println(s"${c.macroApplication} \nexpands to:\n ${result.tree}")
+//        println(s"${c.macroApplication} \nexpands to:\n ${result.tree}")
+//        val positions = result.tree.collect {
+//          case t => (t.toString.take(10).replaceAll("\n", "\\n"), t.pos)
+//        }
+//        println(positions.mkString("\n"))
+
         result
+
 
       case tree =>
         c.abort(c.macroApplication.pos, s"expression not supported by async: ${tree}")
