@@ -20,27 +20,22 @@ class Await0Class {
   import ExecutionContext.Implicits.global
 
   def m1(x: Double): Future[Double] = future {
-    Thread.sleep(200)
     x + 2.0
   }
 
   def m2(x: Float): Future[Float] = future {
-    Thread.sleep(200)
     x + 2.0f
   }
 
   def m3(x: Char): Future[Char] = future {
-    Thread.sleep(200)
     (x.toInt + 2).toChar
   }
 
   def m4(x: Short): Future[Short] = future {
-    Thread.sleep(200)
     (x + 2).toShort
   }
 
   def m5(x: Byte): Future[Byte] = future {
-    Thread.sleep(200)
     (x + 2).toByte
   }
 

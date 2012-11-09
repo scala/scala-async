@@ -20,7 +20,6 @@ class TestIfElse1Class {
   import ExecutionContext.Implicits.global
 
   def base(x: Int): Future[Int] = future {
-    Thread.sleep(1000)
     x + 2
   }
 
