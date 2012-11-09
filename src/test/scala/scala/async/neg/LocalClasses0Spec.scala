@@ -97,4 +97,17 @@ class LocalClasses0Spec {
       """.stripMargin
     }
   }
+
+  @Test
+  def `reject a local singleton object`() {
+    expectError("Local object Person illegal within `async` block", "-cp target/scala-2.10/classes -deprecation -Xfatal-warnings") {
+      """
+        | import scala.async.Async._
+        | async {
+        |   object Person { val name = "Joe" }
+        | }
+      """.stripMargin
+    }
+  }
+
 }
