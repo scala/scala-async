@@ -20,16 +20,19 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
   import defn._
 
   object name {
-    // TODO do we need to freshen any of these?
     def suffix(string: String) = string + "$async"
     def expandedTermName(prefix: String) = newTermName(suffix(prefix))
     def expandedTypeName(prefix: String) = newTypeName(suffix(prefix))
-    val resume = expandedTermName("resume")
+
     val state = expandedTermName("state")
     val result = expandedTermName("result")
     val tr = newTermName("tr")
+
+    // TODO do we need to freshen any of these?
+    val resume = expandedTermName("resume")
     val any = newTermName("any")
     val x1 = newTermName("x$1")
+
     val apply = newTermName("apply")
     val isDefinedAt = newTermName("isDefinedAt")
 
@@ -42,7 +45,7 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
 
   private val awaitMethod = awaitSym(c)
 
-  private def mkResumeApply = Apply(Ident(name.resume), List())
+  private def mkResumeApply = Apply(Ident(name.resume), Nil)
 
   def mkStateTree(nextState: Int): c.Tree =
     mkStateTree(c.literal(nextState).tree)
@@ -77,35 +80,36 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
     )
 
   private def paramValDef(name: TermName, sym: Symbol) = ValDef(Modifiers(PARAM), name, Ident(sym), EmptyTree)
+
   private def paramValDef(name: TermName, tpe: Type) = ValDef(Modifiers(PARAM), name, TypeTree(tpe), EmptyTree)
 
   def mkHandlerTreeFor(cases: List[(CaseDef, Int)]): c.Tree = {
     val partFunIdent = Ident(defn.PartialFunctionClass)
-//    val partFunTpe = appliedType(defn.PartialFunctionClass.tpe, definitions.IntTpe, definitions.UnitTpe)
     val intIdent = Ident(definitions.IntClass)
     val unitIdent = Ident(definitions.UnitClass)
+    val (caseDefs, states) = cases.unzip
 
     val caseCheck =
-      defn.mkList_contains(defn.mkList_apply(cases.map(p => c.literal(p._2))))(c.Expr(Ident(name.x1)))
+      defn.mkList_contains(defn.mkList_apply(states map c.literal))(c.Expr(Ident(name.x1)))
     val handlerName = name.asyncHander
 
     Block(List(
       // anonymous subclass of PartialFunction[Int, Unit]
       // TODO subclass AbstractPartialFunction
-      ClassDef(Modifiers(FINAL), handlerName, List(), Template(List(AppliedTypeTree(partFunIdent, List(intIdent, unitIdent))),
+      ClassDef(Modifiers(FINAL), handlerName, Nil, Template(List(AppliedTypeTree(partFunIdent, List(intIdent, unitIdent))),
         emptyValDef, List(
-          DefDef(Modifiers(), nme.CONSTRUCTOR, List(), List(List()), TypeTree(),
-            Block(List(Apply(Select(Super(This(tpnme.EMPTY), tpnme.EMPTY), nme.CONSTRUCTOR), List())), c.literalUnit.tree)),
+          DefDef(NoMods, nme.CONSTRUCTOR, Nil, List(Nil), TypeTree(),
+            Block(List(Apply(Select(Super(This(tpnme.EMPTY), tpnme.EMPTY), nme.CONSTRUCTOR), Nil)), c.literalUnit.tree)),
 
-          DefDef(Modifiers(), name.isDefinedAt, List(), List(List(paramValDef(name.x1, definitions.IntClass))), TypeTree(),
+          DefDef(NoMods, name.isDefinedAt, Nil, List(List(paramValDef(name.x1, definitions.IntClass))), TypeTree(),
             caseCheck.tree),
 
-          DefDef(Modifiers(), name.apply, List(), List(List(paramValDef(name.x1, definitions.IntClass))), TypeTree(),
-            Match(Ident(name.x1), cases.map(_._1)) // combine all cases into a single match
+          DefDef(NoMods, name.apply, Nil, List(List(paramValDef(name.x1, definitions.IntClass))), TypeTree(),
+            Match(Ident(name.x1), caseDefs) // combine all cases into a single match
           )
         ))
       )),
-      Apply(Select(New(Ident(handlerName)), nme.CONSTRUCTOR), List())
+      Apply(Select(New(Ident(handlerName)), nme.CONSTRUCTOR), Nil)
     )
   }
 
@@ -115,7 +119,7 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
       case _ => Block(stats: _*)
     }
 
-    val varDefs: List[(TermName, Type)] = List()
+    val varDefs: List[(TermName, Type)] = Nil
 
     def mkHandlerCaseForState(): CaseDef =
       mkHandlerCase(state, stats :+ mkStateTree(nextState) :+ mkResumeApply)
@@ -460,10 +464,6 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
     }
 
     def mkList_contains[A](self: Expr[List[A]])(elem: Expr[Any]) = reify(self.splice.contains(elem.splice))
-
-    def mkPartialFunction_orElse[A, B](self: Expr[PartialFunction[A, B]])(other: Expr[PartialFunction[A, B]]) = reify {
-      self.splice.orElse(other.splice)
-    }
 
     def mkFunction_apply[A, B](self: Expr[Function1[A, B]])(arg: Expr[A]) = reify {
       self.splice.apply(arg.splice)

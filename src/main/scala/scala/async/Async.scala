@@ -107,7 +107,7 @@ abstract class AsyncBase extends AsyncUtils {
           }
          */
         val nonFatalModule = builder.defn.NonFatalClass
-        val resumeFunTree: c.Tree = DefDef(Modifiers(), name.resume, List(), List(List()), Ident(definitions.UnitClass),
+        val resumeFunTree: c.Tree = DefDef(Modifiers(), name.resume, Nil, List(Nil), Ident(definitions.UnitClass),
           Try(
             reify {
               combinedHander.splice.apply(c.Expr[Int](Ident(name.state)).splice)
@@ -129,7 +129,7 @@ abstract class AsyncBase extends AsyncUtils {
           futureSystemOps.future[Unit] {
             c.Expr[Unit](Block(
               localVarTrees :+ resumeFunTree,
-              Apply(Ident(name.resume), List())))
+              Apply(Ident(name.resume), Nil)))
           }(futureSystemOps.execContext).splice
           result$async
         }
