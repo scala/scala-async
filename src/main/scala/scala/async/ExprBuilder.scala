@@ -21,17 +21,19 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
 
   object name {
     // TODO do we need to freshen any of these?
-    def expanded(prefix: String) = newTermName(prefix + "$async")
-    val resume = expanded("resume")
-    val state = expanded("state")
-    val result = expanded("result")
+    def suffix(string: String) = string + "$async"
+    def expandedTermName(prefix: String) = newTermName(suffix(prefix))
+    def expandedTypeName(prefix: String) = newTypeName(suffix(prefix))
+    val resume = expandedTermName("resume")
+    val state = expandedTermName("state")
+    val result = expandedTermName("result")
     val tr = newTermName("tr")
     val any = newTermName("any")
     val x1 = newTermName("x$1")
     val apply = newTermName("apply")
     val isDefinedAt = newTermName("isDefinedAt")
 
-    val anon = newTypeName("$anon")
+    val asyncHander = expandedTypeName("Handler")
   }
 
   private val execContext = futureSystemOps.execContext
@@ -98,31 +100,36 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
       rhs
     )
 
+  private def paramValDef(name: TermName, sym: Symbol) = ValDef(Modifiers(PARAM), name, Ident(sym), EmptyTree)
+  private def paramValDef(name: TermName, tpe: Type) = ValDef(Modifiers(PARAM), name, TypeTree(tpe), EmptyTree)
+
   def mkHandlerTreeFor(cases: List[(CaseDef, Int)]): c.Tree = {
     val partFunIdent = Ident(defn.PartialFunctionClass)
+//    val partFunTpe = appliedType(defn.PartialFunctionClass.tpe, definitions.IntTpe, definitions.UnitTpe)
     val intIdent = Ident(definitions.IntClass)
     val unitIdent = Ident(definitions.UnitClass)
 
     val caseCheck =
       defn.mkList_contains(defn.mkList_apply(cases.map(p => c.literal(p._2))))(c.Expr(Ident(name.x1)))
+    val handlerName = name.asyncHander
 
     Block(List(
       // anonymous subclass of PartialFunction[Int, Unit]
       // TODO subclass AbstractPartialFunction
-      ClassDef(Modifiers(FINAL), name.anon, List(), Template(List(AppliedTypeTree(partFunIdent, List(intIdent, unitIdent))),
+      ClassDef(Modifiers(FINAL), handlerName, List(), Template(List(AppliedTypeTree(partFunIdent, List(intIdent, unitIdent))),
         emptyValDef, List(
           DefDef(Modifiers(), nme.CONSTRUCTOR, List(), List(List()), TypeTree(),
             Block(List(Apply(Select(Super(This(tpnme.EMPTY), tpnme.EMPTY), nme.CONSTRUCTOR), List())), c.literalUnit.tree)),
 
-          DefDef(Modifiers(), name.isDefinedAt, List(), List(List(ValDef(Modifiers(PARAM), name.x1, intIdent, EmptyTree))), TypeTree(),
+          DefDef(Modifiers(), name.isDefinedAt, List(), List(List(paramValDef(name.x1, definitions.IntClass))), TypeTree(),
             caseCheck.tree),
 
-          DefDef(Modifiers(), name.apply, List(), List(List(ValDef(Modifiers(PARAM), name.x1, intIdent, EmptyTree))), TypeTree(),
+          DefDef(Modifiers(), name.apply, List(), List(List(paramValDef(name.x1, definitions.IntClass))), TypeTree(),
             Match(Ident(name.x1), cases.map(_._1)) // combine all cases into a single match
           )
         ))
       )),
-      Apply(Select(New(Ident(name.anon)), nme.CONSTRUCTOR), List())
+      Apply(Select(New(Ident(handlerName)), nme.CONSTRUCTOR), List())
     )
   }
 
@@ -246,7 +253,7 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
       val updateState = mkStateTree(nextState)
 
       val handlerTree =
-        Function(List(ValDef(Modifiers(PARAM), name.tr, TypeTree(tryType), EmptyTree)), Block(tryGetTree, updateState, mkResumeApply))
+        Function(List(paramValDef(name.tr, tryType)), Block(tryGetTree, updateState, mkResumeApply))
 
       futureSystemOps.onComplete(c.Expr(awaitable), c.Expr(handlerTree), execContext).tree
     }
@@ -550,6 +557,13 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
 
       val cases = for (state <- asyncStates.toList) yield state.mkHandlerCaseForState()
       c.Expr(mkHandlerTreeFor(cases zip asyncStates.init.map(_.state)))
+    }
+
+    def mkCombinedHandlerCases(): List[(CaseDef, Int)] = {
+      assert(asyncStates.size > 1)
+
+      val cases = for (state <- asyncStates.toList) yield state.mkHandlerCaseForState()
+      cases zip asyncStates.init.map(_.state)
     }
 
     /* Builds the handler expression for a sequence of async states.

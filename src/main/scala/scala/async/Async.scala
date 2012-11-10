@@ -23,7 +23,7 @@ object Async extends AsyncBase {
   def async[T](body: T) = macro asyncImpl[T]
 
   override def asyncImpl[T: c.WeakTypeTag](c: Context)(body: c.Expr[T]): c.Expr[Future[T]] = super.asyncImpl[T](c)(body)
-}
+    }
 
 object AsyncId extends AsyncBase {
   lazy val futureSystem = IdentityFutureSystem
@@ -82,29 +82,25 @@ abstract class AsyncBase extends AsyncUtils {
       case Block(stats, expr) =>
         val asyncBlockBuilder = new builder.AsyncBlockBuilder(stats, expr, 0, 1000, 1000, Map())
 
-        vprintln(s"states of current method:")
         asyncBlockBuilder.asyncStates foreach vprintln
 
-        val handlerExpr = asyncBlockBuilder.mkCombinedHandlerExpr()
+        val handlerCases: List[(CaseDef, Int)] = asyncBlockBuilder.mkCombinedHandlerCases()
 
-        vprintln(s"GENERATED handler expr:")
-        vprintln(handlerExpr)
-
-        val handlerForLastState: c.Expr[PartialFunction[Int, Unit]] = {
+        val caseForLastState: (CaseDef, Int) = {
           val lastState = asyncBlockBuilder.asyncStates.last
           val lastStateBody = c.Expr[T](lastState.body)
-          builder.mkHandler(lastState.state, futureSystemOps.completeProm(c.Expr[futureSystem.Prom[T]](Ident(name.result)), reify(scala.util.Success(lastStateBody.splice))))
+          val rhs = futureSystemOps.completeProm(c.Expr[futureSystem.Prom[T]](Ident(name.result)), reify(scala.util.Success(lastStateBody.splice)))
+          builder.mkHandlerCase(lastState.state, rhs.tree) -> lastState.state
         }
 
-        vprintln("GENERATED handler for last state:")
-        vprintln(handlerForLastState)
+        val combinedHander = c.Expr[PartialFunction[Int, Unit]](builder.mkHandlerTreeFor(handlerCases :+ caseForLastState))
 
         val localVarTrees = asyncBlockBuilder.asyncStates.init.flatMap(_.allVarDefs).toList
 
         /*
           def resume(): Unit = {
             try {
-              (handlerExpr.splice orElse handlerForLastState.splice)(state)
+              combinedHander(state)
             } catch {
               case NonFatal(t) => result.failure(t)
             }
@@ -114,8 +110,7 @@ abstract class AsyncBase extends AsyncUtils {
         val resumeFunTree: c.Tree = DefDef(Modifiers(), name.resume, List(), List(List()), Ident(definitions.UnitClass),
           Try(
             reify {
-              val combinedHandler = mkPartialFunction_orElse(handlerExpr)(handlerForLastState).splice
-              combinedHandler.apply(c.Expr[Int](Ident(name.state)).splice)
+              combinedHander.splice.apply(c.Expr[Int](Ident(name.state)).splice)
             }.tree
             ,
             List(
@@ -139,14 +134,8 @@ abstract class AsyncBase extends AsyncUtils {
           result$async
         }
         val result = futureSystemOps.promiseToFuture(prom)
-//        println(s"${c.macroApplication} \nexpands to:\n ${result.tree}")
-//        val positions = result.tree.collect {
-//          case t => (t.toString.take(10).replaceAll("\n", "\\n"), t.pos)
-//        }
-//        println(positions.mkString("\n"))
-
+        vprintln(s"${c.macroApplication} \nexpands to:\n ${result.tree}")
         result
-
 
       case tree =>
         c.abort(c.macroApplication.pos, s"expression not supported by async: ${tree}")
