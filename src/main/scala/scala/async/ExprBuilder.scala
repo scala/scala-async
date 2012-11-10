@@ -44,30 +44,6 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
 
   private def mkResumeApply = Apply(Ident(name.resume), List())
 
-  /* Make a partial function literal handling case #num:
-   * 
-   *     {
-   *       case any if any == num => rhs
-   *     }
-   */
-  def mkHandler(num: Int, rhs: c.Expr[Any]): c.Expr[PartialFunction[Int, Unit]] = {
-    /*
-        val numLiteral = c.Expr[Int](Literal(Constant(num)))
-
-        reify(new PartialFunction[Int, Unit] {
-          def isDefinedAt(`x$1`: Int) =
-            `x$1` == numLiteral.splice
-          def apply(`x$1`: Int) = `x$1` match {
-            case any: Int if any == numLiteral.splice =>
-              rhs.splice
-          }
-        })
-    */
-    val rhsTree = resetDuplicate(rhs.tree)
-    val handlerTree = mkHandlerTree(num, rhsTree)
-    c.Expr(handlerTree)
-  }
-
   def mkStateTree(nextState: Int): c.Tree =
     mkStateTree(c.literal(nextState).tree)
 
@@ -133,12 +109,6 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
     )
   }
 
-  def mkHandlerTree(num: Int, rhs: c.Tree): c.Tree =
-    mkHandlerTreeFor(List(mkHandlerCase(num, rhs) -> num))
-
-  def mkHandlerTree(num: Int, rhs: List[c.Tree]): c.Tree =
-    mkHandlerTree(num, Block(rhs: _*))
-
   class AsyncState(stats: List[c.Tree], val state: Int, val nextState: Int) {
     val body: c.Tree = stats match {
       case stat :: Nil => stat
@@ -149,12 +119,6 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
 
     def mkHandlerCaseForState(): CaseDef =
       mkHandlerCase(state, stats :+ mkStateTree(nextState) :+ mkResumeApply)
-
-    def mkHandlerTreeForState(): c.Tree =
-      mkHandlerTree(state, stats :+ mkStateTree(nextState) :+ mkResumeApply)
-
-    def mkHandlerTreeForState(nextState: Int): c.Tree =
-      mkHandlerTree(state, stats :+ mkStateTree(nextState) :+ mkResumeApply)
 
     def varDefForResult: Option[c.Tree] =
       None
@@ -169,11 +133,6 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
   class AsyncStateWithoutAwait(stats: List[c.Tree], state: Int)
     extends AsyncState(stats, state, 0) {
     // nextState unused, since encoded in then and else branches
-
-    override def mkHandlerTreeForState(): c.Tree =
-      mkHandlerTree(state, stats)
-
-    //TODO mkHandlerTreeForState(nextState: Int)
 
     override def mkHandlerCaseForState(): CaseDef =
       mkHandlerCase(state, stats)
@@ -192,32 +151,6 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
 
     override val toString: String =
       s"AsyncStateWithAwait #$state, next = $nextState"
-
-    /* Make an `onComplete` invocation:
-     * 
-     *     awaitable.onComplete {
-     *       case tr =>
-     *         resultName = tr.get
-     *         resume()
-     *     }
-     */
-    def mkOnCompleteTree: c.Tree = {
-      val assignTree =
-        Assign(
-          Ident(resultName),
-          mkTry_get(c.Expr(Ident(name.tr))).tree
-        )
-      val handlerTree =
-        Match(
-          EmptyTree,
-          List(
-            CaseDef(Bind(name.tr, Ident("_")), EmptyTree,
-              Block(assignTree, mkResumeApply) // rhs of case
-            )
-          )
-        )
-      futureSystemOps.onComplete(c.Expr(awaitable), c.Expr(handlerTree), execContext).tree
-    }
 
     /* Make an `onComplete` invocation which increments the state upon resuming:
      * 
@@ -258,46 +191,6 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
       futureSystemOps.onComplete(c.Expr(awaitable), c.Expr(handlerTree), execContext).tree
     }
 
-    /* Make a partial function literal handling case #num:
-     * 
-     *     {
-     *       case any if any == num =>
-     *         stats
-     *         awaitable.onComplete {
-     *           (tr: Try[A]) =>
-     *             resultName = tr.get
-     *             resume()
-     *         }
-     *     }
-     */
-    def mkHandlerForState(num: Int): c.Expr[PartialFunction[Int, Unit]] = {
-      assert(awaitable != null)
-      builder.mkHandler(num, c.Expr[Unit](Block((stats :+ mkOnCompleteTree): _*)))
-    }
-
-    /* Make a partial function literal handling case #num:
-     * 
-     *     {
-     *       case any if any == num =>
-     *         stats
-     *         awaitable.onComplete {
-     *           case tr =>
-     *             resultName = tr.get
-     *             state += 1
-     *             resume()
-     *         }
-     *     }
-     */
-    override def mkHandlerTreeForState(): c.Tree = {
-      assert(awaitable != null)
-      mkHandlerTree(state, stats :+ mkOnCompleteIncrStateTree)
-    }
-
-    override def mkHandlerTreeForState(nextState: Int): c.Tree = {
-      assert(awaitable != null)
-      mkHandlerTree(state, stats :+ mkOnCompleteStateTree(nextState))
-    }
-
     override def mkHandlerCaseForState(): CaseDef = {
       assert(awaitable != null)
       mkHandlerCase(state, stats :+ mkOnCompleteIncrStateTree)
@@ -310,7 +203,7 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
   /*
    * Builder for a single state of an async method.
    */
-  class AsyncStateBuilder(state: Int, private var nameMap: Map[c.Symbol, c.Name]) extends Builder[c.Tree, AsyncState] {
+  class AsyncStateBuilder(state: Int, private var nameMap: Map[c.Symbol, c.Name]) {
     self =>
 
     /* Statements preceding an await call. */
@@ -363,13 +256,6 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
           val resultType = self.resultType
           override val varDefs = self.varDefs.toList
         }
-
-    def clear(): Unit = {
-      stats.clear()
-      awaitable = null
-      resultName = null
-      resultType = null
-    }
 
     /* Result needs to be created as a var at the beginning of the transformed method body, so that
      * it is visible in subsequent states of the state machine.
@@ -552,39 +438,11 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
     val lastState = stateBuilder.complete(endState).result
     asyncStates += lastState
 
-    def mkCombinedHandlerExpr(): c.Expr[PartialFunction[Int, Unit]] = {
-      assert(asyncStates.size > 1)
-
-      val cases = for (state <- asyncStates.toList) yield state.mkHandlerCaseForState()
-      c.Expr(mkHandlerTreeFor(cases zip asyncStates.init.map(_.state)))
-    }
-
     def mkCombinedHandlerCases(): List[(CaseDef, Int)] = {
       assert(asyncStates.size > 1)
 
       val cases = for (state <- asyncStates.toList) yield state.mkHandlerCaseForState()
       cases zip asyncStates.init.map(_.state)
-    }
-
-    /* Builds the handler expression for a sequence of async states.
-     */
-    def mkHandlerExpr(): c.Expr[PartialFunction[Int, Unit]] = {
-      assert(asyncStates.size > 1)
-
-      var handlerExpr =
-        c.Expr[PartialFunction[Int, Unit]](asyncStates.head.mkHandlerTreeForState())
-
-      if (asyncStates.size == 2)
-        handlerExpr
-      else {
-        for (asyncState <- asyncStates.tail.init) {
-          // do not traverse first or last state
-          val handlerTreeForNextState = asyncState.mkHandlerTreeForState()
-          val currentHandlerTreeNaked = resetDuplicate(handlerExpr.tree)
-          handlerExpr = mkPartialFunction_orElse(c.Expr(currentHandlerTreeNaked))(c.Expr(handlerTreeForNextState))
-        }
-        handlerExpr
-      }
     }
   }
 
