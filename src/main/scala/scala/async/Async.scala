@@ -84,16 +84,9 @@ abstract class AsyncBase extends AsyncUtils {
 
         asyncBlockBuilder.asyncStates foreach vprintln
 
-        val handlerCases: List[(CaseDef, Int)] = asyncBlockBuilder.mkCombinedHandlerCases()
+        val handlerCases: List[CaseDef] = asyncBlockBuilder.mkCombinedHandlerCases[T]()
 
-        val caseForLastState: (CaseDef, Int) = {
-          val lastState = asyncBlockBuilder.asyncStates.last
-          val lastStateBody = c.Expr[T](lastState.body)
-          val rhs = futureSystemOps.completeProm(c.Expr[futureSystem.Prom[T]](Ident(name.result)), reify(scala.util.Success(lastStateBody.splice)))
-          builder.mkHandlerCase(lastState.state, rhs.tree) -> lastState.state
-        }
-
-        val combinedHander = c.Expr[PartialFunction[Int, Unit]](builder.mkHandlerTreeFor(handlerCases :+ caseForLastState))
+        val combinedHander = c.Expr[Int => Unit](builder.mkFunction(handlerCases))
 
         val localVarTrees = asyncBlockBuilder.asyncStates.init.flatMap(_.allVarDefs).toList
 
