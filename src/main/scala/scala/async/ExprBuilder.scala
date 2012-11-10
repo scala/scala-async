@@ -30,13 +30,7 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
 
     // TODO do we need to freshen any of these?
     val resume = expandedTermName("resume")
-    val any = newTermName("any")
     val x1 = newTermName("x$1")
-
-    val apply = newTermName("apply")
-    val isDefinedAt = newTermName("isDefinedAt")
-
-    val asyncHander = expandedTypeName("Handler")
   }
 
   private val execContext = futureSystemOps.execContext
@@ -71,13 +65,7 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
     mkHandlerCase(num, Block(rhs: _*))
 
   def mkHandlerCase(num: Int, rhs: c.Tree): CaseDef =
-    CaseDef(
-      // pattern
-      Bind(name.any, Typed(Ident(nme.WILDCARD), Ident(definitions.IntClass))),
-      // guard
-      mkAny_==(c.Expr(Ident(name.any)))(c.literal(num)).tree,
-      rhs
-    )
+    CaseDef(c.literal(num).tree, EmptyTree, rhs)
 
   private def paramValDef(name: TermName, sym: Symbol) = ValDef(Modifiers(PARAM), name, Ident(sym), EmptyTree)
 

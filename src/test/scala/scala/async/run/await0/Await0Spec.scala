@@ -70,4 +70,3 @@ class Await0Spec {
     res mustBe (26.0)
   }
 }
-
