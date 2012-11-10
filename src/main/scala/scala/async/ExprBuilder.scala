@@ -4,13 +4,14 @@
 package scala.async
 
 import scala.reflect.macros.Context
-import scala.collection.mutable.{ListBuffer, Builder}
+import scala.collection.mutable.ListBuffer
 import concurrent.Future
+import AsyncUtils.vprintln
 
 /*
  * @author Philipp Haller
  */
-final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSystem: FS) extends AsyncUtils {
+final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSystem: FS) {
   builder =>
 
   lazy val futureSystemOps = futureSystem.mkOps(c)
@@ -21,7 +22,9 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
 
   object name {
     def suffix(string: String) = string + "$async"
+
     def expandedTermName(prefix: String) = newTermName(suffix(prefix))
+
     def expandedTypeName(prefix: String) = newTypeName(suffix(prefix))
 
     val state = expandedTermName("state")
@@ -37,17 +40,13 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
 
   private def resetDuplicate(tree: Tree) = c.resetAllAttrs(tree.duplicate)
 
-  private val awaitMethod = awaitSym(c)
-
   private def mkResumeApply = Apply(Ident(name.resume), Nil)
 
   def mkStateTree(nextState: Int): c.Tree =
     mkStateTree(c.literal(nextState).tree)
 
   def mkStateTree(nextState: Tree): c.Tree =
-    Assign(
-      Ident(name.state),
-      nextState)
+    Assign(Ident(name.state), nextState)
 
   def defaultValue(tpe: Type): Literal = {
     val defaultValue: Any =
@@ -307,7 +306,7 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
 
     /* TODO Fall back to CPS plug-in if tree contains an `await` call. */
     def checkForUnsupportedAwait(tree: c.Tree) = if (tree exists {
-      case Apply(fun, _) if fun.symbol == awaitMethod => true
+      case Apply(fun, _) if fun.symbol == Async_await => true
       case _ => false
     }) c.abort(tree.pos, "await unsupported in this position") //throw new FallbackToCpsException
 
@@ -322,7 +321,7 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
     // populate asyncStates
     for (stat <- stats) stat match {
       // the val name = await(..) pattern
-      case ValDef(mods, name, tpt, Apply(fun, args)) if fun.symbol == awaitMethod =>
+      case ValDef(mods, name, tpt, Apply(fun, args)) if fun.symbol == Async_await =>
         val newName = c.fresh(name)
         toRename += (stat.symbol -> newName)
 
@@ -453,5 +452,11 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
 
     val TryClass = c.mirror.staticClass("scala.util.Try")
     val NonFatalClass = c.mirror.staticModule("scala.util.control.NonFatal")
+
+    val Async_await = {
+      val asyncMod = c.mirror.staticModule("scala.async.Async")
+      val tpe = asyncMod.moduleClass.asType.toType
+      tpe.member(c.universe.newTermName("await"))
+    }
   }
 }

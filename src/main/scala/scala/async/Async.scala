@@ -10,7 +10,7 @@ import scala.collection.mutable.ListBuffer
 import scala.concurrent.{Future, Promise, ExecutionContext, future}
 import ExecutionContext.Implicits.global
 import scala.util.control.NonFatal
-import scala.util.continuations.{shift, reset, cpsParam}
+import AsyncUtils.vprintln
 
 
 /*
@@ -45,7 +45,7 @@ object AsyncId extends AsyncBase {
  *
  * The default implementation, [[scala.async.Async]], binds the macro to `scala.concurrent._`.
  */
-abstract class AsyncBase extends AsyncUtils {
+abstract class AsyncBase {
   self =>
 
   type FS <: FutureSystem
@@ -75,8 +75,6 @@ abstract class AsyncBase extends AsyncUtils {
     import builder.defn._
     import builder.name
     import builder.futureSystemOps
-
-    val awaitMethod = awaitSym(c)
 
     body.tree match {
       case Block(stats, expr) =>
