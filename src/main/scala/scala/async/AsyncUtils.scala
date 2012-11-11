@@ -10,6 +10,6 @@ object AsyncUtils {
 
   private val verbose = false
   
-  private[async] def vprintln(s: Any): Unit = if (verbose)
+  private[async] def vprintln(s: => Any): Unit = if (verbose)
     println("[async] "+s)
 }

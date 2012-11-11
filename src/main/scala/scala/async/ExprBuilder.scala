@@ -27,10 +27,12 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
     val state = suffixedName("state")
     val result = suffixedName("result")
     val resume = suffixedName("resume")
+    val execContext = suffixedName("execContext")
 
     // TODO do we need to freshen any of these?
     val x1 = newTermName("x$1")
     val tr = newTermName("tr")
+    val onCompleteHandler = suffixedName("onCompleteHandler")
   }
 
   private val execContext = futureSystemOps.execContext
@@ -74,6 +76,21 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
     def mkHandlerCaseForState(): CaseDef =
       mkHandlerCase(state, stats :+ mkStateTree(nextState) :+ mkResumeApply)
 
+    def mkOnCompleteHandler(): Option[CaseDef] = {
+      this match {
+        case aw: AsyncStateWithAwait =>
+          val tryGetTree =
+            Assign(
+              Ident(aw.resultName),
+              TypeApply(Select(Select(Ident(name.tr), Try_get), newTermName("asInstanceOf")), List(TypeTree(aw.resultType)))
+            )
+          val updateState = mkStateTree(nextState) // or increment?
+          Some(mkHandlerCase(state, List(tryGetTree, updateState, mkResumeApply)))
+        case _ =>
+          None
+      }
+    }
+
     def varDefForResult: Option[c.Tree] =
       None
 
@@ -106,48 +123,13 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
     override val toString: String =
       s"AsyncStateWithAwait #$state, next = $nextState"
 
-    /* Make an `onComplete` invocation which increments the state upon resuming:
-     * 
-     *     awaitable.onComplete {
-     *       case tr =>
-     *         resultName = tr.get
-     *         state += 1
-     *         resume()
-     *     }
-     */
-    def mkOnCompleteIncrStateTree: c.Tree =
-      mkOnCompleteTree(mkInt_+(c.Expr[Int](Ident(name.state)))(c.literal(1)).tree)
-
-    /* Make an `onComplete` invocation which sets the state to `nextState` upon resuming:
-     * 
-     *     awaitable.onComplete {
-     *       case tr =>
-     *         resultName = tr.get
-     *         state = `nextState`
-     *         resume()
-     *     }
-     */
-    def mkOnCompleteStateTree(nextState: Int): c.Tree =
-      mkOnCompleteTree(c.literal(nextState).tree)
-
-    private def mkOnCompleteTree(nextState: Tree): c.Tree = {
-      val tryGetTree =
-        Assign(
-          Ident(resultName),
-          Select(Ident(name.tr), Try_get)
-        )
-
-      val updateState = mkStateTree(nextState)
-
-      val handlerTree =
-        Function(List(ValDef(Modifiers(PARAM), name.tr, TypeTree(tryType), EmptyTree)), Block(tryGetTree, updateState, mkResumeApply))
-
-      futureSystemOps.onComplete(c.Expr(awaitable), c.Expr(handlerTree), execContext).tree
+    private def mkOnCompleteTree: c.Tree = {
+      futureSystemOps.onComplete(c.Expr(awaitable), c.Expr(Ident(name.onCompleteHandler)), c.Expr(Ident(name.execContext))).tree
     }
 
     override def mkHandlerCaseForState(): CaseDef = {
       assert(awaitable != null)
-      mkHandlerCase(state, stats :+ mkOnCompleteIncrStateTree)
+      mkHandlerCase(state, stats :+ mkOnCompleteTree)
     }
 
     override def varDefForResult: Option[c.Tree] =
@@ -441,6 +423,7 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
     val Try_get = methodSym(reify((null: scala.util.Try[Any]).get))
 
     val TryClass = c.mirror.staticClass("scala.util.Try")
+    val TryAnyType = appliedType(TryClass.toType, List(definitions.AnyTpe))
     val NonFatalClass = c.mirror.staticModule("scala.util.control.NonFatal")
 
     val Async_await = {
