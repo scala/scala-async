@@ -41,7 +41,7 @@ object AsyncId extends AsyncBase {
  * - Tree manipulations to create and complete the equivalent of Future and Promise
  * in that system.
  * - The `async` macro declaration itself, and a forwarder for the macro implementation.
- * (The latter is temporarily needed to workaround a bug in the macro system)
+ * (The latter is temporarily needed to workaround bug SI-6650 in the macro system)
  *
  * The default implementation, [[scala.async.Async]], binds the macro to `scala.concurrent._`.
  */
