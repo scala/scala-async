@@ -22,18 +22,15 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
 
   object name {
     def suffix(string: String) = string + "$async"
+    def suffixedName(prefix: String) = newTermName(suffix(prefix))
 
-    def expandedTermName(prefix: String) = newTermName(suffix(prefix))
-
-    def expandedTypeName(prefix: String) = newTypeName(suffix(prefix))
-
-    val state = expandedTermName("state")
-    val result = expandedTermName("result")
-    val tr = newTermName("tr")
+    val state = suffixedName("state")
+    val result = suffixedName("result")
+    val resume = suffixedName("resume")
 
     // TODO do we need to freshen any of these?
-    val resume = expandedTermName("resume")
     val x1 = newTermName("x$1")
+    val tr = newTermName("tr")
   }
 
   private val execContext = futureSystemOps.execContext
@@ -65,13 +62,6 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
 
   def mkHandlerCase(num: Int, rhs: c.Tree): CaseDef =
     CaseDef(c.literal(num).tree, EmptyTree, rhs)
-
-  private def paramValDef(name: TermName, sym: Symbol) = ValDef(Modifiers(PARAM), name, Ident(sym), EmptyTree)
-
-  private def paramValDef(name: TermName, tpe: Type) = ValDef(Modifiers(PARAM), name, TypeTree(tpe), EmptyTree)
-
-  def mkFunction(cases: List[CaseDef]): c.Tree =
-    Function(List(paramValDef(name.x1, definitions.IntClass)), Match(Ident(name.x1), cases))
 
   class AsyncState(stats: List[c.Tree], val state: Int, val nextState: Int) {
     val body: c.Tree = stats match {
@@ -150,7 +140,7 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
       val updateState = mkStateTree(nextState)
 
       val handlerTree =
-        Function(List(paramValDef(name.tr, tryType)), Block(tryGetTree, updateState, mkResumeApply))
+        Function(List(ValDef(Modifiers(PARAM), name.tr, TypeTree(tryType), EmptyTree)), Block(tryGetTree, updateState, mkResumeApply))
 
       futureSystemOps.onComplete(c.Expr(awaitable), c.Expr(handlerTree), execContext).tree
     }

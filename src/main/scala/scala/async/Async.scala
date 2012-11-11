@@ -23,7 +23,7 @@ object Async extends AsyncBase {
   def async[T](body: T) = macro asyncImpl[T]
 
   override def asyncImpl[T: c.WeakTypeTag](c: Context)(body: c.Expr[T]): c.Expr[Future[T]] = super.asyncImpl[T](c)(body)
-    }
+}
 
 object AsyncId extends AsyncBase {
   lazy val futureSystem = IdentityFutureSystem
@@ -84,14 +84,12 @@ abstract class AsyncBase {
 
         val handlerCases: List[CaseDef] = asyncBlockBuilder.mkCombinedHandlerCases[T]()
 
-        val combinedHander = c.Expr[Int => Unit](builder.mkFunction(handlerCases))
-
         val localVarTrees = asyncBlockBuilder.asyncStates.init.flatMap(_.allVarDefs).toList
 
         /*
           def resume(): Unit = {
             try {
-              combinedHander(state)
+              state match { case 0 => ... ; ... }
             } catch {
               case NonFatal(t) => result.failure(t)
             }
@@ -100,10 +98,7 @@ abstract class AsyncBase {
         val nonFatalModule = builder.defn.NonFatalClass
         val resumeFunTree: c.Tree = DefDef(Modifiers(), name.resume, Nil, List(Nil), Ident(definitions.UnitClass),
           Try(
-            reify {
-              combinedHander.splice.apply(c.Expr[Int](Ident(name.state)).splice)
-            }.tree
-            ,
+            Match(Ident(name.state), handlerCases),
             List(
               CaseDef(
                 Apply(Ident(nonFatalModule), List(Bind(name.tr, Ident(nme.WILDCARD)))),
