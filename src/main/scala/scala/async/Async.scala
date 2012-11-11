@@ -139,7 +139,7 @@ abstract class AsyncBase {
       // Initialize the state
       var state$async = 0
       // Resolve the execution context
-      var execContext$async = futureSystemOps.execContext.splice
+      val execContext$async = futureSystemOps.execContext.splice
       var onCompleteHandler$async: util.Try[Any] => Unit = null
 
       // Spawn a future to:

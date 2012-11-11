@@ -34,6 +34,8 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
     val x1 = newTermName("x$1")
     val tr = newTermName("tr")
     val onCompleteHandler = suffixedName("onCompleteHandler")
+
+    def fresh(name: TermName) = newTermName(c.fresh("" + name + "$"))
   }
 
   private val execContext = futureSystemOps.execContext
@@ -295,7 +297,7 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
     for (stat <- stats) stat match {
       // the val name = await(..) pattern
       case ValDef(mods, name, tpt, Apply(fun, args)) if fun.symbol == Async_await =>
-        val newName = c.fresh(name)
+        val newName = builder.name.fresh(name)
         toRename += (stat.symbol -> newName)
 
         asyncStates += stateBuilder.complete(args.head, newName, tpt, toRename).result // complete with await
@@ -309,7 +311,7 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
       case ValDef(mods, name, tpt, rhs) =>
         checkForUnsupportedAwait(rhs)
 
-        val newName = c.fresh(name)
+        val newName = builder.name.fresh(name)
         toRename += (stat.symbol -> newName)
         // when adding assignment need to take `toRename` into account
         stateBuilder.addVarDef(mods, newName, tpt, rhs, toRename)
