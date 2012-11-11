@@ -98,10 +98,9 @@ abstract class AsyncBase {
          */
         val onCompleteHandler = {
           val onCompleteHandlers = initStates.flatMap(_.mkOnCompleteHandler).toList
-          ValDef(Modifiers(LAZY), name.onCompleteHandler, TypeTree(),
             Function(
               List(ValDef(Modifiers(PARAM), name.tr, TypeTree(TryAnyType), EmptyTree)),
-              Match(Ident(name.state), onCompleteHandlers)))
+              Match(Ident(name.state), onCompleteHandlers))
         }
 
         /*
@@ -139,6 +138,7 @@ abstract class AsyncBase {
           var state$async = 0
           // Resolve the execution context
           var execContext$async = futureSystemOps.execContext.splice
+          var onCompleteHandler$async: util.Try[Any] => Unit = null
 
           // Spawn a future to:
           futureSystemOps.future[Unit] {
@@ -147,8 +147,8 @@ abstract class AsyncBase {
               localVarTrees :+
               // define the resume() method
               resumeFunTree :+
-              // define the onComplete function
-              onCompleteHandler,
+              // assign onComplete function. (The var breaks the circular dependency with resume)`
+              Assign(Ident(name.onCompleteHandler), onCompleteHandler),
               // and get things started by calling resume()
               Apply(Ident(name.resume), Nil)))
           }(c.Expr[futureSystem.ExecContext](Ident(name.execContext))).splice
