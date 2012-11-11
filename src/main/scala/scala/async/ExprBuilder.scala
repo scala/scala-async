@@ -22,6 +22,7 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
 
   object name {
     def suffix(string: String) = string + "$async"
+
     def suffixedName(prefix: String) = newTermName(suffix(prefix))
 
     val state = suffixedName("state")
@@ -375,17 +376,19 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
     asyncStates += lastState
 
     def mkCombinedHandlerCases[T](): List[CaseDef] = {
-      assert(asyncStates.size > 1)
-      val initCases = for (state <- asyncStates.toList.init) yield state.mkHandlerCaseForState()
-
       val caseForLastState: CaseDef = {
         val lastState = asyncStates.last
         val lastStateBody = c.Expr[T](lastState.body)
         val rhs = futureSystemOps.completeProm(c.Expr[futureSystem.Prom[T]](Ident(name.result)), reify(scala.util.Success(lastStateBody.splice)))
         mkHandlerCase(lastState.state, rhs.tree)
       }
-
-      initCases :+ caseForLastState
+      asyncStates.toList match {
+        case s :: Nil =>
+          List(caseForLastState)
+        case _ =>
+          val initCases = for (state <- asyncStates.toList.init) yield state.mkHandlerCaseForState()
+          initCases :+ caseForLastState
+      }
     }
   }
 
@@ -432,4 +435,5 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
       tpe.member(c.universe.newTermName("await"))
     }
   }
+
 }

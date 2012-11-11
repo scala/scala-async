@@ -75,95 +75,93 @@ abstract class AsyncBase {
     import builder.defn._
     import builder.name
     import builder.futureSystemOps
-
-    body.tree match {
-      case Block(stats, expr) =>
-        val asyncBlockBuilder = new builder.AsyncBlockBuilder(stats, expr, 0, 1000, 1000, Map())
-
-        asyncBlockBuilder.asyncStates foreach (s => vprintln(s))
-
-        val handlerCases: List[CaseDef] = asyncBlockBuilder.mkCombinedHandlerCases[T]()
-
-        val initStates = asyncBlockBuilder.asyncStates.init
-        val localVarTrees = initStates.flatMap(_.allVarDefs).toList
-
-        /*
-          lazy val onCompleteHandler = (tr: Try[Any]) => state match {
-            case 0 => {
-              x11 = tr.get.asInstanceOf[Double];
-              state = 1;
-              resume()
-            }
-            ...
-         */
-        val onCompleteHandler = {
-          val onCompleteHandlers = initStates.flatMap(_.mkOnCompleteHandler).toList
-            Function(
-              List(ValDef(Modifiers(PARAM), name.tr, TypeTree(TryAnyType), EmptyTree)),
-              Match(Ident(name.state), onCompleteHandlers))
-        }
-
-        /*
-          def resume(): Unit = {
-            try {
-              state match {
-                case 0 => {
-                   f11 = exprReturningFuture
-                   f11.onComplete(onCompleteHandler)(context)
-                 }
-                ...
-               }
-            } catch {
-              case NonFatal(t) => result.failure(t)
-            }
-          }
-         */
-        val resumeFunTree: c.Tree = DefDef(Modifiers(), name.resume, Nil, List(Nil), Ident(definitions.UnitClass),
-          Try(
-            Match(Ident(name.state), handlerCases),
-            List(
-              CaseDef(
-                Apply(Ident(NonFatalClass), List(Bind(name.tr, Ident(nme.WILDCARD)))),
-                EmptyTree,
-                Block(List({
-                  val t = c.Expr[Throwable](Ident(name.tr))
-                  futureSystemOps.completeProm[T](c.Expr[futureSystem.Prom[T]](Ident(name.result)), reify(scala.util.Failure(t.splice))).tree
-                }), c.literalUnit.tree))), EmptyTree))
-
-
-        val prom: Expr[futureSystem.Prom[T]] = reify {
-          // Create the empty promise
-          val result$async = futureSystemOps.createProm[T].splice
-          // Initialize the state
-          var state$async = 0
-          // Resolve the execution context
-          var execContext$async = futureSystemOps.execContext.splice
-          var onCompleteHandler$async: util.Try[Any] => Unit = null
-
-          // Spawn a future to:
-          futureSystemOps.future[Unit] {
-            c.Expr[Unit](Block(
-              // define vars for all intermediate results
-              localVarTrees :+
-              // define the resume() method
-              resumeFunTree :+
-              // assign onComplete function. (The var breaks the circular dependency with resume)`
-              Assign(Ident(name.onCompleteHandler), onCompleteHandler),
-              // and get things started by calling resume()
-              Apply(Ident(name.resume), Nil)))
-          }(c.Expr[futureSystem.ExecContext](Ident(name.execContext))).splice
-          // Return the promise from this reify block...
-          result$async
-        }
-        // ... and return its Future from the macro.
-        val result = futureSystemOps.promiseToFuture(prom)
-
-        vprintln(s"${c.macroApplication} \nexpands to:\n ${result.tree}")
-
-        result
-
-      case tree =>
-        c.abort(c.macroApplication.pos, s"expression not supported by async: ${tree}")
+    val (stats, expr) = body.tree match {
+      case Block(stats, expr) => (stats, expr)
+      case tree => (Nil, tree)
     }
+
+    val asyncBlockBuilder = new builder.AsyncBlockBuilder(stats, expr, 0, 1000, 1000, Map())
+
+    asyncBlockBuilder.asyncStates foreach (s => vprintln(s))
+
+    val handlerCases: List[CaseDef] = asyncBlockBuilder.mkCombinedHandlerCases[T]()
+
+    val initStates = asyncBlockBuilder.asyncStates.init
+    val localVarTrees = initStates.flatMap(_.allVarDefs).toList
+
+    /*
+      lazy val onCompleteHandler = (tr: Try[Any]) => state match {
+        case 0 => {
+          x11 = tr.get.asInstanceOf[Double];
+          state = 1;
+          resume()
+        }
+        ...
+     */
+    val onCompleteHandler = {
+      val onCompleteHandlers = initStates.flatMap(_.mkOnCompleteHandler).toList
+      Function(
+        List(ValDef(Modifiers(PARAM), name.tr, TypeTree(TryAnyType), EmptyTree)),
+        Match(Ident(name.state), onCompleteHandlers))
+    }
+
+    /*
+      def resume(): Unit = {
+        try {
+          state match {
+            case 0 => {
+               f11 = exprReturningFuture
+               f11.onComplete(onCompleteHandler)(context)
+             }
+            ...
+           }
+        } catch {
+          case NonFatal(t) => result.failure(t)
+        }
+      }
+     */
+    val resumeFunTree: c.Tree = DefDef(Modifiers(), name.resume, Nil, List(Nil), Ident(definitions.UnitClass),
+      Try(
+        Match(Ident(name.state), handlerCases),
+        List(
+          CaseDef(
+            Apply(Ident(NonFatalClass), List(Bind(name.tr, Ident(nme.WILDCARD)))),
+            EmptyTree,
+            Block(List({
+              val t = c.Expr[Throwable](Ident(name.tr))
+              futureSystemOps.completeProm[T](c.Expr[futureSystem.Prom[T]](Ident(name.result)), reify(scala.util.Failure(t.splice))).tree
+            }), c.literalUnit.tree))), EmptyTree))
+
+
+    val prom: Expr[futureSystem.Prom[T]] = reify {
+      // Create the empty promise
+      val result$async = futureSystemOps.createProm[T].splice
+      // Initialize the state
+      var state$async = 0
+      // Resolve the execution context
+      var execContext$async = futureSystemOps.execContext.splice
+      var onCompleteHandler$async: util.Try[Any] => Unit = null
+
+      // Spawn a future to:
+      futureSystemOps.future[Unit] {
+        c.Expr[Unit](Block(
+          // define vars for all intermediate results
+          localVarTrees :+
+            // define the resume() method
+            resumeFunTree :+
+            // assign onComplete function. (The var breaks the circular dependency with resume)`
+            Assign(Ident(name.onCompleteHandler), onCompleteHandler),
+          // and get things started by calling resume()
+          Apply(Ident(name.resume), Nil)))
+      }(c.Expr[futureSystem.ExecContext](Ident(name.execContext))).splice
+      // Return the promise from this reify block...
+      result$async
+    }
+    // ... and return its Future from the macro.
+    val result = futureSystemOps.promiseToFuture(prom)
+
+    vprintln(s"${c.macroApplication} \nexpands to:\n ${result.tree}")
+
+    result
   }
 }
