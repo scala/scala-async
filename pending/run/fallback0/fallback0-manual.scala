@@ -19,7 +19,6 @@ class TestFallback0ManualClass {
   import ExecutionContext.Implicits.global
   
   def m1(x: Int): Future[Int] = future {
-    Thread.sleep(1000)
     x + 2
   }
   

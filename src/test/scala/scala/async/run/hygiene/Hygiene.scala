@@ -4,18 +4,19 @@
 
 package scala.async
 package run
-package ifelse0
+package hygiene
 
 import language.{reflectiveCalls, postfixOps}
+import concurrent._
 import scala.concurrent.{Future, ExecutionContext, future, Await}
 import scala.concurrent.duration._
 import scala.async.Async.{async, await}
+import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.JUnit4
-import org.junit.Test
 
 
-class TestIfElseClass {
+class HygieneClass {
 
   import ExecutionContext.Implicits.global
 
@@ -23,28 +24,29 @@ class TestIfElseClass {
     x + 2
   }
 
-  def m2(y: Int): Future[Int] = async {
-    val f = m1(y)
-    var z = 0
-    if (y > 0) {
-      val x1 = await(f)
-      z = x1 + 2
-    } else {
-      val x2 = await(f)
-      z = x2 - 2
+  def m2(y: Int) = {
+    val state = 23
+    val result: Any = "result"
+    def resume(): Any = "resume"
+    async {
+      val f1 = m1(state)
+      val x = await(f1)
+      val y = await(future(result))
+      val z = await(future(resume()))
+      (x, y, z)
     }
-    z
   }
 }
 
-
 @RunWith(classOf[JUnit4])
-class IfElseSpec {
+class HygieneSpec {
 
-  @Test def `support await in a simple if-else expression`() {
-    val o = new TestIfElseClass
+  @Test def `is hygenic`() {
+    val o = new HygieneClass
     val fut = o.m2(10)
     val res = Await.result(fut, 2 seconds)
-    res mustBe (14)
+    res._1 mustBe (25)
+    res._2 mustBe ("result")
+    res._3 mustBe ("resume")
   }
 }

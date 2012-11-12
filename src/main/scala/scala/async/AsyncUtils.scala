@@ -3,29 +3,13 @@
  */
 package scala.async
 
-import scala.reflect.macros.Context
-
 /*
  * @author Philipp Haller
  */
-trait AsyncUtils {
+object AsyncUtils {
 
-  val verbose = false
+  private val verbose = false
   
-  protected def vprintln(s: Any): Unit = if (verbose)
+  private[async] def vprintln(s: => Any): Unit = if (verbose)
     println("[async] "+s)
-  
-  /* Symbol of the `Async.await` method in context `c`.
-   */
-  protected def awaitSym(c: Context): c.universe.Symbol = {
-    val asyncMod = c.mirror.staticModule("scala.async.Async")
-    val tpe = asyncMod.moduleClass.asType.toType
-    tpe.member(c.universe.newTermName("await"))
-  }
-  
-  protected def awaitCpsSym(c: Context): c.universe.Symbol = {
-    val asyncMod = c.mirror.staticModule("scala.async.Async")
-    val tpe = asyncMod.moduleClass.asType.toType
-    tpe.member(c.universe.newTermName("awaitCps"))
-  }
 }

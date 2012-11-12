@@ -40,11 +40,14 @@ trait TestUtils {
   }
 
   def eval(code: String, compileOptions: String = ""): Any = {
+    val tb = mkToolbox(compileOptions)
+    tb.eval(tb.parse(code))
+  }
+
+  def mkToolbox(compileOptions: String = "") = {
     val m = scala.reflect.runtime.currentMirror
     import scala.tools.reflect.ToolBox
-    val tb = m.mkToolBox(options = compileOptions)
-    val result = tb.eval(tb.parse(code))
-    result
+    m.mkToolBox(options = compileOptions)
   }
 
   def expectError(errorSnippet: String, compileOptions: String = "")(code: String) {
