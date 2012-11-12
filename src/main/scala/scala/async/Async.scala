@@ -10,7 +10,6 @@ import scala.collection.mutable.ListBuffer
 import scala.concurrent.{Future, Promise, ExecutionContext, future}
 import ExecutionContext.Implicits.global
 import scala.util.control.NonFatal
-import AsyncUtils.vprintln
 
 
 /*
@@ -82,7 +81,7 @@ abstract class AsyncBase {
 
     val asyncBlockBuilder = new builder.AsyncBlockBuilder(stats, expr, 0, 1000, 1000, Map())
 
-    asyncBlockBuilder.asyncStates foreach (s => vprintln(s))
+    asyncBlockBuilder.asyncStates foreach (s => AsyncUtils.vprintln(s))
 
     val handlerCases: List[CaseDef] = asyncBlockBuilder.mkCombinedHandlerCases[T]()
 
@@ -160,7 +159,7 @@ abstract class AsyncBase {
     // ... and return its Future from the macro.
     val result = futureSystemOps.promiseToFuture(prom)
 
-    vprintln(s"${c.macroApplication} \nexpands to:\n ${result.tree}")
+    AsyncUtils.vprintln(s"${c.macroApplication} \nexpands to:\n ${result.tree}")
 
     result
   }

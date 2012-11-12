@@ -14,13 +14,11 @@ import AsyncUtils.vprintln
 final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSystem: FS) {
   builder =>
 
-  lazy val futureSystemOps = futureSystem.mkOps(c)
-
   import c.universe._
   import Flag._
   import defn._
 
-  object name {
+  private[async] object name {
     def suffix(string: String) = string + "$async"
 
     def suffixedName(prefix: String) = newTermName(suffix(prefix))
@@ -38,19 +36,21 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
     def fresh(name: TermName) = newTermName(c.fresh("" + name + "$"))
   }
 
+  private[async] lazy val futureSystemOps = futureSystem.mkOps(c)
+
   private val execContext = futureSystemOps.execContext
 
   private def resetDuplicate(tree: Tree) = c.resetAllAttrs(tree.duplicate)
 
   private def mkResumeApply = Apply(Ident(name.resume), Nil)
 
-  def mkStateTree(nextState: Int): c.Tree =
+  private def mkStateTree(nextState: Int): c.Tree =
     mkStateTree(c.literal(nextState).tree)
 
-  def mkStateTree(nextState: Tree): c.Tree =
+  private def mkStateTree(nextState: Tree): c.Tree =
     Assign(Ident(name.state), nextState)
 
-  def defaultValue(tpe: Type): Literal = {
+  private def defaultValue(tpe: Type): Literal = {
     val defaultValue: Any =
       if (tpe <:< definitions.BooleanTpe) false
       else if (definitions.ScalaNumericValueClasses.exists(tpe <:< _.toType)) 0
@@ -58,14 +58,14 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
     Literal(Constant(defaultValue))
   }
 
-  def mkVarDefTree(resultType: Type, resultName: TermName): c.Tree = {
+  private def mkVarDefTree(resultType: Type, resultName: TermName): c.Tree = {
     ValDef(Modifiers(Flag.MUTABLE), resultName, TypeTree(resultType), defaultValue(resultType))
   }
 
-  def mkHandlerCase(num: Int, rhs: List[c.Tree]): CaseDef =
+  private def mkHandlerCase(num: Int, rhs: List[c.Tree]): CaseDef =
     mkHandlerCase(num, Block(rhs: _*))
 
-  def mkHandlerCase(num: Int, rhs: c.Tree): CaseDef =
+  private def mkHandlerCase(num: Int, rhs: c.Tree): CaseDef =
     CaseDef(c.literal(num).tree, EmptyTree, rhs)
 
   class AsyncState(stats: List[c.Tree], val state: Int, val nextState: Int) {
@@ -403,14 +403,14 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
   }
 
   /** `termSym( (_: Foo).bar(null: A, null: B)` will return the symbol of `bar`, after overload resolution. */
-  def methodSym(apply: c.Expr[Any]): Symbol = {
+  private def methodSym(apply: c.Expr[Any]): Symbol = {
     val tree2: Tree = c.typeCheck(apply.tree) // TODO why is this needed?
     tree2.collect {
       case s: SymTree if s.symbol.isMethod => s.symbol
     }.headOption.getOrElse(sys.error(s"Unable to find a method symbol in ${apply.tree}"))
   }
 
-  object defn {
+  private[async] object defn {
     def mkList_apply[A](args: List[Expr[A]]): Expr[List[A]] = {
       c.Expr(Apply(Ident(definitions.List_apply), args.map(_.tree)))
     }
