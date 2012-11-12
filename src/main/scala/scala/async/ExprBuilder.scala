@@ -368,6 +368,14 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
         currState = currState + matchBudget
         stateBuilder = new builder.AsyncStateBuilder(currState, toRename)
 
+      case ClassDef(_, name, _, _) =>
+        // do not allow local class definitions, because of SI-5467 (specific to case classes, though)
+        c.error(stat.pos, s"Local class ${name.decoded} illegal within `async` block")
+
+      case ModuleDef(_, name, _) =>
+        // local object definitions lead to spurious type errors (because of resetAllAttrs?)
+        c.error(stat.pos, s"Local object ${name.decoded} illegal within `async` block")
+
       case _ =>
         checkForUnsupportedAwait(stat)
         stateBuilder += stat
