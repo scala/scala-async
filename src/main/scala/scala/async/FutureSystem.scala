@@ -39,7 +39,7 @@ trait FutureSystem {
     /** Extract a future from the given promise. */
     def promiseToFuture[A: WeakTypeTag](prom: Expr[Prom[A]]): Expr[Fut[A]]
 
-    /** Construct a future to asynchrously compute the given expression */
+    /** Construct a future to asynchronously compute the given expression */
     def future[A: WeakTypeTag](a: Expr[A])(execContext: Expr[ExecContext]): Expr[Fut[A]]
 
     /** Register an call back to run on completion of the given future */
@@ -96,7 +96,7 @@ object ScalaConcurrentFutureSystem extends FutureSystem {
 }
 
 /**
- * A trivial implentation of [[scala.async.FutureSystem]] that performs computations
+ * A trivial implementation of [[scala.async.FutureSystem]] that performs computations
  * on the current thread. Useful for testing.
  */
 object IdentityFutureSystem extends FutureSystem {
