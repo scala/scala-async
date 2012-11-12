@@ -53,14 +53,14 @@ abstract class AsyncBase {
 
   /**
    * A call to `await` must be nested in an enclosing `async` block.
-   *
-   * A call to await does not block the thread, rather it is a delimiter
+   * 
+   * A call to `await` does not block the current thread, rather it is a delimiter
    * used by the enclosing `async` macro. Code following the `await`
-   * call.
-   *
-   * @param awaitable The future from which a value is awaited
-   * @tparam T        The type of that value
-   * @return          The value
+   * call is executed asynchronously, when the argument of `await` has been completed.
+   * 
+   * @param awaitable the future from which a value is awaited.
+   * @tparam T        the type of that value.
+   * @return          the value.
    */
   // TODO Replace with `@compileTimeOnly when this is implemented SI-6539
   @deprecated("`await` must be enclosed in an `async` block", "0.1")
