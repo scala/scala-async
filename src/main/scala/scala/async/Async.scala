@@ -3,7 +3,7 @@
  */
 package scala.async
 
-import language.experimental.macros
+import scala.language.experimental.macros
 
 import scala.reflect.macros.Context
 import scala.collection.mutable.ListBuffer

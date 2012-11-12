@@ -3,7 +3,9 @@
  */
 package scala.async
 
-import reflect.macros.Context
+import scala.language.higherKinds
+
+import scala.reflect.macros.Context
 
 /**
  * An abstraction over a future system.

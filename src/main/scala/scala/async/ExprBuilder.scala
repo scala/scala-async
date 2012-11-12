@@ -5,7 +5,7 @@ package scala.async
 
 import scala.reflect.macros.Context
 import scala.collection.mutable.ListBuffer
-import concurrent.Future
+import scala.concurrent.Future
 import AsyncUtils.vprintln
 
 /*
