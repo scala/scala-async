@@ -74,7 +74,15 @@ abstract class AsyncBase {
     import builder.defn._
     import builder.name
     import builder.futureSystemOps
-    val (stats, expr) = body.tree match {
+
+    val transform = new AnfTransform[c.type](c)
+    val typedBody = c.typeCheck(body.tree)
+    val stats1 :+ expr1 = transform.anf.transformToList(typedBody)
+    val btree = c.typeCheck(Block(stats1, expr1))
+
+    AsyncUtils.vprintln(s"ANF transform expands to:\n $btree")
+
+    val (stats, expr) = btree match {
       case Block(stats, expr) => (stats, expr)
       case tree => (Nil, tree)
     }
@@ -86,7 +94,7 @@ abstract class AsyncBase {
     val handlerCases: List[CaseDef] = asyncBlockBuilder.mkCombinedHandlerCases[T]()
 
     val initStates = asyncBlockBuilder.asyncStates.init
-    val localVarTrees = initStates.flatMap(_.allVarDefs).toList
+    val localVarTrees = asyncBlockBuilder.asyncStates.flatMap(_.allVarDefs).toList
 
     /*
       lazy val onCompleteHandler = (tr: Try[Any]) => state match {

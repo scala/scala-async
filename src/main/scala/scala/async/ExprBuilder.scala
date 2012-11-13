@@ -54,6 +54,7 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
     val defaultValue: Any =
       if (tpe <:< definitions.BooleanTpe) false
       else if (definitions.ScalaNumericValueClasses.exists(tpe <:< _.toType)) 0
+      else if (tpe <:< definitions.AnyValTpe) 0
       else null
     Literal(Constant(defaultValue))
   }
@@ -142,7 +143,7 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
   /*
    * Builder for a single state of an async method.
    */
-  class AsyncStateBuilder(state: Int, private var nameMap: Map[c.Symbol, c.Name]) {
+  class AsyncStateBuilder(state: Int, private var nameMap: Map[String, c.Name]) {
     self =>
 
     /* Statements preceding an await call. */
@@ -163,8 +164,8 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
 
     private val renamer = new Transformer {
       override def transform(tree: Tree) = tree match {
-        case Ident(_) if nameMap.keySet contains tree.symbol =>
-          Ident(nameMap(tree.symbol))
+        case Ident(_) if nameMap.keySet contains tree.symbol.toString =>
+          Ident(nameMap(tree.symbol.toString))
         case _ =>
           super.transform(tree)
       }
@@ -178,7 +179,7 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
     //TODO do not ignore `mods`
     def addVarDef(mods: Any, name: TermName, tpt: c.Tree, rhs: c.Tree, extNameMap: Map[c.Symbol, c.Name]): this.type = {
       varDefs += (name -> tpt.tpe)
-      nameMap ++= extNameMap // update name map
+      nameMap ++= extNameMap.map { case (k, v) => (k.toString, v) } // update name map
       this += Assign(Ident(name), rhs)
       this
     }
@@ -205,8 +206,9 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
      */
     def complete(awaitArg: c.Tree, awaitResultName: TermName, awaitResultType: Tree,
                  extNameMap: Map[c.Symbol, c.Name], nextState: Int = state + 1): this.type = {
-      nameMap ++= extNameMap
-      awaitable = resetDuplicate(renamer.transform(awaitArg))
+      nameMap ++= extNameMap.map { case (k, v) => (k.toString, v) }
+      val renamed = renamer.transform(awaitArg)
+      awaitable = resetDuplicate(renamed)
       resultName = awaitResultName
       resultType = awaitResultType.tpe
       this.nextState = nextState
@@ -273,7 +275,7 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
                           budget: Int, private var toRename: Map[c.Symbol, c.Name]) {
     val asyncStates = ListBuffer[builder.AsyncState]()
 
-    private var stateBuilder = new builder.AsyncStateBuilder(startState, toRename)
+    private var stateBuilder = new builder.AsyncStateBuilder(startState, toRename.map { case (k, v) => (k.toString, v) })
     // current state builder
     private var currState = startState
 
@@ -306,7 +308,7 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
         else
           assert(false, "too many invocations of `await` in current method")
         currState += 1
-        stateBuilder = new builder.AsyncStateBuilder(currState, toRename)
+        stateBuilder = new builder.AsyncStateBuilder(currState, toRename.map { case (k, v) => (k.toString, v) })
 
       case ValDef(mods, name, tpt, rhs) =>
         checkForUnsupportedAwait(rhs)
@@ -339,7 +341,7 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
 
         // create new state builder for state `currState + ifBudget`
         currState = currState + ifBudget
-        stateBuilder = new builder.AsyncStateBuilder(currState, toRename)
+        stateBuilder = new builder.AsyncStateBuilder(currState, toRename.map { case (k, v) => (k.toString, v) })
 
       case Match(scrutinee, cases) =>
         vprintln("transforming match expr: " + stat)
@@ -366,7 +368,7 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
 
         // create new state builder for state `currState + matchBudget`
         currState = currState + matchBudget
-        stateBuilder = new builder.AsyncStateBuilder(currState, toRename)
+        stateBuilder = new builder.AsyncStateBuilder(currState, toRename.map { case (k, v) => (k.toString, v) })
 
       case ClassDef(_, name, _, _) =>
         // do not allow local class definitions, because of SI-5467 (specific to case classes, though)
