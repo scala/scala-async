@@ -344,7 +344,6 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
         stateBuilder = new builder.AsyncStateBuilder(currState, toRename.map { case (k, v) => (k.toString, v) })
 
       case Match(scrutinee, cases) =>
-        vprintln("transforming match expr: " + stat)
         checkForUnsupportedAwait(scrutinee)
 
         val matchBudget: Int = remainingBudget / 2

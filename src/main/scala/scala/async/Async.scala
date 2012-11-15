@@ -80,6 +80,8 @@ abstract class AsyncBase {
     val stats1 :+ expr1 = transform.anf.transformToList(typedBody)
     val btree = c.typeCheck(Block(stats1, expr1))
 
+    AsyncUtils.vprintln(s"In file '${c.macroApplication.pos.source.path}':")
+    AsyncUtils.vprintln(s"${c.macroApplication}")
     AsyncUtils.vprintln(s"ANF transform expands to:\n $btree")
 
     val (stats, expr) = btree match {
@@ -167,7 +169,7 @@ abstract class AsyncBase {
     // ... and return its Future from the macro.
     val result = futureSystemOps.promiseToFuture(prom)
 
-    AsyncUtils.vprintln(s"${c.macroApplication} \nexpands to:\n ${result.tree}")
+    AsyncUtils.vprintln(s"async state machine transform expands to:\n ${result.tree}")
 
     result
   }

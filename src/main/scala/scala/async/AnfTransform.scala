@@ -21,8 +21,7 @@ class AnfTransform[C <: Context](val c: C) {
       val stats :+ expr = anf.transformToList(tree)
       expr match {
 
-        case Apply(fun, args) if { vprintln("check fun.toString: " + fun.toString); fun.toString.startsWith("scala.async.Async.await") } =>
-          vprintln("found await!!")
+        case Apply(fun, args) if fun.toString.startsWith("scala.async.Async.await") =>
           val liftedName = c.fresh("await$")
           stats :+ ValDef(NoMods, liftedName, TypeTree(), expr) :+ Ident(liftedName)
 
@@ -43,7 +42,6 @@ class AnfTransform[C <: Context](val c: C) {
           stats :+ varDef :+ ifWithAssign :+ Ident(liftedName)
 
         case _ =>
-          vprintln("found something else")
           stats :+ expr
       }
     }
@@ -101,7 +99,7 @@ class AnfTransform[C <: Context](val c: C) {
       case ModuleDef(mods, name, impl) => List(tree)
 
       case _ =>
-        println("do not handle tree "+tree)
+        c.error(tree.pos, "Internal error while compiling `async` block")
         ???
     }
   }
