@@ -54,8 +54,20 @@ class AnfTestClass {
     }
     z + 1
   }
+
+  def futureUnitIfElse(y: Int): Future[Unit] = async {
+    val f = base(y)
+    if (y > 0) {
+      State.result = await(f) + 2
+    } else {
+      State.result = await(f) - 2
+    }
+  }
 }
 
+object State {
+  @volatile var result: Int = 0
+}
 
 @RunWith(classOf[JUnit4])
 class AnfTransformSpec {
@@ -90,5 +102,13 @@ class AnfTransformSpec {
     val fut = o.m4(10)
     val res = Await.result(fut, 2 seconds)
     res mustBe (15)
+  }
+
+  @Test
+  def `Unit-typed if-else in tail position`() {
+    val o = new AnfTestClass
+    val fut = o.futureUnitIfElse(10)
+    Await.result(fut, 2 seconds)
+    State.result mustBe (14)
   }
 }

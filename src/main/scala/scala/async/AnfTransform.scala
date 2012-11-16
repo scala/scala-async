@@ -16,21 +16,27 @@ class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
           stats :+ ValDef(NoMods, liftedName, TypeTree(), expr) :+ Ident(liftedName)
 
         case If(cond, thenp, elsep) =>
-          val liftedName = c.fresh("ifres$")
-          val varDef =
-            ValDef(Modifiers(Flag.MUTABLE), liftedName, TypeTree(expr.tpe), defaultValue(expr.tpe))
-          val thenWithAssign = thenp match {
-            case Block(thenStats, thenExpr) => Block(thenStats, Assign(Ident(liftedName), thenExpr))
-            case _ => Assign(Ident(liftedName), thenp)
+          // if type of if-else is Unit don't introduce assignment,
+          // but add Unit value to bring it into form expected by async transform
+          if (expr.tpe =:= definitions.UnitTpe) {
+            stats :+ expr :+ Literal(Constant(()))
           }
-          val elseWithAssign = elsep match {
-            case Block(elseStats, elseExpr) => Block(elseStats, Assign(Ident(liftedName), elseExpr))
-            case _ => Assign(Ident(liftedName), elsep)
+          else {
+            val liftedName = c.fresh("ifres$")
+            val varDef =
+              ValDef(Modifiers(Flag.MUTABLE), liftedName, TypeTree(expr.tpe), defaultValue(expr.tpe))
+            val thenWithAssign = thenp match {
+              case Block(thenStats, thenExpr) => Block(thenStats, Assign(Ident(liftedName), thenExpr))
+              case _ => Assign(Ident(liftedName), thenp)
+            }
+            val elseWithAssign = elsep match {
+              case Block(elseStats, elseExpr) => Block(elseStats, Assign(Ident(liftedName), elseExpr))
+              case _ => Assign(Ident(liftedName), elsep)
+            }
+            val ifWithAssign =
+              If(cond, thenWithAssign, elseWithAssign)
+            stats :+ varDef :+ ifWithAssign :+ Ident(liftedName)
           }
-          val ifWithAssign =
-            If(cond, thenWithAssign, elseWithAssign)
-          stats :+ varDef :+ ifWithAssign :+ Ident(liftedName)
-
         case _ =>
           stats :+ expr
       }
