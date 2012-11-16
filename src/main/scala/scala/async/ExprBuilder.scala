@@ -11,7 +11,8 @@ import AsyncUtils.vprintln
 /*
  * @author Philipp Haller
  */
-final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSystem: FS) {
+final class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C, val futureSystem: FS)
+  extends TransformUtils(c) {
   builder =>
 
   import c.universe._
@@ -49,15 +50,6 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSy
 
   private def mkStateTree(nextState: Tree): c.Tree =
     Assign(Ident(name.state), nextState)
-
-  private def defaultValue(tpe: Type): Literal = {
-    val defaultValue: Any =
-      if (tpe <:< definitions.BooleanTpe) false
-      else if (definitions.ScalaNumericValueClasses.exists(tpe <:< _.toType)) 0
-      else if (tpe <:< definitions.AnyValTpe) 0
-      else null
-    Literal(Constant(defaultValue))
-  }
 
   private def mkVarDefTree(resultType: Type, resultName: TermName): c.Tree = {
     ValDef(Modifiers(Flag.MUTABLE), resultName, TypeTree(resultType), defaultValue(resultType))

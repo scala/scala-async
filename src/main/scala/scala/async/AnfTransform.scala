@@ -2,21 +2,11 @@ package scala.async
 
 import scala.reflect.macros.Context
 
-class AnfTransform[C <: Context](val c: C) {
+class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
   import c.universe._
   import AsyncUtils._
 
   object inline {
-    //TODO: DRY
-    private def defaultValue(tpe: Type): Literal = {
-      val defaultValue: Any =
-        if (tpe <:< definitions.BooleanTpe) false
-        else if (definitions.ScalaNumericValueClasses.exists(tpe <:< _.toType)) 0
-        else if (tpe <:< definitions.AnyValTpe) 0
-        else null
-      Literal(Constant(defaultValue))
-    }
-
     def transformToList(tree: Tree): List[Tree] = {
       val stats :+ expr = anf.transformToList(tree)
       expr match {
