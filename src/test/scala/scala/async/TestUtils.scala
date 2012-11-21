@@ -50,9 +50,9 @@ trait TestUtils {
     m.mkToolBox(options = compileOptions)
   }
 
-  def expectError(errorSnippet: String, compileOptions: String = "")(code: String) {
+  def expectError(errorSnippet: String, compileOptions: String = "", baseCompileOptions: String = "-cp target/scala-2.10/classes")(code: String) {
     intercept[ToolBoxError] {
-      eval(code, compileOptions)
+      eval(code, compileOptions + " " + baseCompileOptions)
     }.getMessage mustContain errorSnippet
   }
 }

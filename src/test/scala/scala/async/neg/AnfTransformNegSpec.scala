@@ -13,7 +13,7 @@ class AnfTransformNegSpec {
 
   @Test
   def `inlining block produces duplicate definition`() {
-    expectError("x is already defined as value x", "-cp target/scala-2.10/classes -deprecation -Xfatal-warnings") {
+    expectError("x is already defined as value x", "-deprecation -Xfatal-warnings") {
       """
         | import scala.concurrent.ExecutionContext.Implicits.global
         | import scala.concurrent.Future
@@ -36,7 +36,7 @@ class AnfTransformNegSpec {
 
   @Test
   def `inlining block in tail position produces duplicate definition`() {
-    expectError("x is already defined as value x", "-cp target/scala-2.10/classes -deprecation -Xfatal-warnings") {
+    expectError("x is already defined as value x", "-deprecation -Xfatal-warnings") {
       """
         | import scala.concurrent.ExecutionContext.Implicits.global
         | import scala.concurrent.Future

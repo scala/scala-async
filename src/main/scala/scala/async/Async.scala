@@ -81,6 +81,9 @@ abstract class AsyncBase {
       c.typeCheck(Block(stats1, expr1))
     }
 
+    val traverser = new builder.LiftableVarTraverser
+    traverser.traverse(btree)
+
     AsyncUtils.vprintln(s"In file '${c.macroApplication.pos.source.path}':")
     AsyncUtils.vprintln(s"${c.macroApplication}")
     AsyncUtils.vprintln(s"ANF transform expands to:\n $btree")
