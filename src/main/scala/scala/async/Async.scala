@@ -101,6 +101,10 @@ abstract class AsyncBase {
 
     val initStates = asyncBlockBuilder.asyncStates.init
     val localVarTrees = asyncBlockBuilder.asyncStates.flatMap(_.allVarDefs).toList
+    val renameMap = traverser.liftable.map {
+      vd =>
+        (vd.symbol, c.fresh(vd.name))
+    }.toMap
 
     /*
       lazy val onCompleteHandler = (tr: Try[Any]) => state match {

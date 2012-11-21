@@ -66,7 +66,7 @@ class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
 
       case ValDef(mods, name, tpt, rhs) =>
         val stats :+ expr = inline.transformToList(rhs)
-        stats :+ ValDef(mods, name, tpt, expr)
+        stats :+ ValDef(mods, name, tpt, expr).setSymbol(tree.symbol)
 
       case Assign(name, rhs) =>
         val stats :+ expr = inline.transformToList(rhs)

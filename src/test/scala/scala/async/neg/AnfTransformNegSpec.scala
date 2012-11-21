@@ -6,12 +6,13 @@ package neg
 
 import org.junit.runner.RunWith
 import org.junit.runners.JUnit4
-import org.junit.Test
+import org.junit.{Ignore, Test}
 
 @RunWith(classOf[JUnit4])
 class AnfTransformNegSpec {
 
   @Test
+  @Ignore
   def `inlining block produces duplicate definition`() {
     expectError("x is already defined as value x", "-deprecation -Xfatal-warnings") {
       """
@@ -35,6 +36,7 @@ class AnfTransformNegSpec {
   }
 
   @Test
+  @Ignore
   def `inlining block in tail position produces duplicate definition`() {
     expectError("x is already defined as value x", "-deprecation -Xfatal-warnings") {
       """
