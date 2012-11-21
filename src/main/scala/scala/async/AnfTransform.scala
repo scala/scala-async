@@ -77,8 +77,7 @@ class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
         val thenStats :+ thenExpr = inline.transformToList(thenp)
         val elseStats :+ elseExpr = inline.transformToList(elsep)
         stats :+
-          c.typeCheck(If(expr, Block(thenStats, thenExpr), Block(elseStats, elseExpr)),
-                      lub(List(thenp.tpe, elsep.tpe)))
+          c.typeCheck(If(expr, Block(thenStats, thenExpr), Block(elseStats, elseExpr)))
 
       //TODO
       case Literal(_) | Ident(_) | This(_) | Match(_, _) | New(_) | Function(_, _) => List(tree)

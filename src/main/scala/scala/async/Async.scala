@@ -75,11 +75,11 @@ abstract class AsyncBase {
     import builder.name
     import builder.futureSystemOps
 
-    // typecheck body, because the ANF transform needs type info in some places
-    val typedBody = c.typeCheck(body.tree)
-    val transform = new AnfTransform[c.type](c)
-    val stats1 :+ expr1 = transform.anf.transformToList(typedBody)
-    val btree = c.typeCheck(Block(stats1, expr1))
+    val btree: Tree = {
+      val transform = new AnfTransform[c.type](c)
+      val stats1 :+ expr1 = transform.anf.transformToList(body.tree)
+      c.typeCheck(Block(stats1, expr1))
+    }
 
     AsyncUtils.vprintln(s"In file '${c.macroApplication.pos.source.path}':")
     AsyncUtils.vprintln(s"${c.macroApplication}")
