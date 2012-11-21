@@ -32,7 +32,6 @@ class TreeInterrogation {
     val varDefs = tree1.collect {
       case ValDef(mods, name, _, _) if mods.hasFlag(Flag.MUTABLE) => name
     }
-    // TODO no need to lift `y` as it is only accessed from a single state.
-    varDefs.map(_.decoded).toSet mustBe(Set("state$async", "onCompleteHandler$async", "x$1", "z$1", "y$1"))
+    varDefs.map(_.decoded).toSet mustBe(Set("state$async", "onCompleteHandler$async", "x$1", "z$1"))
   }
 }

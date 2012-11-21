@@ -83,6 +83,10 @@ abstract class AsyncBase {
 
     val traverser = new builder.LiftableVarTraverser
     traverser.traverse(btree)
+    val renameMap = traverser.liftable.map {
+      vd =>
+        (vd.symbol, builder.name.fresh(vd.name))
+    }.toMap
 
     AsyncUtils.vprintln(s"In file '${c.macroApplication.pos.source.path}':")
     AsyncUtils.vprintln(s"${c.macroApplication}")
@@ -93,7 +97,7 @@ abstract class AsyncBase {
       case tree => (Nil, tree)
     }
 
-    val asyncBlockBuilder = new builder.AsyncBlockBuilder(stats, expr, 0, 1000, 1000, Map())
+    val asyncBlockBuilder = new builder.AsyncBlockBuilder(stats, expr, 0, 1000, 1000, renameMap)
 
     asyncBlockBuilder.asyncStates foreach (s => AsyncUtils.vprintln(s))
 
@@ -101,10 +105,6 @@ abstract class AsyncBase {
 
     val initStates = asyncBlockBuilder.asyncStates.init
     val localVarTrees = asyncBlockBuilder.asyncStates.flatMap(_.allVarDefs).toList
-    val renameMap = traverser.liftable.map {
-      vd =>
-        (vd.symbol, c.fresh(vd.name))
-    }.toMap
 
     /*
       lazy val onCompleteHandler = (tr: Try[Any]) => state match {
