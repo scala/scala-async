@@ -169,9 +169,9 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C, val
     }
 
     //TODO do not ignore `mods`
-    def addVarDef(mods: Any, name: TermName, tpt: c.Tree, rhs: c.Tree, extNameMap: Map[c.Symbol, c.Name]): this.type = {
+    def addVarDef(mods: Any, name: TermName, tpt: c.Tree, rhs: c.Tree, extNameMap: Map[String, c.Name]): this.type = {
       varDefs += (name -> tpt.tpe)
-      nameMap ++= extNameMap.map { case (k, v) => (k.toString, v) } // update name map
+      nameMap ++= extNameMap // update name map
       this += Assign(Ident(name), rhs)
       this
     }
@@ -197,7 +197,7 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C, val
      * @param awaitResultType  the type of the result of await
      */
     def complete(awaitArg: c.Tree, awaitResultName: TermName, awaitResultType: Tree,
-                 extNameMap: Map[c.Symbol, c.Name], nextState: Int = state + 1): this.type = {
+                 extNameMap: Map[String, c.Name], nextState: Int = state + 1): this.type = {
       nameMap ++= extNameMap.map { case (k, v) => (k.toString, v) }
       val renamed = renamer.transform(awaitArg)
       awaitable = resetDuplicate(renamed)
@@ -264,7 +264,7 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C, val
    * @param toRename    a `Map` for renaming the given key symbols to the mangled value names
    */
   class AsyncBlockBuilder(stats: List[c.Tree], expr: c.Tree, startState: Int, endState: Int,
-                          budget: Int, private var toRename: Map[c.Symbol, c.Name]) {
+                          budget: Int, private var toRename: Map[String, c.Name]) {
     val asyncStates = ListBuffer[builder.AsyncState]()
 
     private var stateBuilder = new builder.AsyncStateBuilder(startState, toRename.map { case (k, v) => (k.toString, v) })
@@ -279,7 +279,7 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C, val
       case _ => false
     }) c.abort(tree.pos, "await unsupported in this position") //throw new FallbackToCpsException
 
-    def builderForBranch(tree: c.Tree, state: Int, nextState: Int, budget: Int, nameMap: Map[c.Symbol, c.Name]): AsyncBlockBuilder = {
+    def builderForBranch(tree: c.Tree, state: Int, nextState: Int, budget: Int, nameMap: Map[String, c.Name]): AsyncBlockBuilder = {
       val (branchStats, branchExpr) = tree match {
         case Block(s, e) => (s, e)
         case _ => (List(tree), c.literalUnit.tree)
@@ -292,7 +292,7 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C, val
       // the val name = await(..) pattern
       case ValDef(mods, name, tpt, Apply(fun, args)) if fun.symbol == Async_await =>
         val newName = builder.name.fresh(name)
-        toRename += (stat.symbol -> newName)
+        toRename += (stat.symbol.toString -> newName)
 
         asyncStates += stateBuilder.complete(args.head, newName, tpt, toRename).result // complete with await
         if (remainingBudget > 0)
@@ -300,13 +300,13 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C, val
         else
           assert(false, "too many invocations of `await` in current method")
         currState += 1
-        stateBuilder = new builder.AsyncStateBuilder(currState, toRename.map { case (k, v) => (k.toString, v) })
+        stateBuilder = new builder.AsyncStateBuilder(currState, toRename)
 
       case ValDef(mods, name, tpt, rhs) =>
         checkForUnsupportedAwait(rhs)
 
         val newName = builder.name.fresh(name)
-        toRename += (stat.symbol -> newName)
+        toRename += (stat.symbol.toString -> newName)
         // when adding assignment need to take `toRename` into account
         stateBuilder.addVarDef(mods, newName, tpt, rhs, toRename)
 
