@@ -267,7 +267,7 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C, val
                           budget: Int, private var toRename: Map[String, c.Name]) {
     val asyncStates = ListBuffer[builder.AsyncState]()
 
-    private var stateBuilder = new builder.AsyncStateBuilder(startState, toRename.map { case (k, v) => (k.toString, v) })
+    private var stateBuilder = new builder.AsyncStateBuilder(startState, toRename)
     // current state builder
     private var currState = startState
 
@@ -333,7 +333,7 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C, val
 
         // create new state builder for state `currState + ifBudget`
         currState = currState + ifBudget
-        stateBuilder = new builder.AsyncStateBuilder(currState, toRename.map { case (k, v) => (k.toString, v) })
+        stateBuilder = new builder.AsyncStateBuilder(currState, toRename)
 
       case Match(scrutinee, cases) =>
         checkForUnsupportedAwait(scrutinee)
@@ -359,7 +359,7 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C, val
 
         // create new state builder for state `currState + matchBudget`
         currState = currState + matchBudget
-        stateBuilder = new builder.AsyncStateBuilder(currState, toRename.map { case (k, v) => (k.toString, v) })
+        stateBuilder = new builder.AsyncStateBuilder(currState, toRename)
 
       case ClassDef(_, name, _, _) =>
         // do not allow local class definitions, because of SI-5467 (specific to case classes, though)
