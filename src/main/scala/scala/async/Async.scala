@@ -71,6 +71,8 @@ abstract class AsyncBase {
     import builder.name
     import builder.futureSystemOps
 
+    builder.reportUnsupportedAwaits(body.tree)
+
     // Transform to A-normal form:
     //  - no await calls in qualifiers or arguments,
     //  - if/match only used in statement position.
@@ -84,9 +86,7 @@ abstract class AsyncBase {
     // states of our generated state machine, e.g. a value assigned before
     // an `await` and read afterwards.
     val renameMap: Map[Symbol, TermName] = {
-      val analyzer = new builder.AsyncAnalyzer
-      analyzer.traverse(anfTree)
-      analyzer.valDefsToLift.map {
+      builder.valDefsUsedInSubsequentStates(anfTree).map {
         vd =>
           (vd.symbol, builder.name.fresh(vd.name))
       }.toMap

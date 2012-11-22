@@ -17,7 +17,6 @@ class NakedAwait {
     }
   }
 
-
   @Test
   def `await not allowed in by-name argument`() {
     expectError("await must not be used under a by-name argument.") {
@@ -81,7 +80,7 @@ class NakedAwait {
 
   @Test
   def nestedFunction() {
-    expectError("await must not be used under a nested anonymous function.") {
+    expectError("await must not be used under a nested function.") {
       """
         | import _root_.scala.async.AsyncId._
         | async { () => { await(false) } }
