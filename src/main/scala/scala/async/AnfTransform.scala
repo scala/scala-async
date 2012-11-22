@@ -90,7 +90,7 @@ class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
           val simpleArgs = argLists map (_.last)
           funStats ++ allArgStats :+ Apply(simpleFun, simpleArgs).setSymbol(tree.symbol)
 
-        case Block(stats, expr) =>
+        case Block(stats, expr) => // TODO figure out why adding a guard `if containsAwait` breaks LocalClasses0Spec.
           inline.transformToList(stats) ++ inline.transformToList(expr)
 
         case ValDef(mods, name, tpt, rhs) if containsAwait =>
