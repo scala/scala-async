@@ -4,18 +4,14 @@
 package scala.async
 
 import scala.language.experimental.macros
-
 import scala.reflect.macros.Context
-import scala.collection.mutable.ListBuffer
-import scala.concurrent.{Future, Promise, ExecutionContext, future}
-import ExecutionContext.Implicits.global
-import scala.util.control.NonFatal
-
 
 /*
  * @author Philipp Haller
  */
 object Async extends AsyncBase {
+  import scala.concurrent.Future
+
   lazy val futureSystem = ScalaConcurrentFutureSystem
   type FS = ScalaConcurrentFutureSystem.type
 
@@ -52,11 +48,11 @@ abstract class AsyncBase {
 
   /**
    * A call to `await` must be nested in an enclosing `async` block.
-   * 
+   *
    * A call to `await` does not block the current thread, rather it is a delimiter
    * used by the enclosing `async` macro. Code following the `await`
    * call is executed asynchronously, when the argument of `await` has been completed.
-   * 
+   *
    * @param awaitable the future from which a value is awaited.
    * @tparam T        the type of that value.
    * @return          the value.
@@ -74,19 +70,38 @@ abstract class AsyncBase {
     import builder.defn._
     import builder.name
     import builder.futureSystemOps
-    val (stats, expr) = body.tree match {
-      case Block(stats, expr) => (stats, expr)
-      case tree => (Nil, tree)
+
+    // Transform to A-normal form:
+    //  - no await calls in qualifiers or arguments,
+    //  - if/match only used in statement position.
+    val anfTree: Block = {
+      val transform = new AnfTransform[c.type](c)
+      val stats1 :+ expr1 = transform.anf.transformToList(body.tree)
+      c.typeCheck(Block(stats1, expr1)).asInstanceOf[Block]
     }
 
-    val asyncBlockBuilder = new builder.AsyncBlockBuilder(stats, expr, 0, 1000, 1000, Map())
+    // Analyze the block to find locals that will be accessed from multiple
+    // states of our generated state machine, e.g. a value assigned before
+    // an `await` and read afterwards.
+    val renameMap: Map[Symbol, TermName] = {
+      val analyzer = new builder.AsyncAnalyzer
+      analyzer.traverse(anfTree)
+      analyzer.valDefsToLift.map {
+        vd =>
+          (vd.symbol, builder.name.fresh(vd.name))
+      }.toMap
+    }
 
-    asyncBlockBuilder.asyncStates foreach (s => AsyncUtils.vprintln(s))
+    val startState = builder.stateAssigner.nextState()
+    val endState = Int.MaxValue
 
+    val asyncBlockBuilder = new builder.AsyncBlockBuilder(anfTree.stats, anfTree.expr, startState, endState, renameMap)
     val handlerCases: List[CaseDef] = asyncBlockBuilder.mkCombinedHandlerCases[T]()
 
-    val initStates = asyncBlockBuilder.asyncStates.init
-    val localVarTrees = initStates.flatMap(_.allVarDefs).toList
+    import asyncBlockBuilder.asyncStates
+    logDiagnostics(c)(anfTree, asyncStates.map(_.toString))
+    val initStates = asyncStates.init
+    val localVarTrees = asyncStates.flatMap(_.allVarDefs).toList
 
     /*
       lazy val onCompleteHandler = (tr: Try[Any]) => state match {
@@ -98,7 +113,7 @@ abstract class AsyncBase {
         ...
      */
     val onCompleteHandler = {
-      val onCompleteHandlers = initStates.flatMap(_.mkOnCompleteHandler).toList
+      val onCompleteHandlers = initStates.flatMap(_.mkOnCompleteHandler()).toList
       Function(
         List(ValDef(Modifiers(PARAM), name.tr, TypeTree(TryAnyType), EmptyTree)),
         Match(Ident(name.state), onCompleteHandlers))
@@ -144,7 +159,7 @@ abstract class AsyncBase {
       // Spawn a future to:
       futureSystemOps.future[Unit] {
         c.Expr[Unit](Block(
-          // define vars for all intermediate results
+          // define vars for all intermediate results that are accessed from multiple states
           localVarTrees :+
             // define the resume() method
             resumeFunTree :+
@@ -159,8 +174,22 @@ abstract class AsyncBase {
     // ... and return its Future from the macro.
     val result = futureSystemOps.promiseToFuture(prom)
 
-    AsyncUtils.vprintln(s"${c.macroApplication} \nexpands to:\n ${result.tree}")
+    AsyncUtils.vprintln(s"async state machine transform expands to:\n ${result.tree}")
 
     result
+  }
+
+  def logDiagnostics(c: Context)(anfTree: c.Tree, states: Seq[String]) {
+    def location = try {
+      c.macroApplication.pos.source.path
+    } catch {
+      case _: UnsupportedOperationException =>
+        c.macroApplication.pos.toString
+    }
+
+    AsyncUtils.vprintln(s"In file '$location':")
+    AsyncUtils.vprintln(s"${c.macroApplication}")
+    AsyncUtils.vprintln(s"ANF transform expands to:\n $anfTree")
+    states foreach (s => AsyncUtils.vprintln(s))
   }
 }
