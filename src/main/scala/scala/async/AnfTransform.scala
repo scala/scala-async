@@ -6,38 +6,28 @@ import scala.reflect.macros.Context
 class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
 
   import c.universe._
-  import AsyncUtils._
 
   object inline {
     def transformToList(tree: Tree): List[Tree] = {
       val stats :+ expr = anf.transformToList(tree)
       expr match {
-
         case Apply(fun, args) if isAwait(fun) =>
-          val liftedName = c.fresh("await$")
-          stats :+ ValDef(NoMods, liftedName, TypeTree(), expr) :+ Ident(liftedName)
+          val valDef = defineVal("await", expr)
+          stats :+ valDef :+ Ident(valDef.name)
 
         case If(cond, thenp, elsep) =>
           // if type of if-else is Unit don't introduce assignment,
           // but add Unit value to bring it into form expected by async transform
           if (expr.tpe =:= definitions.UnitTpe) {
             stats :+ expr :+ Literal(Constant(()))
-          }
-          else {
-            val liftedName = c.fresh("ifres$")
-            val varDef =
-              ValDef(Modifiers(Flag.MUTABLE), liftedName, TypeTree(expr.tpe), defaultValue(expr.tpe))
-            val thenWithAssign = thenp match {
-              case Block(thenStats, thenExpr) => Block(thenStats, Assign(Ident(liftedName), thenExpr))
-              case _                          => Assign(Ident(liftedName), thenp)
+          } else {
+            val varDef = defineVar("ifres", expr.tpe)
+            def branchWithAssign(orig: Tree) = orig match {
+              case Block(thenStats, thenExpr) => Block(thenStats, Assign(Ident(varDef.name), thenExpr))
+              case _ => Assign(Ident(varDef.name), orig)
             }
-            val elseWithAssign = elsep match {
-              case Block(elseStats, elseExpr) => Block(elseStats, Assign(Ident(liftedName), elseExpr))
-              case _                          => Assign(Ident(liftedName), elsep)
-            }
-            val ifWithAssign =
-              If(cond, thenWithAssign, elseWithAssign)
-            stats :+ varDef :+ ifWithAssign :+ Ident(liftedName)
+            val ifWithAssign = If(cond, branchWithAssign(thenp), branchWithAssign(elsep))
+            stats :+ varDef :+ ifWithAssign :+ Ident(varDef.name)
           }
 
         case Match(scrut, cases) =>
@@ -47,29 +37,35 @@ class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
             stats :+ expr :+ Literal(Constant(()))
           }
           else {
-            val liftedName = c.fresh("matchres$")
-            val varDef =
-              ValDef(Modifiers(Flag.MUTABLE), liftedName, TypeTree(expr.tpe), defaultValue(expr.tpe))
+            val varDef = defineVar("matchres", expr.tpe)
             val casesWithAssign = cases map {
-              case CaseDef(pat, guard, Block(caseStats, caseExpr)) => CaseDef(pat, guard, Block(caseStats, Assign(Ident(liftedName), caseExpr)))
-              case CaseDef(pat, guard, tree)                       => CaseDef(pat, guard, Assign(Ident(liftedName), tree))
+              case CaseDef(pat, guard, Block(caseStats, caseExpr)) => CaseDef(pat, guard, Block(caseStats, Assign(Ident(varDef.name), caseExpr)))
+              case CaseDef(pat, guard, body) => CaseDef(pat, guard, Assign(Ident(varDef.name), body))
             }
             val matchWithAssign = Match(scrut, casesWithAssign)
-            stats :+ varDef :+ matchWithAssign :+ Ident(liftedName)
+            stats :+ varDef :+ matchWithAssign :+ Ident(varDef.name)
           }
-        case _                   =>
+        case _ =>
           stats :+ expr
       }
     }
 
     def transformToList(trees: List[Tree]): List[Tree] = trees match {
       case fst :: rest => transformToList(fst) ++ transformToList(rest)
-      case Nil         => Nil
+      case Nil => Nil
     }
 
     def transformToBlock(tree: Tree): Block = transformToList(tree) match {
       case stats :+ expr => Block(stats, expr)
     }
+
+    def liftedName(prefix: String) = c.fresh(prefix + "$")
+
+    private def defineVar(prefix: String, tp: Type): ValDef =
+      ValDef(Modifiers(Flag.MUTABLE), liftedName(prefix), TypeTree(tp), defaultValue(tp))
+
+    private def defineVal(prefix: String, lhs: Tree): ValDef =
+      ValDef(NoMods, liftedName(prefix), TypeTree(), lhs)
   }
 
   object anf {
@@ -78,7 +74,7 @@ class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
       tree match {
         case Select(qual, sel) if containsAwait =>
           val stats :+ expr = inline.transformToList(qual)
-          stats :+ Select(expr, sel)
+          stats :+ Select(expr, sel).setSymbol(tree.symbol)
 
         case Apply(fun, args) if containsAwait =>
           // we an assume that no await call appears in a by-name argument position,
@@ -91,16 +87,16 @@ class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
           funStats ++ allArgStats :+ Apply(simpleFun, simpleArgs).setSymbol(tree.symbol)
 
         case Block(stats, expr) => // TODO figure out why adding a guard `if containsAwait` breaks LocalClasses0Spec.
-          inline.transformToList(stats) ++ inline.transformToList(expr)
+          inline.transformToList(stats :+ expr)
 
         case ValDef(mods, name, tpt, rhs) if containsAwait =>
           if (rhs exists isAwait) {
             val stats :+ expr = inline.transformToList(rhs)
             stats :+ ValDef(mods, name, tpt, expr).setSymbol(tree.symbol)
           } else List(tree)
-        case Assign(name, rhs) if containsAwait            =>
+        case Assign(lhs, rhs) if containsAwait =>
           val stats :+ expr = inline.transformToList(rhs)
-          stats :+ Assign(name, expr)
+          stats :+ Assign(lhs, expr)
 
         case If(cond, thenp, elsep) if containsAwait =>
           val stats :+ expr = inline.transformToList(cond)
