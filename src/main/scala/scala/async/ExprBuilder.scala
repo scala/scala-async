@@ -5,8 +5,6 @@ package scala.async
 
 import scala.reflect.macros.Context
 import scala.collection.mutable.ListBuffer
-import scala.concurrent.Future
-import AsyncUtils.vprintln
 
 /*
  * @author Philipp Haller
@@ -16,7 +14,6 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C, val
   builder =>
 
   import c.universe._
-  import Flag._
   import defn._
 
   private[async] object name {
@@ -38,8 +35,6 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C, val
   }
 
   private[async] lazy val futureSystemOps = futureSystem.mkOps(c)
-
-  private val execContext = futureSystemOps.execContext
 
   private def resetDuplicate(tree: Tree) = c.resetAllAttrs(tree.duplicate)
 
@@ -80,7 +75,7 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C, val
               Ident(aw.resultName),
               TypeApply(Select(Select(Ident(name.tr), Try_get), newTermName("asInstanceOf")), List(TypeTree(aw.resultType)))
             )
-          val updateState = mkStateTree(nextState) // or increment?
+          val updateState = mkStateTree(nextState)
           Some(mkHandlerCase(state, List(tryGetTree, updateState, mkResumeApply)))
         case _ =>
           None
@@ -150,7 +145,7 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C, val
     /* Result type of an await call. */
     var resultType: Type = null
 
-    var nextState: Int = state + 1
+    var nextState: Int = -1
 
     private val varDefs = ListBuffer[(TermName, Type)]()
 
@@ -196,7 +191,7 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C, val
      * @param awaitResultType  the type of the result of await
      */
     def complete(awaitArg: c.Tree, awaitResultName: TermName, awaitResultType: Tree,
-                 nextState: Int = state + 1): this.type = {
+                 nextState: Int): this.type = {
       val renamed = renamer.transform(awaitArg)
       awaitable = resetDuplicate(renamed)
       resultName = awaitResultName
@@ -229,14 +224,13 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C, val
      *
      * @param scrutTree       tree of the scrutinee
      * @param cases           list of case definitions
-     * @param stateFirstCase  state of the right-hand side of the first case
-     * @param perCaseBudget   maximum number of states per case
+     * @param caseStates      starting state of the right-hand side of the each case
      * @return                an `AsyncState` representing the match expression
      */
-    def resultWithMatch(scrutTree: c.Tree, cases: List[CaseDef], stateFirstCase: Int, perCasebudget: Int): AsyncState = {
+    def resultWithMatch(scrutTree: c.Tree, cases: List[CaseDef], caseStates: List[Int]): AsyncState = {
       // 1. build list of changed cases
       val newCases = for ((cas, num) <- cases.zipWithIndex) yield cas match {
-        case CaseDef(pat, guard, rhs) => CaseDef(pat, guard, Block(mkStateTree(num * perCasebudget + stateFirstCase), mkResumeApply))
+        case CaseDef(pat, guard, rhs) => CaseDef(pat, guard, Block(mkStateTree(caseStates(num)), mkResumeApply))
       }
       // 2. insert changed match tree at the end of the current state
       this += Match(resetDuplicate(scrutTree), newCases)
@@ -251,6 +245,8 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C, val
     }
   }
 
+  val stateAssigner = new StateAssigner
+
   /**
    * An `AsyncBlockBuilder` builds a `ListBuffer[AsyncState]` based on the expressions of a `Block(stats, expr)` (see `Async.asyncImpl`).
    *
@@ -258,18 +254,15 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C, val
    * @param expr        the last expression of the block
    * @param startState  the start state
    * @param endState    the state to continue with
-   * @param budget      the maximum number of states in this block
    * @param toRename    a `Map` for renaming the given key symbols to the mangled value names
    */
   class AsyncBlockBuilder(stats: List[c.Tree], expr: c.Tree, startState: Int, endState: Int,
-                          budget: Int, private val toRename: Map[Symbol, c.Name]) {
+                          private val toRename: Map[Symbol, c.Name]) {
     val asyncStates = ListBuffer[builder.AsyncState]()
 
     private var stateBuilder = new builder.AsyncStateBuilder(startState, toRename)
     // current state builder
     private var currState = startState
-
-    private var remainingBudget = budget
 
     /* TODO Fall back to CPS plug-in if tree contains an `await` call. */
     def checkForUnsupportedAwait(tree: c.Tree) = if (tree exists {
@@ -277,24 +270,21 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C, val
       case _ => false
     }) c.abort(tree.pos, "await unsupported in this position") //throw new FallbackToCpsException
 
-    def builderForBranch(tree: c.Tree, state: Int, nextState: Int, budget: Int): AsyncBlockBuilder = {
+    def builderForBranch(tree: c.Tree, state: Int, nextState: Int): AsyncBlockBuilder = {
       val (branchStats, branchExpr) = tree match {
         case Block(s, e) => (s, e)
         case _ => (List(tree), c.literalUnit.tree)
       }
-      new AsyncBlockBuilder(branchStats, branchExpr, state, nextState, budget, toRename)
+      new AsyncBlockBuilder(branchStats, branchExpr, state, nextState, toRename)
     }
 
     // populate asyncStates
     for (stat <- stats) stat match {
       // the val name = await(..) pattern
       case ValDef(mods, name, tpt, Apply(fun, args)) if fun.symbol == Async_await =>
-        asyncStates += stateBuilder.complete(args.head, toRename(stat.symbol).toTermName, tpt).result // complete with await
-        if (remainingBudget > 0)
-          remainingBudget -= 1
-        else
-          assert(false, "too many invocations of `await` in current method")
-        currState += 1
+        val afterAwaitState = stateAssigner.nextState()
+        asyncStates += stateBuilder.complete(args.head, toRename(stat.symbol).toTermName, tpt, afterAwaitState).result // complete with await
+        currState = afterAwaitState
         stateBuilder = new builder.AsyncStateBuilder(currState, toRename)
 
       case ValDef(mods, name, tpt, rhs) if toRename contains stat.symbol =>
@@ -306,50 +296,42 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C, val
       case If(cond, thenp, elsep) if stat exists isAwait =>
         checkForUnsupportedAwait(cond)
 
-        val ifBudget: Int = remainingBudget / 2
-        remainingBudget -= ifBudget //TODO test if budget > 0
-        // state that we continue with after if-else: currState + ifBudget
-
-        val thenBudget: Int = ifBudget / 2
-        val elseBudget = ifBudget - thenBudget
+        val thenStartState = stateAssigner.nextState()
+        val elseStartState = stateAssigner.nextState()
+        val afterIfState = stateAssigner.nextState()
 
         asyncStates +=
           // the two Int arguments are the start state of the then branch and the else branch, respectively
-          stateBuilder.resultWithIf(cond, currState + 1, currState + thenBudget)
+          stateBuilder.resultWithIf(cond, thenStartState, elseStartState)
 
-        List((thenp, currState + 1, thenBudget), (elsep, currState + thenBudget, elseBudget)) foreach {
-          case (tree, state, branchBudget) =>
-            val builder = builderForBranch(tree, state, currState + ifBudget, branchBudget)
+        List((thenp, thenStartState), (elsep, elseStartState)) foreach {
+          case (tree, state) =>
+            val builder = builderForBranch(tree, state, afterIfState)
             asyncStates ++= builder.asyncStates
         }
 
-        // create new state builder for state `currState + ifBudget`
-        currState = currState + ifBudget
+        currState = afterIfState
         stateBuilder = new builder.AsyncStateBuilder(currState, toRename)
 
       case Match(scrutinee, cases) if stat exists isAwait =>
         checkForUnsupportedAwait(scrutinee)
 
-        val matchBudget: Int = remainingBudget / 2
-        remainingBudget -= matchBudget //TODO test if budget > 0
-        // state that we continue with after match: currState + matchBudget
+        val caseStates = cases.map(_ => stateAssigner.nextState())
+        val afterMatchState = stateAssigner.nextState()
 
-        val perCaseBudget: Int = matchBudget / cases.size
         asyncStates +=
-          // the two Int arguments are the start state of the first case and the per-case state budget, respectively
-          stateBuilder.resultWithMatch(scrutinee, cases, currState + 1, perCaseBudget)
+          stateBuilder.resultWithMatch(scrutinee, cases, caseStates)
 
         for ((cas, num) <- cases.zipWithIndex) {
           val (casStats, casExpr) = cas match {
             case CaseDef(_, _, Block(s, e)) => (s, e)
             case CaseDef(_, _, rhs) => (List(rhs), c.literalUnit.tree)
           }
-          val builder = new AsyncBlockBuilder(casStats, casExpr, currState + (num * perCaseBudget) + 1, currState + matchBudget, perCaseBudget, toRename)
+          val builder = new AsyncBlockBuilder(casStats, casExpr, caseStates(num), afterMatchState, toRename)
           asyncStates ++= builder.asyncStates
         }
 
-        // create new state builder for state `currState + matchBudget`
-        currState = currState + matchBudget
+        currState = afterMatchState
         stateBuilder = new builder.AsyncStateBuilder(currState, toRename)
 
       case ClassDef(_, name, _, _) =>
@@ -366,7 +348,7 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C, val
     }
     // complete last state builder (representing the expressions after the last await)
     stateBuilder += expr
-    val lastState = stateBuilder.complete(endState).result
+    val lastState = stateBuilder.complete(endState).result()
     asyncStates += lastState
 
     def mkCombinedHandlerCases[T](): List[CaseDef] = {
@@ -428,7 +410,7 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C, val
       tree match {
         case cd: ClassDef =>
           val kind = if (cd.symbol.asClass.isTrait) "trait" else "class"
-          reportUnsupportedAwait(tree, s"nested ${kind}")
+          reportUnsupportedAwait(tree, s"nested $kind")
         case md: ModuleDef =>
           reportUnsupportedAwait(tree, "nested object")
         case _: Function =>
@@ -497,10 +479,6 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C, val
       self.splice.apply(arg.splice)
     }
 
-    def mkInt_+(self: Expr[Int])(other: Expr[Int]) = reify {
-      self.splice + other.splice
-    }
-
     def mkAny_==(self: Expr[Any])(other: Expr[Any]) = reify {
       self.splice == other.splice
     }
@@ -521,5 +499,4 @@ final class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C, val
       tpe.member(c.universe.newTermName("await"))
     }
   }
-
 }

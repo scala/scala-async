@@ -52,11 +52,11 @@ abstract class AsyncBase {
 
   /**
    * A call to `await` must be nested in an enclosing `async` block.
-   * 
+   *
    * A call to `await` does not block the current thread, rather it is a delimiter
    * used by the enclosing `async` macro. Code following the `await`
    * call is executed asynchronously, when the argument of `await` has been completed.
-   * 
+   *
    * @param awaitable the future from which a value is awaited.
    * @tparam T        the type of that value.
    * @return          the value.
@@ -88,7 +88,14 @@ abstract class AsyncBase {
         (vd.symbol, builder.name.fresh(vd.name))
     }.toMap
 
-    AsyncUtils.vprintln(s"In file '${c.macroApplication.pos.source.path}':")
+    def location = try {
+      c.macroApplication.pos.source.path
+    } catch {
+      case _: UnsupportedOperationException =>
+        c.macroApplication.pos.toString
+    }
+
+    AsyncUtils.vprintln(s"In file '$location':")
     AsyncUtils.vprintln(s"${c.macroApplication}")
     AsyncUtils.vprintln(s"ANF transform expands to:\n $btree")
 
@@ -96,8 +103,10 @@ abstract class AsyncBase {
       case Block(stats, expr) => (stats, expr)
       case tree => (Nil, tree)
     }
+    val startState = builder.stateAssigner.nextState()
+    val endState = Int.MaxValue
 
-    val asyncBlockBuilder = new builder.AsyncBlockBuilder(stats, expr, 0, 1000, 1000, renameMap)
+    val asyncBlockBuilder = new builder.AsyncBlockBuilder(stats, expr, startState, endState, renameMap)
 
     asyncBlockBuilder.asyncStates foreach (s => AsyncUtils.vprintln(s))
 
