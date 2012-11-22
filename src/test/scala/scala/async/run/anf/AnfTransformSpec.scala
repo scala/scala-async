@@ -111,4 +111,36 @@ class AnfTransformSpec {
     Await.result(fut, 2 seconds)
     State.result mustBe (14)
   }
+
+  @Test
+  def `inlining block produces duplicate definition`() {
+    import scala.async.AsyncId
+
+    AsyncId.async {
+      val f = 12
+      val x = AsyncId.await(f)
+
+      {
+        val x = 42
+        println(x)
+      }
+
+      x
+    }
+  }
+  @Test
+  def `inlining block in tail position produces duplicate definition`() {
+    import scala.async.AsyncId
+
+    AsyncId.async {
+      val f = 12
+      val x = AsyncId.await(f)
+
+      {
+        val x = 42 // TODO should we rename the symbols when we collapse them into the same scope?
+        x
+      }
+    } mustBe (42)
+
+  }
 }

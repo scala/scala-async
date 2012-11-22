@@ -71,45 +71,37 @@ abstract class AsyncBase {
     import builder.name
     import builder.futureSystemOps
 
-    val btree: Tree = {
+    // Transform to A-normal form:
+    //  - no await calls in qualifiers or arguments,
+    //  - if/match only used in statement position.
+    val anfTree: Block = {
       val transform = new AnfTransform[c.type](c)
       val stats1 :+ expr1 = transform.anf.transformToList(body.tree)
-      c.typeCheck(Block(stats1, expr1))
+      c.typeCheck(Block(stats1, expr1)).asInstanceOf[Block]
     }
 
-    val traverser = new builder.LiftableVarTraverser
-    traverser.traverse(btree)
-    val renameMap = traverser.liftable.map {
-      vd =>
-        (vd.symbol, builder.name.fresh(vd.name))
-    }.toMap
-
-    def location = try {
-      c.macroApplication.pos.source.path
-    } catch {
-      case _: UnsupportedOperationException =>
-        c.macroApplication.pos.toString
+    // Analyze the block to find locals that will be accessed from multiple
+    // states of our generated state machine, e.g. a value assigned before
+    // an `await` and read afterwards.
+    val renameMap: Map[Symbol, TermName] = {
+      val analyzer = new builder.AsyncAnalyzer
+      analyzer.traverse(anfTree)
+      analyzer.valDefsToLift.map {
+        vd =>
+          (vd.symbol, builder.name.fresh(vd.name))
+      }.toMap
     }
 
-    AsyncUtils.vprintln(s"In file '$location':")
-    AsyncUtils.vprintln(s"${c.macroApplication}")
-    AsyncUtils.vprintln(s"ANF transform expands to:\n $btree")
-
-    val (stats, expr) = btree match {
-      case Block(stats, expr) => (stats, expr)
-      case tree => (Nil, tree)
-    }
     val startState = builder.stateAssigner.nextState()
     val endState = Int.MaxValue
 
-    val asyncBlockBuilder = new builder.AsyncBlockBuilder(stats, expr, startState, endState, renameMap)
-
-    asyncBlockBuilder.asyncStates foreach (s => AsyncUtils.vprintln(s))
-
+    val asyncBlockBuilder = new builder.AsyncBlockBuilder(anfTree.stats, anfTree.expr, startState, endState, renameMap)
     val handlerCases: List[CaseDef] = asyncBlockBuilder.mkCombinedHandlerCases[T]()
 
-    val initStates = asyncBlockBuilder.asyncStates.init
-    val localVarTrees = asyncBlockBuilder.asyncStates.flatMap(_.allVarDefs).toList
+    import asyncBlockBuilder.asyncStates
+    logDiagnostics(c)(anfTree, asyncStates.map(_.toString))
+    val initStates = asyncStates.init
+    val localVarTrees = asyncStates.flatMap(_.allVarDefs).toList
 
     /*
       lazy val onCompleteHandler = (tr: Try[Any]) => state match {
@@ -185,5 +177,19 @@ abstract class AsyncBase {
     AsyncUtils.vprintln(s"async state machine transform expands to:\n ${result.tree}")
 
     result
+  }
+
+  def logDiagnostics(c: Context)(anfTree: c.Tree, states: Seq[String]) {
+    def location = try {
+      c.macroApplication.pos.source.path
+    } catch {
+      case _: UnsupportedOperationException =>
+        c.macroApplication.pos.toString
+    }
+
+    AsyncUtils.vprintln(s"In file '$location':")
+    AsyncUtils.vprintln(s"${c.macroApplication}")
+    AsyncUtils.vprintln(s"ANF transform expands to:\n $anfTree")
+    states foreach (s => AsyncUtils.vprintln(s))
   }
 }
