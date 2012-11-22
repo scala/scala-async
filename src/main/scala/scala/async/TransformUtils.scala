@@ -103,9 +103,9 @@ class TransformUtils[C <: Context](val c: C) {
     val NonFatalClass = c.mirror.staticModule("scala.util.control.NonFatal")
 
     val Async_await = {
-      val asyncMod = c.mirror.staticModule("scala.async.Async")
-      val tpe = asyncMod.moduleClass.asType.toType
-      tpe.member(c.universe.newTermName("await"))
+      val asyncMod = c.mirror.staticClass("scala.async.AsyncBase")
+      val tpe = asyncMod.asType.toType
+      tpe.member(c.universe.newTermName("await")).ensuring(_ != NoSymbol)
     }
   }
 
