@@ -4,18 +4,14 @@
 package scala.async
 
 import scala.language.experimental.macros
-
 import scala.reflect.macros.Context
-import scala.collection.mutable.ListBuffer
-import scala.concurrent.{Future, Promise, ExecutionContext, future}
-import ExecutionContext.Implicits.global
-import scala.util.control.NonFatal
-
 
 /*
  * @author Philipp Haller
  */
 object Async extends AsyncBase {
+  import scala.concurrent.Future
+
   lazy val futureSystem = ScalaConcurrentFutureSystem
   type FS = ScalaConcurrentFutureSystem.type
 
@@ -125,7 +121,7 @@ abstract class AsyncBase {
         ...
      */
     val onCompleteHandler = {
-      val onCompleteHandlers = initStates.flatMap(_.mkOnCompleteHandler).toList
+      val onCompleteHandlers = initStates.flatMap(_.mkOnCompleteHandler()).toList
       Function(
         List(ValDef(Modifiers(PARAM), name.tr, TypeTree(TryAnyType), EmptyTree)),
         Match(Ident(name.state), onCompleteHandlers))
@@ -171,7 +167,7 @@ abstract class AsyncBase {
       // Spawn a future to:
       futureSystemOps.future[Unit] {
         c.Expr[Unit](Block(
-          // define vars for all intermediate results
+          // define vars for all intermediate results that are accessed from multiple states
           localVarTrees :+
             // define the resume() method
             resumeFunTree :+
