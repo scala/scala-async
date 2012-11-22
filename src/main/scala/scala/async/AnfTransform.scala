@@ -73,63 +73,58 @@ class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
   }
 
   object anf {
-    def transformToList(tree: Tree): List[Tree] = tree match {
-      case Select(qual, sel) =>
-        val stats :+ expr = inline.transformToList(qual)
-        stats :+ Select(expr, sel)
+    def transformToList(tree: Tree): List[Tree] = {
+      def containsAwait = tree exists isAwait
+      tree match {
+        case Select(qual, sel) if containsAwait =>
+          val stats :+ expr = inline.transformToList(qual)
+          stats :+ Select(expr, sel)
 
-      case Apply(fun, args) =>
-        // we an assume that no await call appears in a by-name argument position,
-        // this has already been checked.
-        val funStats :+ simpleFun = inline.transformToList(fun)
-        val argLists = args map inline.transformToList
-        val allArgStats = argLists flatMap (_.init)
-        val simpleArgs = argLists map (_.last)
-        funStats ++ allArgStats :+ Apply(simpleFun, simpleArgs).setSymbol(tree.symbol)
+        case Apply(fun, args) if containsAwait =>
+          // we an assume that no await call appears in a by-name argument position,
+          // this has already been checked.
 
-      case Block(stats, expr) =>
-        inline.transformToList(stats) ++ inline.transformToList(expr)
+          val funStats :+ simpleFun = inline.transformToList(fun)
+          val argLists = args map inline.transformToList
+          val allArgStats = argLists flatMap (_.init)
+          val simpleArgs = argLists map (_.last)
+          funStats ++ allArgStats :+ Apply(simpleFun, simpleArgs).setSymbol(tree.symbol)
 
-      case ValDef(mods, name, tpt, rhs) =>
-        val stats :+ expr = inline.transformToList(rhs)
-        stats :+ ValDef(mods, name, tpt, expr).setSymbol(tree.symbol)
+        case Block(stats, expr) =>
+          inline.transformToList(stats) ++ inline.transformToList(expr)
 
-      case Assign(name, rhs) =>
-        val stats :+ expr = inline.transformToList(rhs)
-        stats :+ Assign(name, expr)
+        case ValDef(mods, name, tpt, rhs) if containsAwait =>
+          if (rhs exists isAwait) {
+            val stats :+ expr = inline.transformToList(rhs)
+            stats :+ ValDef(mods, name, tpt, expr).setSymbol(tree.symbol)
+          } else List(tree)
+        case Assign(name, rhs) if containsAwait            =>
+          val stats :+ expr = inline.transformToList(rhs)
+          stats :+ Assign(name, expr)
 
-      case If(cond, thenp, elsep) =>
-        val stats :+ expr = inline.transformToList(cond)
-        val thenBlock = inline.transformToBlock(thenp)
-        val elseBlock = inline.transformToBlock(elsep)
-        stats :+
-          c.typeCheck(If(expr, thenBlock, elseBlock))
+        case If(cond, thenp, elsep) if containsAwait =>
+          val stats :+ expr = inline.transformToList(cond)
+          val thenBlock = inline.transformToBlock(thenp)
+          val elseBlock = inline.transformToBlock(elsep)
+          stats :+
+            c.typeCheck(If(expr, thenBlock, elseBlock))
 
-      case Match(scrut, cases) =>
-        val scrutStats :+ scrutExpr = inline.transformToList(scrut)
-        val caseDefs = cases map {
-          case CaseDef(pat, guard, body) =>
-            val block = inline.transformToBlock(body)
-            CaseDef(pat, guard, block)
-        }
-        scrutStats :+ c.typeCheck(Match(scrutExpr, caseDefs))
+        case Match(scrut, cases) if containsAwait =>
+          val scrutStats :+ scrutExpr = inline.transformToList(scrut)
+          val caseDefs = cases map {
+            case CaseDef(pat, guard, body) =>
+              val block = inline.transformToBlock(body)
+              CaseDef(pat, guard, block)
+          }
+          scrutStats :+ c.typeCheck(Match(scrutExpr, caseDefs))
 
-      //TODO
-      case Literal(_) | Ident(_) | This(_) | New(_) | Function(_, _) => List(tree)
+        case TypeApply(fun, targs) if containsAwait =>
+          val funStats :+ simpleFun = inline.transformToList(fun)
+          funStats :+ TypeApply(simpleFun, targs).setSymbol(tree.symbol)
 
-      case TypeApply(fun, targs) =>
-        val funStats :+ simpleFun = inline.transformToList(fun)
-        funStats :+ TypeApply(simpleFun, targs)
-
-      //TODO
-      case DefDef(mods, name, tparams, vparamss, tpt, rhs) => List(tree)
-
-      case ClassDef(mods, name, tparams, impl) => List(tree)
-
-      case ModuleDef(mods, name, impl) => List(tree)
-
-      case _ =>
-        c.abort(tree.pos, s"Internal error while compiling `async` block: $tree")
+        case _ =>
+          List(tree)
+      }
     }
   }
 
