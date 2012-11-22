@@ -78,6 +78,8 @@ class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
         stats :+ Select(expr, sel)
 
       case Apply(fun, args) =>
+        // we an assume that no await call appears in a by-name argument position,
+        // this has already been checked.
         val funStats :+ simpleFun = inline.transformToList(fun)
         val argLists = args map inline.transformToList
         val allArgStats = argLists flatMap (_.init)
