@@ -37,6 +37,9 @@ class TransformUtils[C <: Context](val c: C) {
     def nestedModule(module: ModuleDef) {
     }
 
+    def nestedMethod(module: DefDef) {
+    }
+
     def byNameArgument(arg: Tree) {
     }
 
@@ -47,6 +50,7 @@ class TransformUtils[C <: Context](val c: C) {
       tree match {
         case cd: ClassDef     => nestedClass(cd)
         case md: ModuleDef    => nestedModule(md)
+        case dd: DefDef       => nestedMethod(dd)
         case fun: Function    => function(fun)
         case Apply(fun, args) =>
           val isInByName = isByName(fun)

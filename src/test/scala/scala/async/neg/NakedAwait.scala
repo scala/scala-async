@@ -117,4 +117,14 @@ class NakedAwait {
       """.stripMargin
     }
   }
+
+  @Test
+  def nestedMethod() {
+    expectError("await must not be used under a nested method.") {
+      """
+        | import _root_.scala.async.AsyncId._
+        | async { def foo = await(false) }
+      """.stripMargin
+    }
+  }
 }

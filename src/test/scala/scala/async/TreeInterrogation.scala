@@ -35,8 +35,7 @@ class TreeInterrogation {
     varDefs.map(_.decoded).toSet mustBe(Set("state$async", "onCompleteHandler$async", "await$1", "await$2"))
   }
 
-
-  //@Test
+  @Test
   def sandbox() {
     sys.props("scala.async.debug") = "true"
     val cm = reflect.runtime.currentMirror

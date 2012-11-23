@@ -45,6 +45,10 @@ private[async] final case class AsyncAnalysis[C <: Context](override val c: C) e
       }
     }
 
+    override def nestedMethod(module: DefDef) {
+      reportUnsupportedAwait(module, "nested method")
+    }
+
     override def byNameArgument(arg: Tree) {
       reportUnsupportedAwait(arg, "by-name argument")
     }
