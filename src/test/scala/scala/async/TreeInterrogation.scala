@@ -36,8 +36,9 @@ class TreeInterrogation {
   }
 
 
-  @Test
+  //@Test
   def sandbox() {
+    sys.props("scala.async.debug") = "true"
     val cm = reflect.runtime.currentMirror
     val tb = mkToolbox("-cp target/scala-2.10/classes")
     val tree = tb.parse(
@@ -55,9 +56,9 @@ class TreeInterrogation {
         |   println("after while")
         |   y
         | }""".stripMargin)
-    //println(tree)
+    println(tree)
     val tree1 = tb.typeCheck(tree.duplicate)
-    //println(cm.universe.show(tree1))
-    //println(tb.eval(tree))
+    println(cm.universe.show(tree1))
+    println(tb.eval(tree))
   }
 }

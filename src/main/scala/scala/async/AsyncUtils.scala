@@ -8,7 +8,7 @@ package scala.async
  */
 object AsyncUtils {
 
-  private val verbose = false
+  private val verbose = false || sys.props.getOrElse("scala.async.debug", "false").equalsIgnoreCase("true")
   
   private[async] def vprintln(s: => Any): Unit = if (verbose)
     println("[async] "+s)
