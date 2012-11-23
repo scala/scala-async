@@ -53,6 +53,16 @@ private[async] final case class AsyncAnalysis[C <: Context](override val c: C) e
       reportUnsupportedAwait(function, "nested function")
     }
 
+    override def traverse(tree: Tree) {
+      def containsAwait = tree exists isAwait
+      tree match {
+        case Try(_, _, _) if containsAwait =>
+          reportUnsupportedAwait(tree, "try/catch")
+        case _ =>
+          super.traverse(tree)
+      }
+    }
+
     /**
      * @return true, if the tree contained an unsupported await.
      */
