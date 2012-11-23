@@ -21,7 +21,7 @@ class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
       case dt: DefTree => dt.symbol.name
     }.groupBy(x => x).filter(_._2.size > 1).keySet
 
-    /** Stepping outside of the public Macro API to call [[scala.reflect.internal.Symbols# S y m b o l.n a m e _ =]] */
+    /** Stepping outside of the public Macro API to call [[scala.reflect.internal.Symbols.Symbol.name_=]] */
     val symtab = c.universe.asInstanceOf[reflect.internal.SymbolTable]
 
     val renamed = collection.mutable.Set[Symbol]()
@@ -97,9 +97,9 @@ class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
           else {
             val varDef = defineVar("matchres", expr.tpe, tree.pos)
             val casesWithAssign = cases map {
-              case cd @ CaseDef(pat, guard, Block(caseStats, caseExpr)) =>
+              case cd@CaseDef(pat, guard, Block(caseStats, caseExpr)) =>
                 attachCopy.CaseDef(cd)(pat, guard, Block(caseStats, Assign(Ident(varDef.name), caseExpr)))
-              case cd @ CaseDef(pat, guard, body)                       =>
+              case cd@CaseDef(pat, guard, body)                       =>
                 attachCopy.CaseDef(cd)(pat, guard, Assign(Ident(varDef.name), body))
             }
             val matchWithAssign = attachCopy.Match(tree)(scrut, casesWithAssign)
