@@ -3,11 +3,7 @@ package scala.async
 
 import scala.reflect.macros.Context
 
-object AnfTranform {
-  def apply[C <: Context](c: C): AnfTransform[c.type] = new AnfTransform[c.type](c)
-}
-
-class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
+private[async] final case class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
 
   import c.universe._
 
@@ -26,7 +22,7 @@ class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
     *
     * This step is needed to allow us to safely merge blocks during the `inline` transform below.
     */
-  final class UniqueNames(tree: Tree) extends Transformer {
+  private final class UniqueNames(tree: Tree) extends Transformer {
     val repeatedNames: Set[Name] = tree.collect {
       case dt: DefTree => dt.symbol.name
     }.groupBy(x => x).filter(_._2.size > 1).keySet
@@ -75,7 +71,7 @@ class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
     }
   }
 
-  final class Indent {
+  private object trace {
     private var indent = -1
     def indentString = "  " * indent
     def apply[T](prefix: String, args: Any)(t: => T): T = {
@@ -90,10 +86,9 @@ class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
       }
     }
   }
-  private val indent = new Indent
 
-  object inline {
-    def transformToList(tree: Tree): List[Tree] = indent("inline", tree) {
+  private object inline {
+    def transformToList(tree: Tree): List[Tree] = trace("inline", tree) {
       val stats :+ expr = anf.transformToList(tree)
       expr match {
         case Apply(fun, args) if isAwait(fun) =>
@@ -160,9 +155,10 @@ class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
       vd
     }
   }
-  object anf {
 
-    private[AnfTransform] def transformToList(tree: Tree): List[Tree] = indent("anf", tree) {
+  private object anf {
+
+    private[AnfTransform] def transformToList(tree: Tree): List[Tree] = trace("anf", tree) {
       def containsAwait = tree exists isAwait
       tree match {
         case Select(qual, sel) if containsAwait =>
@@ -217,5 +213,4 @@ class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
       }
     }
   }
-
 }

@@ -10,7 +10,7 @@ import collection.mutable
 /*
  * @author Philipp Haller
  */
-final class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C, val futureSystem: FS)
+final case class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C, val futureSystem: FS)
   extends TransformUtils(c) {
   builder =>
 

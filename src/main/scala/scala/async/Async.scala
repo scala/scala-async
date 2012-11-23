@@ -65,8 +65,8 @@ abstract class AsyncBase {
     import c.universe._
     import Flag._
 
-    val builder = new ExprBuilder[c.type, futureSystem.type](c, self.futureSystem)
-    val anaylzer = new AsyncAnalysis[c.type](c)
+    val builder = ExprBuilder[c.type, futureSystem.type](c, self.futureSystem)
+    val anaylzer = AsyncAnalysis[c.type](c)
 
     import builder.defn._
     import builder.name
@@ -78,7 +78,7 @@ abstract class AsyncBase {
     //  - no await calls in qualifiers or arguments,
     //  - if/match only used in statement position.
     val anfTree: Block = {
-      val anf = AnfTranform(c)
+      val anf = AnfTransform[c.type](c)
       val stats1 :+ expr1 = anf(body.tree)
       val block = Block(stats1, expr1)
       c.typeCheck(block).asInstanceOf[Block]

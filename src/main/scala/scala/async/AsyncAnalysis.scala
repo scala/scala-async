@@ -3,7 +3,7 @@ package scala.async
 import scala.reflect.macros.Context
 import collection.mutable
 
-private[async] final class AsyncAnalysis[C <: Context](override val c: C) extends TransformUtils(c) {
+private[async] final case class AsyncAnalysis[C <: Context](override val c: C) extends TransformUtils(c) {
   import c.universe._
 
   /**
