@@ -27,7 +27,6 @@ class Test1Class {
     val f1 = m1(y)
     val f2 = m1(y + 2)
     val x1 = await(f1)
-    println("between two awaits")
     val x2 = await(f2)
     x1 + x2
   }

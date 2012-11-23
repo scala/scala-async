@@ -66,10 +66,13 @@ abstract class AsyncBase {
     import Flag._
 
     val builder = new ExprBuilder[c.type, futureSystem.type](c, self.futureSystem)
+    val anaylzer = new AsyncAnalysis[c.type](c)
 
     import builder.defn._
     import builder.name
     import builder.futureSystemOps
+
+    anaylzer.reportUnsupportedAwaits(body.tree)
 
     // Transform to A-normal form:
     //  - no await calls in qualifiers or arguments,
@@ -84,9 +87,7 @@ abstract class AsyncBase {
     // states of our generated state machine, e.g. a value assigned before
     // an `await` and read afterwards.
     val renameMap: Map[Symbol, TermName] = {
-      val analyzer = new builder.AsyncAnalyzer
-      analyzer.traverse(anfTree)
-      analyzer.valDefsToLift.map {
+      anaylzer.valDefsUsedInSubsequentStates(anfTree).map {
         vd =>
           (vd.symbol, builder.name.fresh(vd.name))
       }.toMap
