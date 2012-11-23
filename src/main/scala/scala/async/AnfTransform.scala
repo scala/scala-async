@@ -77,9 +77,9 @@ private[async] final case class AnfTransform[C <: Context](override val c: C) ex
     def apply[T](prefix: String, args: Any)(t: => T): T = {
       indent += 1
       try {
-        //println(s"${indentString}$prefix($args)")
+        AsyncUtils.trace(s"${indentString}$prefix($args)")
         val result = t
-        //println(s"${indentString}= $result")
+        AsyncUtils.trace(s"${indentString}= $result")
         result
       } finally {
         indent -= 1

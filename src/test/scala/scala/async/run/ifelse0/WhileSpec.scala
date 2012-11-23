@@ -40,4 +40,24 @@ class WhileSpec {
     }
     result mustBe (0)
   }
+
+  @Test
+  def nestedWhile() {
+    import AsyncId._
+
+    val result = async {
+      var sum = 0
+      var i = 0
+      while (i < 5) {
+        var j = 0
+        while (j < 5) {
+          sum += await(i) * await(j)
+          j += 1
+        }
+        i += 1
+      }
+      sum
+    }
+    result mustBe (100)
+  }
 }

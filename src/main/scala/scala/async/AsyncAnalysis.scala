@@ -62,6 +62,10 @@ private[async] final case class AsyncAnalysis[C <: Context](override val c: C) e
       tree match {
         case Try(_, _, _) if containsAwait =>
           reportUnsupportedAwait(tree, "try/catch")
+          super.traverse(tree)
+        case If(cond, _, _) if containsAwait =>
+          reportUnsupportedAwait(cond, "condition")
+          super.traverse(tree)
         case Return(_) =>
           c.abort(tree.pos, "return is illegal within a async block")
         case _ =>
