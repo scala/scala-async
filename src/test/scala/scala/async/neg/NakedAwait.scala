@@ -127,4 +127,16 @@ class NakedAwait {
       """.stripMargin
     }
   }
+
+  @Test
+  def returnIllegal() {
+    expectError("return is illegal") {
+      """
+        | import _root_.scala.async.AsyncId._
+        | def foo(): Any = async { return false }
+        | ()
+        |
+        |""".stripMargin
+    }
+  }
 }
