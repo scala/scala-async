@@ -117,4 +117,20 @@ class NakedAwait {
       """.stripMargin
     }
   }
+
+  @Test
+  def whileBody() {
+    expectError("await must not be used in this position") {
+      """ import _root_.scala.async.AsyncId._
+        | async {
+        |    var x = 0
+        | var y = 0
+        | while (x <= 2) {
+        |   y = await(x)
+        |   x += 1
+        | }
+        | y
+        | }""".stripMargin
+    }
+  }
 }

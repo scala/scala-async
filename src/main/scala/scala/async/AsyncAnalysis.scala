@@ -102,10 +102,10 @@ private[async] final case class AsyncAnalysis[C <: Context](override val c: C) e
           if (isAwait(vd.rhs)) valDefsToLift += vd
         case as: Assign                                    =>
           if (isAwait(as.rhs)) {
-            assert(as.symbol != null, "internal error: null symbol for Assign tree:" + as)
+            assert(as.lhs.symbol != null, "internal error: null symbol for Assign tree:" + as +  " " + as.lhs.symbol)
 
             // TODO test the orElse case, try to remove the restriction.
-            val (vd, defBlockId) = valDefChunkId.getOrElse(as.symbol, c.abort(as.pos, "await may only be assigned to a var/val defined in the async block. " + as.symbol))
+            val (vd, defBlockId) = valDefChunkId.getOrElse(as.lhs.symbol, c.abort(as.pos, s"await may only be assigned to a var/val defined in the async block. ${as.lhs} ${as.lhs.symbol}"))
             valDefsToLift += vd
           }
           super.traverse(tree)

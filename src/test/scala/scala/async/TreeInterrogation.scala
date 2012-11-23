@@ -34,4 +34,25 @@ class TreeInterrogation {
     }
     varDefs.map(_.decoded).toSet mustBe(Set("state$async", "onCompleteHandler$async", "await$1", "await$2"))
   }
+
+
+  // @Test
+  def sandbox() {
+    val cm = reflect.runtime.currentMirror
+    val tb = mkToolbox("-cp target/scala-2.10/classes")
+    val tree = tb.parse(
+      """| import _root_.scala.async.AsyncId._
+        | async {
+        |    var x = 0
+        | var y = 0
+        | while (x <= 2) {
+        |   y = await(x)
+        |   x += 1
+        | }
+        | y
+        | }""".stripMargin)
+    val tree1 = tb.typeCheck(tree)
+
+    println(cm.universe.show(tree1))
+  }
 }

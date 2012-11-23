@@ -269,7 +269,7 @@ final case class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C
     def checkForUnsupportedAwait(tree: c.Tree) = if (tree exists {
       case Apply(fun, _) if isAwait(fun) => true
       case _                             => false
-    }) c.abort(tree.pos, "await unsupported in this position") //throw new FallbackToCpsException
+    }) c.abort(tree.pos, "await must not be used in this position") //throw new FallbackToCpsException
 
     def builderForBranch(tree: c.Tree, state: Int, nextState: Int): AsyncBlockBuilder = {
       val (branchStats, branchExpr) = tree match {
