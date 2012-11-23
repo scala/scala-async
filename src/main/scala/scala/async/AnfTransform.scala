@@ -3,11 +3,21 @@ package scala.async
 
 import scala.reflect.macros.Context
 
+object AnfTranform {
+  def apply[C <: Context](c: C): AnfTransform[c.type] = new AnfTransform[c.type](c)
+}
+
 class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
 
   import c.universe._
 
-  def uniqueNames(tree: Tree): Tree = {
+  def apply(tree: Tree): List[Tree] = {
+    val unique = uniqueNames(tree)
+    // Must prepend the () for issue #31.
+    anf.transformToList(Block(List(c.literalUnit.tree), unique))
+  }
+
+  private def uniqueNames(tree: Tree): Tree = {
     new UniqueNames(tree).transform(tree)
   }
 
@@ -65,8 +75,25 @@ class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
     }
   }
 
+  final class Indent {
+    private var indent = -1
+    def indentString = "  " * indent
+    def apply[T](prefix: String, args: Any)(t: => T): T = {
+      indent += 1
+      try {
+        //println(s"${indentString}$prefix($args)")
+        val result = t
+        //println(s"${indentString}= $result")
+        result
+      } finally {
+        indent -= 1
+      }
+    }
+  }
+  private val indent = new Indent
+
   object inline {
-    def transformToList(tree: Tree): List[Tree] = {
+    def transformToList(tree: Tree): List[Tree] = indent("inline", tree) {
       val stats :+ expr = anf.transformToList(tree)
       expr match {
         case Apply(fun, args) if isAwait(fun) =>
@@ -133,9 +160,9 @@ class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
       vd
     }
   }
-
   object anf {
-    def transformToList(tree: Tree): List[Tree] = {
+
+    private[AnfTransform] def transformToList(tree: Tree): List[Tree] = indent("anf", tree) {
       def containsAwait = tree exists isAwait
       tree match {
         case Select(qual, sel) if containsAwait =>

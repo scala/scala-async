@@ -78,12 +78,9 @@ abstract class AsyncBase {
     //  - no await calls in qualifiers or arguments,
     //  - if/match only used in statement position.
     val anfTree: Block = {
-      val transform = new AnfTransform[c.type](c)
-      val unique = transform.uniqueNames(body.tree)
-      val stats1 :+ expr1 = transform.anf.transformToList(unique)
-
+      val anf = AnfTranform(c)
+      val stats1 :+ expr1 = anf(body.tree)
       val block = Block(stats1, expr1)
-
       c.typeCheck(block).asInstanceOf[Block]
     }
 

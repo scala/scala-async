@@ -11,7 +11,7 @@ class TreeInterrogation {
   def `a minimal set of vals are lifted to vars`() {
     val cm = reflect.runtime.currentMirror
     val tb = mkToolbox("-cp target/scala-2.10/classes")
-    val tree = mkToolbox().parse(
+    val tree = tb.parse(
       """| import _root_.scala.async.AsyncId._
         | async {
         |   val x = await(1)
