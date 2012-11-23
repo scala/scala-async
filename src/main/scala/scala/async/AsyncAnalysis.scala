@@ -32,11 +32,17 @@ private[async] final class AsyncAnalysis[C <: Context](override val c: C) extend
   private class UnsupportedAwaitAnalyzer extends super.AsyncTraverser {
     override def nestedClass(classDef: ClassDef) {
       val kind = if (classDef.symbol.asClass.isTrait) "trait" else "class"
-      reportUnsupportedAwait(classDef, s"nested $kind")
+      if (!reportUnsupportedAwait(classDef, s"nested $kind")) {
+        // do not allow local class definitions, because of SI-5467 (specific to case classes, though)
+        c.error(classDef.pos, s"Local class ${classDef.name.decoded} illegal within `async` block")
+      }
     }
 
     override def nestedModule(module: ModuleDef) {
-      reportUnsupportedAwait(module, "nested object")
+      if (!reportUnsupportedAwait(module, "nested object")) {
+        // local object definitions lead to spurious type errors (because of resetAllAttrs?)
+        c.error(module.pos, s"Local object ${module.name.decoded} illegal within `async` block")
+      }
     }
 
     override def byNameArgument(arg: Tree) {
@@ -47,14 +53,18 @@ private[async] final class AsyncAnalysis[C <: Context](override val c: C) extend
       reportUnsupportedAwait(function, "nested function")
     }
 
-    private def reportUnsupportedAwait(tree: Tree, whyUnsupported: String) {
-      val badAwaits = tree collect {
+    /**
+     * @return true, if the tree contained an unsupported await.
+     */
+    private def reportUnsupportedAwait(tree: Tree, whyUnsupported: String): Boolean = {
+      val badAwaits: List[RefTree] = tree collect {
         case rt: RefTree if isAwait(rt) => rt
       }
       badAwaits foreach {
         tree =>
           c.error(tree.pos, s"await must not be used under a $whyUnsupported.")
       }
+      badAwaits.nonEmpty
    }
   }
 
@@ -82,12 +92,11 @@ private[async] final class AsyncAnalysis[C <: Context](override val c: C) extend
           if (isAwait(vd.rhs)) valDefsToLift += vd
         case as: Assign                                    =>
           if (isAwait(as.rhs)) {
+            assert(as.symbol != null, "internal error: null symbol for Assign tree:" + as)
+
             // TODO test the orElse case, try to remove the restriction.
-            if (as.symbol != null) {
-              // synthetic added by the ANF transfor
-              val (vd, defBlockId) = valDefChunkId.getOrElse(as.symbol, c.abort(as.pos, "await may only be assigned to a var/val defined in the async block. " + as.symbol))
-              valDefsToLift += vd
-            }
+            val (vd, defBlockId) = valDefChunkId.getOrElse(as.symbol, c.abort(as.pos, "await may only be assigned to a var/val defined in the async block. " + as.symbol))
+            valDefsToLift += vd
           }
           super.traverse(tree)
         case rt: RefTree                                   =>
