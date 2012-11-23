@@ -36,23 +36,28 @@ class TreeInterrogation {
   }
 
 
-  // @Test
+  @Test
   def sandbox() {
     val cm = reflect.runtime.currentMirror
     val tb = mkToolbox("-cp target/scala-2.10/classes")
     val tree = tb.parse(
-      """| import _root_.scala.async.AsyncId._
+      """ import _root_.scala.async.AsyncId._
         | async {
-        |    var x = 0
-        | var y = 0
-        | while (x <= 2) {
-        |   y = await(x)
-        |   x += 1
-        | }
-        | y
+        |   var xxx: Int = 0
+        |   var y = 0
+        |   println("before while")
+        |   while (xxx < 3) {
+        |     println("in while before await")
+        |     y = await(xxx)
+        |     println("in while after await")
+        |     xxx = xxx + 1
+        |   }
+        |   println("after while")
+        |   y
         | }""".stripMargin)
-    val tree1 = tb.typeCheck(tree)
-
-    println(cm.universe.show(tree1))
+    //println(tree)
+    val tree1 = tb.typeCheck(tree.duplicate)
+    //println(cm.universe.show(tree1))
+    //println(tb.eval(tree))
   }
 }

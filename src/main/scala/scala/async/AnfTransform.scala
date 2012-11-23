@@ -204,6 +204,9 @@ private[async] final case class AnfTransform[C <: Context](override val c: C) ex
           }
           scrutStats :+ c.typeCheck(attachCopy.Match(tree)(scrutExpr, caseDefs))
 
+        case LabelDef(name, params, rhs) if containsAwait =>
+          List(LabelDef(name, params, Block(inline.transformToList(rhs), Literal(Constant(())))))
+
         case TypeApply(fun, targs) if containsAwait =>
           val funStats :+ simpleFun = inline.transformToList(fun)
           funStats :+ attachCopy.TypeApply(tree)(simpleFun, targs).setSymbol(tree.symbol)

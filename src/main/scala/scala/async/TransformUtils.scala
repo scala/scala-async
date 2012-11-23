@@ -78,6 +78,11 @@ class TransformUtils[C <: Context](val c: C) {
     }
   }
 
+  protected def statsAndExpr(tree: Tree): (List[Tree], Tree) = tree match {
+    case Block(stats, expr) => (stats, expr)
+    case _                  => (List(tree), Literal(Constant(())))
+  }
+
   private[async] object defn {
     def mkList_apply[A](args: List[Expr[A]]): Expr[List[A]] = {
       c.Expr(Apply(Ident(definitions.List_apply), args.map(_.tree)))
@@ -157,4 +162,5 @@ class TransformUtils[C <: Context](val c: C) {
     def ValDef(tree: Tree)(mods: Modifiers, name: TermName, tpt: Tree, rhs: Tree): ValDef =
       copyAttach(tree, c.universe.ValDef(mods, name, tpt, rhs))
   }
+
 }

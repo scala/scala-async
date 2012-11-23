@@ -93,6 +93,8 @@ private[async] final case class AsyncAnalysis[C <: Context](override val c: C) e
           traverseChunks(List(cond, thenp, elsep))
         case Match(selector, cases) if tree exists isAwait =>
           traverseChunks(selector :: cases)
+        case LabelDef(name, params, rhs) if rhs exists isAwait =>
+          traverseChunks(rhs :: Nil)
         case Apply(fun, args) if isAwait(fun)              =>
           super.traverse(tree)
           nextChunk()
