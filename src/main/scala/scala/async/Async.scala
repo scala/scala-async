@@ -79,8 +79,12 @@ abstract class AsyncBase {
     //  - if/match only used in statement position.
     val anfTree: Block = {
       val transform = new AnfTransform[c.type](c)
-      val stats1 :+ expr1 = transform.anf.transformToList(body.tree)
-      c.typeCheck(Block(stats1, expr1)).asInstanceOf[Block]
+      val unique = transform.uniqueNames(body.tree)
+      val stats1 :+ expr1 = transform.anf.transformToList(unique)
+
+      val block = Block(stats1, expr1)
+
+      c.typeCheck(block).asInstanceOf[Block]
     }
 
     // Analyze the block to find locals that will be accessed from multiple

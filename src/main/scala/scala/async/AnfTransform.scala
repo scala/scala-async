@@ -7,6 +7,64 @@ class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
 
   import c.universe._
 
+  def uniqueNames(tree: Tree): Tree = {
+    new UniqueNames(tree).transform(tree)
+  }
+
+  /** Assigns unique names to all definitions in a tree, and adjusts references to use the new name.
+    * Only modifies names that appear more than once in the tree.
+    *
+    * This step is needed to allow us to safely merge blocks during the `inline` transform below.
+    */
+  final class UniqueNames(tree: Tree) extends Transformer {
+    val repeatedNames: Set[Name] = tree.collect {
+      case dt: DefTree => dt.symbol.name
+    }.groupBy(x => x).filter(_._2.size > 1).keySet
+
+    /** Stepping outside of the public Macro API to call [[scala.reflect.internal.Symbols# S y m b o l.n a m e _ =]] */
+    val symtab = c.universe.asInstanceOf[reflect.internal.SymbolTable]
+
+    val renamed = collection.mutable.Set[Symbol]()
+
+    override def transform(tree: Tree): Tree = {
+      tree match {
+        case defTree: DefTree if repeatedNames(defTree.symbol.name) =>
+          val trans = super.transform(defTree)
+          val origName = defTree.symbol.name
+          val sym = defTree.symbol.asInstanceOf[symtab.Symbol]
+          val fresh = c.fresh("" + sym.name + "$")
+          sym.name = defTree.symbol.name match {
+            case _: TermName => symtab.newTermName(fresh)
+            case _: TypeName => symtab.newTypeName(fresh)
+          }
+          renamed += trans.symbol
+          val newName = trans.symbol.name
+          trans match {
+            case ValDef(mods, name, tpt, rhs) =>
+              treeCopy.ValDef(trans, mods, newName, tpt, rhs)
+            case DefDef(mods, name, tparams, vparamss, tpt, rhs) =>
+              treeCopy.DefDef(trans, mods, newName, tparams, vparamss, tpt, rhs)
+            case TypeDef(mods, name, tparams, rhs) =>
+              treeCopy.TypeDef(tree, mods, newName, tparams, transform(rhs))
+            // If we were to allow local classes / objects, we would need to rename here.
+            case ClassDef(mods, name, tparams, impl) =>
+              treeCopy.ClassDef(tree, mods, newName, tparams, transform(impl).asInstanceOf[Template])
+            case ModuleDef(mods, name, impl) =>
+              treeCopy.ModuleDef(tree, mods, newName, transform(impl).asInstanceOf[Template])
+            case x => super.transform(x)
+          }
+        case Ident(name) =>
+          if (renamed(tree.symbol)) treeCopy.Ident(tree, tree.symbol.name)
+          else tree
+        case Select(fun, name) =>
+          if (renamed(tree.symbol)) {
+            treeCopy.Select(tree, transform(fun), tree.symbol.name)
+          } else super.transform(tree)
+        case _ => super.transform(tree)
+      }
+    }
+  }
+
   object inline {
     def transformToList(tree: Tree): List[Tree] = {
       val stats :+ expr = anf.transformToList(tree)
@@ -86,7 +144,7 @@ class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
           val simpleArgs = argLists map (_.last)
           funStats ++ allArgStats :+ Apply(simpleFun, simpleArgs).setSymbol(tree.symbol)
 
-        case Block(stats, expr) => // TODO figure out why adding a guard `if containsAwait` breaks LocalClasses0Spec.
+        case Block(stats, expr) if containsAwait =>
           inline.transformToList(stats :+ expr)
 
         case ValDef(mods, name, tpt, rhs) if containsAwait =>
@@ -123,5 +181,4 @@ class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
       }
     }
   }
-
 }

@@ -32,6 +32,6 @@ class TreeInterrogation {
     val varDefs = tree1.collect {
       case ValDef(mods, name, _, _) if mods.hasFlag(Flag.MUTABLE) => name
     }
-    varDefs.map(_.decoded).toSet mustBe(Set("state$async", "onCompleteHandler$async", "await$1$1", "await$2$1"))
+    varDefs.map(_.decoded).toSet mustBe(Set("state$async", "onCompleteHandler$async", "await$1", "await$2"))
   }
 }
