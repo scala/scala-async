@@ -92,7 +92,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](va
    */
   final class AsyncStateBuilder(state: Int, private val nameMap: Map[Symbol, c.Name]) {
     /* Statements preceding an await call. */
-    private val stats = ListBuffer[c.Tree]()
+    private val stats                      = ListBuffer[c.Tree]()
     /** The state of the target of a LabelDef application (while loop jump) */
     private var nextJumpState: Option[Int] = None
 
@@ -173,12 +173,12 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](va
    * @param endState    the state to continue with
    * @param toRename    a `Map` for renaming the given key symbols to the mangled value names
    */
-  final class AsyncBlockBuilder(stats: List[c.Tree], expr: c.Tree, startState: Int, endState: Int,
-                                private val toRename: Map[Symbol, c.Name]) {
+  final private class AsyncBlockBuilder(stats: List[c.Tree], expr: c.Tree, startState: Int, endState: Int,
+                                        private val toRename: Map[Symbol, c.Name]) {
     val asyncStates = ListBuffer[AsyncState]()
 
-    private var stateBuilder = new AsyncStateBuilder(startState, toRename)
-    private var currState    = startState
+    var stateBuilder = new AsyncStateBuilder(startState, toRename)
+    var currState    = startState
 
     /* TODO Fall back to CPS plug-in if tree contains an `await` call. */
     def checkForUnsupportedAwait(tree: c.Tree) = if (tree exists {
@@ -186,7 +186,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](va
       case _                             => false
     }) c.abort(tree.pos, "await must not be used in this position") //throw new FallbackToCpsException
 
-    private def nestedBlockBuilder(nestedTree: Tree, startState: Int, endState: Int) = {
+    def nestedBlockBuilder(nestedTree: Tree, startState: Int, endState: Int) = {
       val (nestedStats, nestedExpr) = statsAndExpr(nestedTree)
       new AsyncBlockBuilder(nestedStats, nestedExpr, startState, endState, toRename)
     }
@@ -262,22 +262,87 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](va
     stateBuilder += expr
     val lastState = stateBuilder.resultSimple(endState)
     asyncStates += lastState
+  }
 
-    def mkCombinedHandlerCases[T]: List[CaseDef] = {
-      val caseForLastState: CaseDef = {
-        val lastState = asyncStates.last
-        val lastStateBody = c.Expr[T](lastState.body)
-        val rhs = futureSystemOps.completeProm(
-          c.Expr[futureSystem.Prom[T]](Ident(name.result)), reify(scala.util.Success(lastStateBody.splice)))
-        mkHandlerCase(lastState.state, rhs.tree)
+  trait AsyncBlock {
+    def asyncStates: List[AsyncState]
+
+    def onCompleteHandler: Tree
+
+    def resumeFunTree[T]: Tree
+  }
+
+  def build(block: Block, toRename: Map[Symbol, c.Name]): AsyncBlock = {
+    val Block(stats, expr) = block
+    val startState = stateAssigner.nextState()
+    val endState = Int.MaxValue
+
+    val blockBuilder = new AsyncBlockBuilder(stats, expr, startState, endState, toRename)
+
+    new AsyncBlock {
+      def asyncStates = blockBuilder.asyncStates.toList
+
+      def mkCombinedHandlerCases[T]: List[CaseDef] = {
+        val caseForLastState: CaseDef = {
+          val lastState = asyncStates.last
+          val lastStateBody = c.Expr[T](lastState.body)
+          val rhs = futureSystemOps.completeProm(
+            c.Expr[futureSystem.Prom[T]](Ident(name.result)), reify(scala.util.Success(lastStateBody.splice)))
+          mkHandlerCase(lastState.state, rhs.tree)
+        }
+        asyncStates.toList match {
+          case s :: Nil =>
+            List(caseForLastState)
+          case _        =>
+            val initCases = for (state <- asyncStates.toList.init) yield state.mkHandlerCaseForState
+            initCases :+ caseForLastState
+        }
       }
-      asyncStates.toList match {
-        case s :: Nil =>
-          List(caseForLastState)
-        case _        =>
-          val initCases = for (state <- asyncStates.toList.init) yield state.mkHandlerCaseForState
-          initCases :+ caseForLastState
+
+      val initStates = asyncStates.init
+
+      /**
+       * lazy val onCompleteHandler = (tr: Try[Any]) => state match {
+       * case 0 => {
+       * x11 = tr.get.asInstanceOf[Double];
+       * state = 1;
+       * resume()
+       * }
+       */
+      val onCompleteHandler: Tree = {
+        val onCompleteHandlers = initStates.flatMap(_.mkOnCompleteHandler).toList
+        Function(
+          List(ValDef(Modifiers(Flag.PARAM), name.tr, TypeTree(defn.TryAnyType), EmptyTree)),
+          Match(Ident(name.state), onCompleteHandlers))
       }
+
+      /**
+       * def resume(): Unit = {
+       * try {
+       * state match {
+       * case 0 => {
+       * f11 = exprReturningFuture
+       * f11.onComplete(onCompleteHandler)(context)
+       * }
+       * ...
+       * }
+       * } catch {
+       * case NonFatal(t) => result.failure(t)
+       * }
+       * }
+       */
+      def resumeFunTree[T]: Tree =
+        DefDef(Modifiers(), name.resume, Nil, List(Nil), Ident(definitions.UnitClass),
+          Try(
+            Match(Ident(name.state), mkCombinedHandlerCases[T]),
+            List(
+              CaseDef(
+                Apply(Ident(defn.NonFatalClass), List(Bind(name.tr, Ident(nme.WILDCARD)))),
+                EmptyTree,
+                Block(List({
+                  val t = c.Expr[Throwable](Ident(name.tr))
+                  futureSystemOps.completeProm[T](c.Expr[futureSystem.Prom[T]](Ident(name.result)), reify(scala.util.Failure(t.splice))).tree
+                }), c.literalUnit.tree))), EmptyTree))
     }
   }
 

@@ -64,7 +64,6 @@ abstract class AsyncBase {
 
   def asyncImpl[T: c.WeakTypeTag](c: Context)(body: c.Expr[T]): c.Expr[futureSystem.Fut[T]] = {
     import c.universe._
-    import Flag._
 
     val builder = ExprBuilder[c.type, futureSystem.type](c, self.futureSystem)
     val anaylzer = AsyncAnalysis[c.type](c)
@@ -94,63 +93,17 @@ abstract class AsyncBase {
       }.toMap
     }
 
-    val startState = builder.stateAssigner.nextState()
-    val endState = Int.MaxValue
-
-    val asyncBlockBuilder = new builder.AsyncBlockBuilder(anfTree.stats, anfTree.expr, startState, endState, renameMap)
-    val handlerCases: List[CaseDef] = asyncBlockBuilder.mkCombinedHandlerCases[T]
-
-    import asyncBlockBuilder.asyncStates
+    val asyncBlock: builder.AsyncBlock = builder.build(anfTree, renameMap)
+    import asyncBlock.asyncStates
     logDiagnostics(c)(anfTree, asyncStates.map(_.toString))
-    val initStates = asyncStates.init
+
     val localVarTrees = anfTree.collect {
       case vd@ValDef(_, _, tpt, _) if renameMap contains vd.symbol =>
         utils.mkVarDefTree(tpt.tpe, renameMap(vd.symbol))
     }
 
-    /*
-      lazy val onCompleteHandler = (tr: Try[Any]) => state match {
-        case 0 => {
-          x11 = tr.get.asInstanceOf[Double];
-          state = 1;
-          resume()
-        }
-        ...
-     */
-    val onCompleteHandler = {
-      val onCompleteHandlers = initStates.flatMap(_.mkOnCompleteHandler).toList
-      Function(
-        List(ValDef(Modifiers(PARAM), name.tr, TypeTree(defn.TryAnyType), EmptyTree)),
-        Match(Ident(name.state), onCompleteHandlers))
-    }
-
-    /*
-      def resume(): Unit = {
-        try {
-          state match {
-            case 0 => {
-               f11 = exprReturningFuture
-               f11.onComplete(onCompleteHandler)(context)
-             }
-            ...
-           }
-        } catch {
-          case NonFatal(t) => result.failure(t)
-        }
-      }
-     */
-    val resumeFunTree: c.Tree = DefDef(Modifiers(), name.resume, Nil, List(Nil), Ident(definitions.UnitClass),
-      Try(
-        Match(Ident(name.state), handlerCases),
-        List(
-          CaseDef(
-            Apply(Ident(defn.NonFatalClass), List(Bind(name.tr, Ident(nme.WILDCARD)))),
-            EmptyTree,
-            Block(List({
-              val t = c.Expr[Throwable](Ident(name.tr))
-              futureSystemOps.completeProm[T](c.Expr[futureSystem.Prom[T]](Ident(name.result)), reify(scala.util.Failure(t.splice))).tree
-            }), c.literalUnit.tree))), EmptyTree))
-
+    val onCompleteHandler = asyncBlock.onCompleteHandler
+    val resumeFunTree = asyncBlock.resumeFunTree[T]
 
     val prom: Expr[futureSystem.Prom[T]] = reify {
       // Create the empty promise

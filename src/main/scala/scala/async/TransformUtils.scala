@@ -24,7 +24,6 @@ private[async] final case class TransformUtils[C <: Context](val c: C) {
     val execContext = suffixedName("execContext")
 
     // TODO do we need to freshen any of these?
-    val x1                = newTermName("x$1")
     val tr                = newTermName("tr")
     val onCompleteHandler = suffixedName("onCompleteHandler")
 
