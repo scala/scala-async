@@ -55,19 +55,7 @@ final case class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C
     mkHandlerCase(num, Block(rhs: _*))
 
   private def mkHandlerCase(num: Int, rhs: c.Tree): CaseDef = {
-    val rhs1 = new Transformer {
-      override def transform(tree: Tree): Tree = tree match {
-        case Apply(Ident(name), args) =>
-          val jumpTarget = labelDefStates get name // TODO attempt to be symful
-          jumpTarget match {
-            case Some(state) => Return(Block(mkStateTree(state), mkResumeApply))
-            case None        => super.transform(tree)
-          }
-        case _                        => super.transform(tree)
-      }
-    }.transform(rhs)
-
-    CaseDef(c.literal(num).tree, EmptyTree, rhs1)
+    CaseDef(c.literal(num).tree, EmptyTree, rhs)
   }
 
   class AsyncState(stats: List[c.Tree], val state: Int, val nextState: Int) {
@@ -159,7 +147,8 @@ final case class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C
     /* Result type of an await call. */
     var resultType: Type = null
 
-    var nextState: Int = -1
+    var nextState    : Int         = -1
+    var nextJumpState: Option[Int] = None
 
     private val varDefs = ListBuffer[(TermName, Type)]()
 
@@ -173,7 +162,16 @@ final case class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C
     }
 
     def +=(stat: c.Tree): this.type = {
-      stats += resetDuplicate(renamer.transform(stat))
+      assert(nextJumpState.isEmpty, s"statement appeared after a label jump: $stat")
+      def addStat() = stats += resetDuplicate(renamer.transform(stat))
+      stat match {
+        case Apply(fun, Nil) =>
+          labelDefStates get fun.symbol match {
+            case Some(nextState) => nextJumpState = Some(nextState)
+            case None            => addStat()
+          }
+        case _               => addStat()
+      }
       this
     }
 
@@ -184,18 +182,20 @@ final case class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C
       this
     }
 
-    def result(): AsyncState =
+    def result(): AsyncState = {
+      val effectiveNestState = nextJumpState.getOrElse(nextState)
       if (awaitable == null)
-        new AsyncState(stats.toList, state, nextState) {
+        new AsyncState(stats.toList, state, effectiveNestState) {
           override val varDefs = self.varDefs.toList
         }
       else
-        new AsyncStateWithAwait(stats.toList, state, nextState) {
+        new AsyncStateWithAwait(stats.toList, state, effectiveNestState) {
           val awaitable  = self.awaitable
           val resultName = self.resultName
           val resultType = self.resultType
           override val varDefs = self.varDefs.toList
         }
+    }
 
     /* Result needs to be created as a var at the beginning of the transformed method body, so that
      * it is visible in subsequent states of the state machine.
@@ -268,7 +268,7 @@ final case class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C
 
   val stateAssigner = new StateAssigner
 
-  val labelDefStates = collection.mutable.Map[Name, Int]()
+  val labelDefStates = collection.mutable.Map[Symbol, Int]()
 
   /**
    * An `AsyncBlockBuilder` builds a `ListBuffer[AsyncState]` based on the expressions of a `Block(stats, expr)` (see `Async.asyncImpl`).
@@ -355,7 +355,7 @@ final case class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C
         val afterLabelState = stateAssigner.nextState()
         asyncStates += stateBuilder.resultWithLabel(startLabelState)
         val (stats, expr) = statsAndExpr(rhs)
-        labelDefStates(ld.symbol.name) = startLabelState
+        labelDefStates(ld.symbol) = startLabelState
         val builder = new AsyncBlockBuilder(stats, expr, startLabelState, afterLabelState, toRename)
         asyncStates ++= builder.asyncStates
 
@@ -386,4 +386,5 @@ final case class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C
       }
     }
   }
+
 }
