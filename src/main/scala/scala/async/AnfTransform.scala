@@ -38,7 +38,7 @@ private[async] final case class AnfTransform[C <: Context](override val c: C) ex
           val trans = super.transform(defTree)
           val origName = defTree.symbol.name
           val sym = defTree.symbol.asInstanceOf[symtab.Symbol]
-          val fresh = c.fresh("" + sym.name + "$")
+          val fresh = name.fresh(sym.name.toString)
           sym.name = defTree.symbol.name match {
             case _: TermName => symtab.newTermName(fresh)
             case _: TypeName => symtab.newTypeName(fresh)
@@ -92,7 +92,7 @@ private[async] final case class AnfTransform[C <: Context](override val c: C) ex
       val stats :+ expr = anf.transformToList(tree)
       expr match {
         case Apply(fun, args) if isAwait(fun) =>
-          val valDef = defineVal("await", expr, tree.pos)
+          val valDef = defineVal(name.await, expr, tree.pos)
           stats :+ valDef :+ Ident(valDef.name)
 
         case If(cond, thenp, elsep) =>
@@ -101,7 +101,7 @@ private[async] final case class AnfTransform[C <: Context](override val c: C) ex
           if (expr.tpe =:= definitions.UnitTpe) {
             stats :+ expr :+ Literal(Constant(()))
           } else {
-            val varDef = defineVar("ifres", expr.tpe, tree.pos)
+            val varDef = defineVar(name.ifRes, expr.tpe, tree.pos)
             def branchWithAssign(orig: Tree) = orig match {
               case Block(thenStats, thenExpr) => Block(thenStats, Assign(Ident(varDef.name), thenExpr))
               case _                          => Assign(Ident(varDef.name), orig)
@@ -117,7 +117,7 @@ private[async] final case class AnfTransform[C <: Context](override val c: C) ex
             stats :+ expr :+ Literal(Constant(()))
           }
           else {
-            val varDef = defineVar("matchres", expr.tpe, tree.pos)
+            val varDef = defineVar(name.matchRes, expr.tpe, tree.pos)
             val casesWithAssign = cases map {
               case cd@CaseDef(pat, guard, Block(caseStats, caseExpr)) =>
                 attachCopy.CaseDef(cd)(pat, guard, Block(caseStats, Assign(Ident(varDef.name), caseExpr)))
@@ -141,16 +141,14 @@ private[async] final case class AnfTransform[C <: Context](override val c: C) ex
       case stats :+ expr => Block(stats, expr)
     }
 
-    def liftedName(prefix: String) = c.fresh(prefix + "$")
-
     private def defineVar(prefix: String, tp: Type, pos: Position): ValDef = {
-      val vd = ValDef(Modifiers(Flag.MUTABLE), liftedName(prefix), TypeTree(tp), defaultValue(tp))
+      val vd = ValDef(Modifiers(Flag.MUTABLE), name.fresh(prefix), TypeTree(tp), defaultValue(tp))
       vd.setPos(pos)
       vd
     }
 
     private def defineVal(prefix: String, lhs: Tree, pos: Position): ValDef = {
-      val vd = ValDef(NoMods, liftedName(prefix), TypeTree(), lhs)
+      val vd = ValDef(NoMods, name.fresh(prefix), TypeTree(), lhs)
       vd.setPos(pos)
       vd
     }

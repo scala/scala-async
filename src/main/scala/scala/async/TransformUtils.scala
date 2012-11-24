@@ -9,9 +9,33 @@ import reflect.ClassTag
 /**
  * Utilities used in both `ExprBuilder` and `AnfTransform`.
  */
-class TransformUtils[C <: Context](val c: C) {
+private[async] class TransformUtils[C <: Context](val c: C) {
 
   import c.universe._
+
+  private[async] object name {
+    def suffix(string: String) = string + "$async"
+
+    def suffixedName(prefix: String) = newTermName(suffix(prefix))
+
+    val state       = suffixedName("state")
+    val result      = suffixedName("result")
+    val resume      = suffixedName("resume")
+    val execContext = suffixedName("execContext")
+
+    // TODO do we need to freshen any of these?
+    val x1                = newTermName("x$1")
+    val tr                = newTermName("tr")
+    val onCompleteHandler = suffixedName("onCompleteHandler")
+
+    val matchRes = "matchres"
+    val ifRes    = "ifres"
+    val await    = "await"
+
+    def fresh(name: TermName): TermName = newTermName(fresh(name.toString))
+
+    def fresh(name: String): String = if (name.toString.contains("$")) name else c.fresh("" + name + "$")
+  }
 
   protected def defaultValue(tpe: Type): Literal = {
     val defaultValue: Any =

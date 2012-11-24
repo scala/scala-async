@@ -10,32 +10,14 @@ import collection.mutable
 /*
  * @author Philipp Haller
  */
-final case class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C, val futureSystem: FS)
+private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C, val futureSystem: FS)
   extends TransformUtils(c) {
   builder =>
 
   import c.universe._
   import defn._
 
-  private[async] object name {
-    def suffix(string: String) = string + "$async"
-
-    def suffixedName(prefix: String) = newTermName(suffix(prefix))
-
-    val state       = suffixedName("state")
-    val result      = suffixedName("result")
-    val resume      = suffixedName("resume")
-    val execContext = suffixedName("execContext")
-
-    // TODO do we need to freshen any of these?
-    val x1                = newTermName("x$1")
-    val tr                = newTermName("tr")
-    val onCompleteHandler = suffixedName("onCompleteHandler")
-
-    def fresh(name: TermName) = if (name.toString.contains("$")) name else newTermName(c.fresh("" + name + "$"))
-  }
-
-  private[async] lazy val futureSystemOps = futureSystem.mkOps(c)
+  lazy val futureSystemOps = futureSystem.mkOps(c)
 
   private def resetDuplicate(tree: Tree) = c.resetAllAttrs(tree.duplicate)
 
