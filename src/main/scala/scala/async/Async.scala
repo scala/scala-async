@@ -68,9 +68,8 @@ abstract class AsyncBase {
 
     val builder = ExprBuilder[c.type, futureSystem.type](c, self.futureSystem)
     val anaylzer = AsyncAnalysis[c.type](c)
-
-    import builder.defn._
-    import builder.name
+    val utils = TransformUtils[c.type](c)
+    import utils.{name, defn}
     import builder.futureSystemOps
 
     anaylzer.reportUnsupportedAwaits(body.tree)
@@ -91,7 +90,7 @@ abstract class AsyncBase {
     val renameMap: Map[Symbol, TermName] = {
       anaylzer.valDefsUsedInSubsequentStates(anfTree).map {
         vd =>
-          (vd.symbol, builder.name.fresh(vd.name))
+          (vd.symbol, name.fresh(vd.name))
       }.toMap
     }
 
@@ -121,7 +120,7 @@ abstract class AsyncBase {
     val onCompleteHandler = {
       val onCompleteHandlers = initStates.flatMap(_.mkOnCompleteHandler()).toList
       Function(
-        List(ValDef(Modifiers(PARAM), name.tr, TypeTree(TryAnyType), EmptyTree)),
+        List(ValDef(Modifiers(PARAM), name.tr, TypeTree(defn.TryAnyType), EmptyTree)),
         Match(Ident(name.state), onCompleteHandlers))
     }
 
@@ -145,7 +144,7 @@ abstract class AsyncBase {
         Match(Ident(name.state), handlerCases),
         List(
           CaseDef(
-            Apply(Ident(NonFatalClass), List(Bind(name.tr, Ident(nme.WILDCARD)))),
+            Apply(Ident(defn.NonFatalClass), List(Bind(name.tr, Ident(nme.WILDCARD)))),
             EmptyTree,
             Block(List({
               val t = c.Expr[Throwable](Ident(name.tr))

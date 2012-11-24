@@ -7,8 +7,11 @@ package scala.async
 import scala.reflect.macros.Context
 import collection.mutable
 
-private[async] final case class AsyncAnalysis[C <: Context](override val c: C) extends TransformUtils(c) {
+private[async] final case class AsyncAnalysis[C <: Context](val c: C) {
   import c.universe._
+
+  val utils = TransformUtils[c.type](c)
+  import utils._
 
   /**
    * Analyze the contents of an `async` block in order to:
@@ -33,7 +36,7 @@ private[async] final case class AsyncAnalysis[C <: Context](override val c: C) e
     analyzer.valDefsToLift.toList
   }
 
-  private class UnsupportedAwaitAnalyzer extends super.AsyncTraverser {
+  private class UnsupportedAwaitAnalyzer extends AsyncTraverser {
     override def nestedClass(classDef: ClassDef) {
       val kind = if (classDef.symbol.asClass.isTrait) "trait" else "class"
       if (!reportUnsupportedAwait(classDef, s"nested $kind")) {
@@ -92,7 +95,7 @@ private[async] final case class AsyncAnalysis[C <: Context](override val c: C) e
    }
   }
 
-  private class AsyncDefinitionUseAnalyzer extends super.AsyncTraverser {
+  private class AsyncDefinitionUseAnalyzer extends AsyncTraverser {
     private var chunkId = 0
 
     private def nextChunk() = chunkId += 1

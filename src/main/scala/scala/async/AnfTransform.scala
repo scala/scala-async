@@ -7,9 +7,11 @@ package scala.async
 
 import scala.reflect.macros.Context
 
-private[async] final case class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
+private[async] final case class AnfTransform[C <: Context](val c: C) {
 
   import c.universe._
+  val utils = TransformUtils[c.type](c)
+  import utils._
 
   def apply(tree: Tree): List[Tree] = {
     val unique = uniqueNames(tree)

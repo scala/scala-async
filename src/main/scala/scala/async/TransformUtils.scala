@@ -9,11 +9,11 @@ import reflect.ClassTag
 /**
  * Utilities used in both `ExprBuilder` and `AnfTransform`.
  */
-private[async] class TransformUtils[C <: Context](val c: C) {
+private[async] final case class TransformUtils[C <: Context](val c: C) {
 
   import c.universe._
 
-  private[async] object name {
+  object name {
     def suffix(string: String) = string + "$async"
 
     def suffixedName(prefix: String) = newTermName(suffix(prefix))
@@ -37,7 +37,7 @@ private[async] class TransformUtils[C <: Context](val c: C) {
     def fresh(name: String): String = if (name.toString.contains("$")) name else c.fresh("" + name + "$")
   }
 
-  protected def defaultValue(tpe: Type): Literal = {
+  def defaultValue(tpe: Type): Literal = {
     val defaultValue: Any =
       if (tpe <:< definitions.BooleanTpe) false
       else if (definitions.ScalaNumericValueClasses.exists(tpe <:< _.toType)) 0
@@ -46,7 +46,7 @@ private[async] class TransformUtils[C <: Context](val c: C) {
     Literal(Constant(defaultValue))
   }
 
-  protected def isAwait(fun: Tree) =
+  def isAwait(fun: Tree) =
     fun.symbol == defn.Async_await
 
   /** Descends into the regions of the tree that are subject to the
@@ -96,7 +96,7 @@ private[async] class TransformUtils[C <: Context](val c: C) {
     Set(Boolean_&&, Boolean_||)
   }
 
-  protected def isByName(fun: Tree): (Int => Boolean) = {
+  def isByName(fun: Tree): (Int => Boolean) = {
     if (Boolean_ShortCircuits contains fun.symbol) i => true
     else fun.tpe match {
       case MethodType(params, _) =>
@@ -106,12 +106,12 @@ private[async] class TransformUtils[C <: Context](val c: C) {
     }
   }
 
-  protected def statsAndExpr(tree: Tree): (List[Tree], Tree) = tree match {
+  def statsAndExpr(tree: Tree): (List[Tree], Tree) = tree match {
     case Block(stats, expr) => (stats, expr)
     case _                  => (List(tree), Literal(Constant(())))
   }
 
-  private[async] object defn {
+  object defn {
     def mkList_apply[A](args: List[Expr[A]]): Expr[List[A]] = {
       c.Expr(Apply(Ident(definitions.List_apply), args.map(_.tree)))
     }

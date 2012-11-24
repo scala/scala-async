@@ -10,11 +10,13 @@ import collection.mutable
 /*
  * @author Philipp Haller
  */
-private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C, val futureSystem: FS)
-  extends TransformUtils(c) {
+private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSystem: FS) {
   builder =>
 
+  val utils = TransformUtils[c.type](c)
+
   import c.universe._
+  import utils._
   import defn._
 
   lazy val futureSystemOps = futureSystem.mkOps(c)
@@ -81,16 +83,11 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](ov
       s"AsyncStateWithIf #$state, next = $nextState"
   }
 
-  abstract class AsyncStateWithAwait(stats: List[c.Tree], state: Int, nextState: Int)
+  final class AsyncStateWithAwait(stats: List[c.Tree], state: Int, nextState: Int,
+                                  awaitable: c.Tree, val resultName: TermName, val resultType: Type)
     extends AsyncState(stats, state, nextState) {
-    val awaitable : c.Tree
-    val resultName: TermName
-    val resultType: Type
 
     protected def tryType = appliedType(TryClass.toType, List(resultType))
-
-    override val toString: String =
-      s"AsyncStateWithAwait #$state, next = $nextState"
 
     private def mkOnCompleteTree: c.Tree = {
       futureSystemOps.onComplete(c.Expr(awaitable), c.Expr(Ident(name.onCompleteHandler)), c.Expr(Ident(name.execContext))).tree
@@ -100,6 +97,9 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](ov
       assert(awaitable != null)
       mkHandlerCase(state, stats :+ mkOnCompleteTree)
     }
+
+    override val toString: String =
+      s"AsyncStateWithAwait #$state, next = $nextState"
   }
 
   /*
@@ -157,11 +157,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](ov
       if (awaitable == null)
         new AsyncState(stats.toList, state, effectiveNestState)
       else
-        new AsyncStateWithAwait(stats.toList, state, effectiveNestState) {
-          val awaitable  = self.awaitable
-          val resultName = self.resultName
-          val resultType = self.resultType
-        }
+        new AsyncStateWithAwait(stats.toList, state, effectiveNestState, awaitable, resultName, resultType)
     }
 
     /* Result needs to be created as a var at the beginning of the transformed method body, so that
