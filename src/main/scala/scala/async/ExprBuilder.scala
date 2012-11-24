@@ -65,7 +65,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](va
       s"AsyncState #$state, next = $nextState"
   }
 
-  class AsyncStateWithoutAwait(stats: List[c.Tree], state: Int)
+  final class AsyncStateWithoutAwait(stats: List[c.Tree], state: Int)
     extends AsyncState(stats, state, 0) {
     // nextState unused, since encoded in then and else branches
 
@@ -98,7 +98,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](va
   /*
    * Builder for a single state of an async method.
    */
-  class AsyncStateBuilder(state: Int, private val nameMap: Map[Symbol, c.Name]) {
+  final class AsyncStateBuilder(state: Int, private val nameMap: Map[Symbol, c.Name]) {
     self =>
 
     /* Statements preceding an await call. */
@@ -223,16 +223,18 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](va
       case _                             => false
     }) c.abort(tree.pos, "await must not be used in this position") //throw new FallbackToCpsException
 
-    def builderForBranch(tree: c.Tree, state: Int, nextState: Int): AsyncBlockBuilder = {
-      val (branchStats, branchExpr) = statsAndExpr(tree)
-      new AsyncBlockBuilder(branchStats, branchExpr, state, nextState, toRename)
+    def nestedBlockBuilder(nestedTree: Tree, startState: Int, endState: Int) = {
+      val (nestedStats, nestedExpr) = statsAndExpr(nestedTree)
+      new AsyncBlockBuilder(nestedStats, nestedExpr, startState, endState, toRename)
     }
+
+    import stateAssigner.nextState
 
     // populate asyncStates
     for (stat <- stats) stat match {
       // the val name = await(..) pattern
       case ValDef(mods, name, tpt, Apply(fun, args)) if isAwait(fun) =>
-        val afterAwaitState = stateAssigner.nextState()
+        val afterAwaitState = nextState()
         asyncStates += stateBuilder.complete(args.head, toRename(stat.symbol).toTermName, tpt, afterAwaitState).result // complete with await
         currState = afterAwaitState
         stateBuilder = new builder.AsyncStateBuilder(currState, toRename)
@@ -244,17 +246,17 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](va
       case If(cond, thenp, elsep) if stat exists isAwait =>
         checkForUnsupportedAwait(cond)
 
-        val thenStartState = stateAssigner.nextState()
-        val elseStartState = stateAssigner.nextState()
-        val afterIfState = stateAssigner.nextState()
+        val thenStartState = nextState()
+        val elseStartState = nextState()
+        val afterIfState = nextState()
 
         asyncStates +=
           // the two Int arguments are the start state of the then branch and the else branch, respectively
           stateBuilder.resultWithIf(cond, thenStartState, elseStartState)
 
         List((thenp, thenStartState), (elsep, elseStartState)) foreach {
-          case (tree, state) =>
-            val builder = builderForBranch(tree, state, afterIfState)
+          case (branchTree, state) =>
+            val builder = nestedBlockBuilder(branchTree, state, afterIfState)
             asyncStates ++= builder.asyncStates
         }
 
@@ -264,15 +266,14 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](va
       case Match(scrutinee, cases) if stat exists isAwait =>
         checkForUnsupportedAwait(scrutinee)
 
-        val caseStates = cases.map(_ => stateAssigner.nextState())
-        val afterMatchState = stateAssigner.nextState()
+        val caseStates = cases.map(_ => nextState())
+        val afterMatchState = nextState()
 
         asyncStates +=
           stateBuilder.resultWithMatch(scrutinee, cases, caseStates)
 
         for ((cas, num) <- cases.zipWithIndex) {
-          val (casStats, casExpr) = statsAndExpr(cas.body)
-          val builder = new AsyncBlockBuilder(casStats, casExpr, caseStates(num), afterMatchState, toRename)
+          val builder = nestedBlockBuilder(cas.body, caseStates(num), afterMatchState)
           asyncStates ++= builder.asyncStates
         }
 
@@ -280,12 +281,11 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](va
         stateBuilder = new AsyncStateBuilder(currState, toRename)
 
       case ld@LabelDef(name, params, rhs) if rhs exists isAwait =>
-        val startLabelState = stateAssigner.nextState()
-        val afterLabelState = stateAssigner.nextState()
+        val startLabelState = nextState()
+        val afterLabelState = nextState()
         asyncStates += stateBuilder.resultWithLabel(startLabelState)
-        val (stats, expr) = statsAndExpr(rhs)
         labelDefStates(ld.symbol) = startLabelState
-        val builder = new AsyncBlockBuilder(stats, expr, startLabelState, afterLabelState, toRename)
+        val builder = nestedBlockBuilder(rhs, startLabelState, afterLabelState)
         asyncStates ++= builder.asyncStates
 
         currState = afterLabelState
@@ -315,5 +315,4 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](va
       }
     }
   }
-
 }
