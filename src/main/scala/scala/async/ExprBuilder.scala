@@ -123,18 +123,11 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](va
     var nextState    : Int         = -1
     var nextJumpState: Option[Int] = None
 
-    private val renamer = new Transformer {
-      override def transform(tree: Tree) = tree match {
-        case Ident(_) if nameMap.keySet contains tree.symbol =>
-          Ident(nameMap(tree.symbol))
-        case _                                               =>
-          super.transform(tree)
-      }
-    }
+    def rename(tree: Tree) = substituteNames(tree, nameMap)
 
     def +=(stat: c.Tree): this.type = {
       assert(nextJumpState.isEmpty, s"statement appeared after a label jump: $stat")
-      def addStat() = stats += resetDuplicate(renamer.transform(stat))
+      def addStat() = stats += resetDuplicate(rename(stat))
       stat match {
         case Apply(fun, Nil) =>
           labelDefStates get fun.symbol match {
@@ -169,8 +162,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](va
      */
     def complete(awaitArg: c.Tree, awaitResultName: TermName, awaitResultType: Tree,
                  nextState: Int): this.type = {
-      val renamed = renamer.transform(awaitArg)
-      awaitable = resetDuplicate(renamed)
+      awaitable = resetDuplicate(rename(awaitArg))
       resultName = awaitResultName
       resultType = awaitResultType.tpe
       this.nextState = nextState
@@ -185,7 +177,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](va
     def resultWithIf(condTree: c.Tree, thenState: Int, elseState: Int): AsyncState = {
       // 1. build changed if-else tree
       // 2. insert that tree at the end of the current state
-      val cond = resetDuplicate(renamer.transform(condTree))
+      val cond = resetDuplicate(rename(condTree))
       def mkBranch(state: Int) = Block(mkStateTree(state), mkResumeApply)
       this += If(cond, mkBranch(thenState), mkBranch(elseState))
       new AsyncStateWithoutAwait(stats.toList, state)

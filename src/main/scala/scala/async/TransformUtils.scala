@@ -49,6 +49,19 @@ private[async] final case class TransformUtils[C <: Context](val c: C) {
   def isAwait(fun: Tree) =
     fun.symbol == defn.Async_await
 
+  /** Replace all `Ident` nodes referring to one of the keys n `renameMap` with a node
+    * referring to the corresponding new name
+    */
+  def substituteNames(tree: Tree, renameMap: Map[Symbol, Name]): Tree = {
+    val renamer = new Transformer {
+      override def transform(tree: Tree) = tree match {
+        case Ident(_) => (renameMap get tree.symbol).fold(tree)(Ident(_))
+        case _        => super.transform(tree)
+      }
+    }
+    renamer.transform(tree)
+  }
+
   /** Descends into the regions of the tree that are subject to the
     * translation to a state machine by `async`. When a nested template,
     * function, or by-name argument is encountered, the descend stops,
