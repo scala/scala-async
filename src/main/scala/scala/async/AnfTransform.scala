@@ -139,10 +139,7 @@ private[async] final case class AnfTransform[C <: Context](c: C) {
       }
     }
 
-    def transformToList(trees: List[Tree]): List[Tree] = trees match {
-      case fst :: rest => transformToList(fst) ++ transformToList(rest)
-      case Nil         => Nil
-    }
+    def transformToList(trees: List[Tree]): List[Tree] = trees flatMap transformToList
 
     def transformToBlock(tree: Tree): Block = transformToList(tree) match {
       case stats :+ expr => Block(stats, expr)
