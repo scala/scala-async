@@ -27,9 +27,9 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](va
   trait AsyncState {
     def state: Int
 
-    def mkHandlerCaseForState(): CaseDef
+    def mkHandlerCaseForState: CaseDef
 
-    def mkOnCompleteHandler(): Option[CaseDef] = None
+    def mkOnCompleteHandler: Option[CaseDef] = None
 
     def stats: List[Tree]
 
@@ -43,7 +43,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](va
   final class SimpleAsyncState(val stats: List[Tree], val state: Int, nextState: Int)
     extends AsyncState {
 
-    def mkHandlerCaseForState(): CaseDef =
+    def mkHandlerCaseForState: CaseDef =
       mkHandlerCase(state, stats :+ mkStateTree(nextState) :+ mkResumeApply)
 
     override val toString: String =
@@ -54,7 +54,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](va
     * a branch of an `if` or a `match`.
     */
   final class AsyncStateWithoutAwait(val stats: List[c.Tree], val state: Int) extends AsyncState {
-    override def mkHandlerCaseForState(): CaseDef =
+    override def mkHandlerCaseForState: CaseDef =
       mkHandlerCase(state, stats)
 
     override val toString: String =
@@ -68,12 +68,13 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](va
                                   awaitable: Awaitable)
     extends AsyncState {
 
-    override def mkHandlerCaseForState(): CaseDef = {
-      val callOnComplete = futureSystemOps.onComplete(c.Expr(awaitable.expr), c.Expr(Ident(name.onCompleteHandler)), c.Expr(Ident(name.execContext))).tree
+    override def mkHandlerCaseForState: CaseDef = {
+      val callOnComplete = futureSystemOps.onComplete(c.Expr(awaitable.expr),
+        c.Expr(Ident(name.onCompleteHandler)), c.Expr(Ident(name.execContext))).tree
       mkHandlerCase(state, stats :+ callOnComplete)
     }
 
-    override def mkOnCompleteHandler(): Option[CaseDef] = {
+    override def mkOnCompleteHandler: Option[CaseDef] = {
       val tryGetTree =
         Assign(
           Ident(awaitable.resultName),
@@ -90,8 +91,6 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](va
    * Builder for a single state of an async method.
    */
   final class AsyncStateBuilder(state: Int, private val nameMap: Map[Symbol, c.Name]) {
-    self =>
-
     /* Statements preceding an await call. */
     private val stats = ListBuffer[c.Tree]()
     /** The state of the target of a LabelDef application (while loop jump) */
@@ -264,18 +263,19 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](va
     val lastState = stateBuilder.resultSimple(endState)
     asyncStates += lastState
 
-    def mkCombinedHandlerCases[T](): List[CaseDef] = {
+    def mkCombinedHandlerCases[T]: List[CaseDef] = {
       val caseForLastState: CaseDef = {
         val lastState = asyncStates.last
         val lastStateBody = c.Expr[T](lastState.body)
-        val rhs = futureSystemOps.completeProm(c.Expr[futureSystem.Prom[T]](Ident(name.result)), reify(scala.util.Success(lastStateBody.splice)))
+        val rhs = futureSystemOps.completeProm(
+          c.Expr[futureSystem.Prom[T]](Ident(name.result)), reify(scala.util.Success(lastStateBody.splice)))
         mkHandlerCase(lastState.state, rhs.tree)
       }
       asyncStates.toList match {
         case s :: Nil =>
           List(caseForLastState)
         case _        =>
-          val initCases = for (state <- asyncStates.toList.init) yield state.mkHandlerCaseForState()
+          val initCases = for (state <- asyncStates.toList.init) yield state.mkHandlerCaseForState
           initCases :+ caseForLastState
       }
     }

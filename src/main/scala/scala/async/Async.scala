@@ -98,7 +98,7 @@ abstract class AsyncBase {
     val endState = Int.MaxValue
 
     val asyncBlockBuilder = new builder.AsyncBlockBuilder(anfTree.stats, anfTree.expr, startState, endState, renameMap)
-    val handlerCases: List[CaseDef] = asyncBlockBuilder.mkCombinedHandlerCases[T]()
+    val handlerCases: List[CaseDef] = asyncBlockBuilder.mkCombinedHandlerCases[T]
 
     import asyncBlockBuilder.asyncStates
     logDiagnostics(c)(anfTree, asyncStates.map(_.toString))
@@ -118,7 +118,7 @@ abstract class AsyncBase {
         ...
      */
     val onCompleteHandler = {
-      val onCompleteHandlers = initStates.flatMap(_.mkOnCompleteHandler()).toList
+      val onCompleteHandlers = initStates.flatMap(_.mkOnCompleteHandler).toList
       Function(
         List(ValDef(Modifiers(PARAM), name.tr, TypeTree(defn.TryAnyType), EmptyTree)),
         Match(Ident(name.state), onCompleteHandlers))
