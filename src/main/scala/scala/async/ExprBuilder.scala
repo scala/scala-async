@@ -21,24 +21,11 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](va
 
   lazy val futureSystemOps = futureSystem.mkOps(c)
 
-  private def resetDuplicate(tree: Tree) = c.resetAllAttrs(tree.duplicate)
-
-  private def mkResumeApply = Apply(Ident(name.resume), Nil)
-
-  private def mkStateTree(nextState: Int): c.Tree =
-    Assign(Ident(name.state), c.literal(nextState).tree)
-
-  private def mkHandlerCase(num: Int, rhs: List[c.Tree]): CaseDef =
-    mkHandlerCase(num, Block(rhs: _*))
-
-  private def mkHandlerCase(num: Int, rhs: c.Tree): CaseDef =
-    CaseDef(c.literal(num).tree, EmptyTree, rhs)
-
   val stateAssigner  = new StateAssigner
   val labelDefStates = collection.mutable.Map[Symbol, Int]()
 
   class AsyncState(stats: List[c.Tree], val state: Int, val nextState: Int) {
-    val body: c.Tree = stats match {
+    final val body: c.Tree = stats match {
       case stat :: Nil => stat
       case _           => Block(stats: _*)
     }
@@ -46,7 +33,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](va
     def mkHandlerCaseForState(): CaseDef =
       mkHandlerCase(state, stats :+ mkStateTree(nextState) :+ mkResumeApply)
 
-    def mkOnCompleteHandler(): Option[CaseDef] = {
+    final def mkOnCompleteHandler(): Option[CaseDef] = {
       this match {
         case aw: AsyncStateWithAwait =>
           val tryGetTree =
@@ -54,8 +41,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](va
               Ident(aw.resultName),
               TypeApply(Select(Select(Ident(name.tr), Try_get), newTermName("asInstanceOf")), List(TypeTree(aw.resultType)))
             )
-          val updateState = mkStateTree(nextState)
-          Some(mkHandlerCase(state, List(tryGetTree, updateState, mkResumeApply)))
+          Some(mkHandlerCase(state, List(tryGetTree, mkStateTree(nextState), mkResumeApply)))
         case _                       =>
           None
       }
@@ -80,14 +66,11 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](va
                                   awaitable: c.Tree, val resultName: TermName, val resultType: Type)
     extends AsyncState(stats, state, nextState) {
 
-    protected def tryType = appliedType(TryClass.toType, List(resultType))
-
     private def mkOnCompleteTree: c.Tree = {
       futureSystemOps.onComplete(c.Expr(awaitable), c.Expr(Ident(name.onCompleteHandler)), c.Expr(Ident(name.execContext))).tree
     }
 
     override def mkHandlerCaseForState(): CaseDef = {
-      assert(awaitable != null)
       mkHandlerCase(state, stats :+ mkOnCompleteTree)
     }
 
@@ -104,17 +87,13 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](va
     /* Statements preceding an await call. */
     private val stats = ListBuffer[c.Tree]()
 
-    /* Argument of an await call. */
-    var awaitable: c.Tree = null
+    private final case class Awaitable(expr: Tree, resultName: TermName, resultType: Type)
 
-    /* Result name of an await call. */
-    var resultName: TermName = null
+    /* Argument, type, and associated field of an await call. */
+    private var awaitable: Option[Awaitable] = None
 
-    /* Result type of an await call. */
-    var resultType: Type = null
-
-    var nextState    : Int         = -1
-    var nextJumpState: Option[Int] = None
+    private var nextState    : Int         = -1
+    private var nextJumpState: Option[Int] = None
 
     def rename(tree: Tree) = substituteNames(tree, nameMap)
 
@@ -134,10 +113,12 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](va
 
     def result(): AsyncState = {
       val effectiveNextState = nextJumpState.getOrElse(nextState)
-      if (awaitable == null)
-        new AsyncState(stats.toList, state, effectiveNextState)
-      else
-        new AsyncStateWithAwait(stats.toList, state, effectiveNextState, awaitable, resultName, resultType)
+      awaitable match {
+        case None =>
+          new AsyncState(stats.toList, state, effectiveNextState)
+        case Some(aw) =>
+          new AsyncStateWithAwait(stats.toList, state, effectiveNextState, aw.expr, aw.resultName, aw.resultType)
+      }
     }
 
     /* Result needs to be created as a var at the beginning of the transformed method body, so that
@@ -149,9 +130,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](va
      */
     def complete(awaitArg: c.Tree, awaitResultName: TermName, awaitResultType: Tree,
                  nextState: Int): this.type = {
-      awaitable = resetDuplicate(rename(awaitArg))
-      resultName = awaitResultName
-      resultType = awaitResultType.tpe
+      awaitable = Some(Awaitable(resetDuplicate(rename(awaitArg)), awaitResultName, awaitResultType.tpe))
       this.nextState = nextState
       this
     }
@@ -197,7 +176,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](va
 
     override def toString: String = {
       val statsBeforeAwait = stats.mkString("\n")
-      s"ASYNC STATE:\n$statsBeforeAwait \nawaitable: $awaitable \nresult name: $resultName"
+      s"ASYNC STATE:\n$statsBeforeAwait \nawaitable: $awaitable"
     }
   }
 
@@ -211,10 +190,10 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](va
    * @param toRename    a `Map` for renaming the given key symbols to the mangled value names
    */
   final class AsyncBlockBuilder(stats: List[c.Tree], expr: c.Tree, startState: Int, endState: Int,
-                          private val toRename: Map[Symbol, c.Name]) {
+                                private val toRename: Map[Symbol, c.Name]) {
     val asyncStates = ListBuffer[builder.AsyncState]()
 
-    private var stateBuilder = new builder.AsyncStateBuilder(startState, toRename)
+    private var stateBuilder = new AsyncStateBuilder(startState, toRename)
     private var currState    = startState
 
     /* TODO Fall back to CPS plug-in if tree contains an `await` call. */
@@ -237,7 +216,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](va
         val afterAwaitState = nextState()
         asyncStates += stateBuilder.complete(args.head, toRename(stat.symbol).toTermName, tpt, afterAwaitState).result // complete with await
         currState = afterAwaitState
-        stateBuilder = new builder.AsyncStateBuilder(currState, toRename)
+        stateBuilder = new AsyncStateBuilder(currState, toRename)
 
       case ValDef(mods, name, tpt, rhs) if toRename contains stat.symbol =>
         checkForUnsupportedAwait(rhs)
@@ -261,7 +240,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](va
         }
 
         currState = afterIfState
-        stateBuilder = new builder.AsyncStateBuilder(currState, toRename)
+        stateBuilder = new AsyncStateBuilder(currState, toRename)
 
       case Match(scrutinee, cases) if stat exists isAwait =>
         checkForUnsupportedAwait(scrutinee)
@@ -315,4 +294,17 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](va
       }
     }
   }
+
+  private def resetDuplicate(tree: Tree) = c.resetAllAttrs(tree.duplicate)
+
+  private def mkResumeApply = Apply(Ident(name.resume), Nil)
+
+  private def mkStateTree(nextState: Int): c.Tree =
+    Assign(Ident(name.state), c.literal(nextState).tree)
+
+  private def mkHandlerCase(num: Int, rhs: List[c.Tree]): CaseDef =
+    mkHandlerCase(num, Block(rhs: _*))
+
+  private def mkHandlerCase(num: Int, rhs: c.Tree): CaseDef =
+    CaseDef(c.literal(num).tree, EmptyTree, rhs)
 }
