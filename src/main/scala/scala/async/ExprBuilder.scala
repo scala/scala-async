@@ -113,26 +113,12 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](va
       this
     }
 
-    def result(): AsyncState = {
-      val effectiveNextState = nextJumpState.getOrElse(nextState)
-      awaitable match {
-        case None =>
-          new SimpleAsyncState(stats.toList, state, effectiveNextState)
-        case Some(aw) =>
-          new AsyncStateWithAwait(stats.toList, state, effectiveNextState, aw)
-      }
-    }
-
     /* Result needs to be created as a var at the beginning of the transformed method body, so that
      * it is visible in subsequent states of the state machine.
-     *
-     * @param awaitArg         the argument of await
-     * @param awaitResultName  the name of the variable that the result of await is assigned to
-     * @param awaitResultType  the type of the result of await
      */
-    def complete(awaitArg: c.Tree, awaitResultName: TermName, awaitResultType: Tree,
+    def complete(awaitable: Awaitable,
                  nextState: Int): this.type = {
-      awaitable = Some(Awaitable(resetDuplicate(rename(awaitArg)), awaitResultName, awaitResultType.tpe))
+      this.awaitable = Some(awaitable.copy(expr = resetDuplicate(rename(awaitable.expr))))
       this.nextState = nextState
       this
     }
@@ -140,6 +126,16 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](va
     def complete(nextState: Int): this.type = {
       this.nextState = nextState
       this
+    }
+
+    def result: AsyncState = {
+      val effectiveNextState = nextJumpState.getOrElse(nextState)
+      awaitable match {
+        case None =>
+          new SimpleAsyncState(stats.toList, state, effectiveNextState)
+        case Some(aw) =>
+          new AsyncStateWithAwait(stats.toList, state, effectiveNextState, aw)
+      }
     }
 
     def resultWithIf(condTree: c.Tree, thenState: Int, elseState: Int): AsyncState = {
@@ -214,9 +210,10 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](va
     // populate asyncStates
     for (stat <- stats) stat match {
       // the val name = await(..) pattern
-      case ValDef(mods, name, tpt, Apply(fun, args)) if isAwait(fun) =>
+      case ValDef(mods, name, tpt, Apply(fun, arg :: Nil)) if isAwait(fun) =>
         val afterAwaitState = nextState()
-        asyncStates += stateBuilder.complete(args.head, toRename(stat.symbol).toTermName, tpt, afterAwaitState).result // complete with await
+        val awaitable = Awaitable(arg, toRename(stat.symbol).toTermName, tpt.tpe)
+        asyncStates += stateBuilder.complete(awaitable, afterAwaitState).result // complete with await
         currState = afterAwaitState
         stateBuilder = new AsyncStateBuilder(currState, toRename)
 
@@ -277,7 +274,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](va
     }
     // complete last state builder (representing the expressions after the last await)
     stateBuilder += expr
-    val lastState = stateBuilder.complete(endState).result()
+    val lastState = stateBuilder.complete(endState).result
     asyncStates += lastState
 
     def mkCombinedHandlerCases[T](): List[CaseDef] = {
