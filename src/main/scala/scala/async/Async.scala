@@ -103,7 +103,10 @@ abstract class AsyncBase {
     import asyncBlockBuilder.asyncStates
     logDiagnostics(c)(anfTree, asyncStates.map(_.toString))
     val initStates = asyncStates.init
-    val localVarTrees = asyncStates.flatMap(_.allVarDefs).toList
+    val localVarTrees = anfTree.collect {
+      case vd@ValDef(_, _, tpt, _) if renameMap contains vd.symbol =>
+        builder.mkVarDefTree(tpt.tpe, renameMap(vd.symbol))
+    }
 
     /*
       lazy val onCompleteHandler = (tr: Try[Any]) => state match {

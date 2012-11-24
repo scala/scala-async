@@ -47,7 +47,7 @@ final case class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C
   private def mkStateTree(nextState: Tree): c.Tree =
     Assign(Ident(name.state), nextState)
 
-  private def mkVarDefTree(resultType: Type, resultName: TermName): c.Tree = {
+  def mkVarDefTree(resultType: Type, resultName: TermName): c.Tree = {
     ValDef(Modifiers(Flag.MUTABLE), resultName, TypeTree(resultType), defaultValue(resultType))
   }
 
@@ -84,12 +84,6 @@ final case class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C
       }
     }
 
-    def varDefForResult: Option[c.Tree] =
-      None
-
-    def allVarDefs: List[c.Tree] =
-      varDefForResult.toList ++ varDefs.map(p => mkVarDefTree(p._2, p._1))
-
     override val toString: String =
       s"AsyncState #$state, next = $nextState"
   }
@@ -124,9 +118,6 @@ final case class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C
       assert(awaitable != null)
       mkHandlerCase(state, stats :+ mkOnCompleteTree)
     }
-
-    override def varDefForResult: Option[c.Tree] =
-      Some(mkVarDefTree(resultType, resultName))
   }
 
   /*
@@ -149,8 +140,6 @@ final case class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C
 
     var nextState    : Int         = -1
     var nextJumpState: Option[Int] = None
-
-    private val varDefs = ListBuffer[(TermName, Type)]()
 
     private val renamer = new Transformer {
       override def transform(tree: Tree) = tree match {
@@ -177,7 +166,6 @@ final case class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C
 
     //TODO do not ignore `mods`
     def addVarDef(mods: Any, name: TermName, tpt: c.Tree, rhs: c.Tree): this.type = {
-      varDefs += (name -> tpt.tpe)
       this += Assign(Ident(name), rhs)
       this
     }
@@ -185,15 +173,12 @@ final case class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C
     def result(): AsyncState = {
       val effectiveNestState = nextJumpState.getOrElse(nextState)
       if (awaitable == null)
-        new AsyncState(stats.toList, state, effectiveNestState) {
-          override val varDefs = self.varDefs.toList
-        }
+        new AsyncState(stats.toList, state, effectiveNestState)
       else
         new AsyncStateWithAwait(stats.toList, state, effectiveNestState) {
           val awaitable  = self.awaitable
           val resultName = self.resultName
           val resultType = self.resultType
-          override val varDefs = self.varDefs.toList
         }
     }
 
@@ -223,12 +208,9 @@ final case class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C
       // 1. build changed if-else tree
       // 2. insert that tree at the end of the current state
       val cond = resetDuplicate(renamer.transform(condTree))
-      this += If(cond,
-        Block(mkStateTree(thenState), mkResumeApply),
-        Block(mkStateTree(elseState), mkResumeApply))
-      new AsyncStateWithoutAwait(stats.toList, state) {
-        override val varDefs = self.varDefs.toList
-      }
+      def mkBranch(state: Int) = Block(mkStateTree(state), mkResumeApply)
+      this += If(cond, mkBranch(thenState), mkBranch(elseState))
+      new AsyncStateWithoutAwait(stats.toList, state)
     }
 
     /**
@@ -248,16 +230,12 @@ final case class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C
       }
       // 2. insert changed match tree at the end of the current state
       this += Match(resetDuplicate(scrutTree), newCases)
-      new AsyncStateWithoutAwait(stats.toList, state) {
-        override val varDefs = self.varDefs.toList
-      }
+      new AsyncStateWithoutAwait(stats.toList, state)
     }
 
     def resultWithLabel(startLabelState: Int): AsyncState = {
       this += Block(mkStateTree(startLabelState), mkResumeApply)
-      new AsyncStateWithoutAwait(stats.toList, state) {
-        override val varDefs = self.varDefs.toList
-      }
+      new AsyncStateWithoutAwait(stats.toList, state)
     }
 
     override def toString: String = {
@@ -308,9 +286,7 @@ final case class ExprBuilder[C <: Context, FS <: FutureSystem](override val c: C
 
       case ValDef(mods, name, tpt, rhs) if toRename contains stat.symbol =>
         checkForUnsupportedAwait(rhs)
-
-        // when adding assignment need to take `toRename` into account
-        stateBuilder.addVarDef(mods, toRename(stat.symbol).toTermName, tpt, rhs)
+        stateBuilder += Assign(Ident(toRename(stat.symbol).toTermName), rhs)
 
       case If(cond, thenp, elsep) if stat exists isAwait =>
         checkForUnsupportedAwait(cond)
