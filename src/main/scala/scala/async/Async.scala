@@ -105,7 +105,7 @@ abstract class AsyncBase {
     val initStates = asyncStates.init
     val localVarTrees = anfTree.collect {
       case vd@ValDef(_, _, tpt, _) if renameMap contains vd.symbol =>
-        builder.mkVarDefTree(tpt.tpe, renameMap(vd.symbol))
+        utils.mkVarDefTree(tpt.tpe, renameMap(vd.symbol))
     }
 
     /*

@@ -124,6 +124,10 @@ private[async] final case class TransformUtils[C <: Context](val c: C) {
     case _                  => (List(tree), Literal(Constant(())))
   }
 
+  def mkVarDefTree(resultType: Type, resultName: TermName): c.Tree = {
+    ValDef(Modifiers(Flag.MUTABLE), resultName, TypeTree(resultType), defaultValue(resultType))
+  }
+
   object defn {
     def mkList_apply[A](args: List[Expr[A]]): Expr[List[A]] = {
       c.Expr(Apply(Ident(definitions.List_apply), args.map(_.tree)))

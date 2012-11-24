@@ -26,29 +26,22 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](va
   private def mkResumeApply = Apply(Ident(name.resume), Nil)
 
   private def mkStateTree(nextState: Int): c.Tree =
-    mkStateTree(c.literal(nextState).tree)
-
-  private def mkStateTree(nextState: Tree): c.Tree =
-    Assign(Ident(name.state), nextState)
-
-  def mkVarDefTree(resultType: Type, resultName: TermName): c.Tree = {
-    ValDef(Modifiers(Flag.MUTABLE), resultName, TypeTree(resultType), defaultValue(resultType))
-  }
+    Assign(Ident(name.state), c.literal(nextState).tree)
 
   private def mkHandlerCase(num: Int, rhs: List[c.Tree]): CaseDef =
     mkHandlerCase(num, Block(rhs: _*))
 
-  private def mkHandlerCase(num: Int, rhs: c.Tree): CaseDef = {
+  private def mkHandlerCase(num: Int, rhs: c.Tree): CaseDef =
     CaseDef(c.literal(num).tree, EmptyTree, rhs)
-  }
+
+  val stateAssigner  = new StateAssigner
+  val labelDefStates = collection.mutable.Map[Symbol, Int]()
 
   class AsyncState(stats: List[c.Tree], val state: Int, val nextState: Int) {
     val body: c.Tree = stats match {
       case stat :: Nil => stat
       case _           => Block(stats: _*)
     }
-
-    val varDefs: List[(TermName, Type)] = Nil
 
     def mkHandlerCaseForState(): CaseDef =
       mkHandlerCase(state, stats :+ mkStateTree(nextState) :+ mkResumeApply)
@@ -139,18 +132,12 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](va
       this
     }
 
-    //TODO do not ignore `mods`
-    def addVarDef(mods: Any, name: TermName, tpt: c.Tree, rhs: c.Tree): this.type = {
-      this += Assign(Ident(name), rhs)
-      this
-    }
-
     def result(): AsyncState = {
-      val effectiveNestState = nextJumpState.getOrElse(nextState)
+      val effectiveNextState = nextJumpState.getOrElse(nextState)
       if (awaitable == null)
-        new AsyncState(stats.toList, state, effectiveNestState)
+        new AsyncState(stats.toList, state, effectiveNextState)
       else
-        new AsyncStateWithAwait(stats.toList, state, effectiveNestState, awaitable, resultName, resultType)
+        new AsyncStateWithAwait(stats.toList, state, effectiveNextState, awaitable, resultName, resultType)
     }
 
     /* Result needs to be created as a var at the beginning of the transformed method body, so that
@@ -214,10 +201,6 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](va
     }
   }
 
-  val stateAssigner = new StateAssigner
-
-  val labelDefStates = collection.mutable.Map[Symbol, Int]()
-
   /**
    * An `AsyncBlockBuilder` builds a `ListBuffer[AsyncState]` based on the expressions of a `Block(stats, expr)` (see `Async.asyncImpl`).
    *
@@ -227,7 +210,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](va
    * @param endState    the state to continue with
    * @param toRename    a `Map` for renaming the given key symbols to the mangled value names
    */
-  class AsyncBlockBuilder(stats: List[c.Tree], expr: c.Tree, startState: Int, endState: Int,
+  final class AsyncBlockBuilder(stats: List[c.Tree], expr: c.Tree, startState: Int, endState: Int,
                           private val toRename: Map[Symbol, c.Name]) {
     val asyncStates = ListBuffer[builder.AsyncState]()
 
