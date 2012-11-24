@@ -1,4 +1,8 @@
 
+/*
+ * Copyright (C) 2012 Typesafe Inc. <http://www.typesafe.com>
+ */
+
 package scala.async
 
 import scala.reflect.macros.Context

@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2012 Typesafe Inc. <http://www.typesafe.com>
  */
 
