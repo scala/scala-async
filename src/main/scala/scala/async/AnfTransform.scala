@@ -195,11 +195,18 @@ private[async] final case class AnfTransform[C <: Context](c: C) {
           stats :+ attachCopy(tree)(Assign(lhs, expr))
 
         case If(cond, thenp, elsep) if containsAwait =>
-          val stats :+ expr = inline.transformToList(cond)
+          val condStats :+ condExpr = inline.transformToList(cond)
           val thenBlock = inline.transformToBlock(thenp)
           val elseBlock = inline.transformToBlock(elsep)
-          stats :+
-            c.typeCheck(attachCopy(tree)(If(expr, thenBlock, elseBlock)))
+          // Typechecking with `condExpr` as the condition fails if the condition
+          // contains an await. `ifTree.setType(tree.tpe)` also fails; it seems
+          // we rely on this call to `typeCheck` descending into the branches.
+          // But, we can get away with typechecking a throwaway `If` tree with the
+          // original scrutinee and the new branches, and setting that type on
+          // the real `If` tree.
+          val ifType = c.typeCheck(If(cond, thenBlock, elseBlock)).tpe
+          condStats :+
+            attachCopy(tree)(If(condExpr, thenBlock, elseBlock)).setType(ifType)
 
         case Match(scrut, cases) if containsAwait =>
           val scrutStats :+ scrutExpr = inline.transformToList(scrut)
@@ -218,7 +225,10 @@ private[async] final case class AnfTransform[C <: Context](c: C) {
               val Block(stats1, expr1) = utils.substituteNames(block, mappings.toMap).asInstanceOf[Block]
               attachCopy(tree)(CaseDef(pat, guard, Block(valDefs ++ stats1, expr1)))
           }
-          scrutStats :+ c.typeCheck(attachCopy(tree)(Match(scrutExpr, caseDefs)))
+          // Refer to comments the translation of `If` above.
+          val matchType = c.typeCheck(Match(scrut, caseDefs)).tpe
+          val typedMatch = attachCopy(tree)(Match(scrutExpr, caseDefs)).setType(tree.tpe)
+          scrutStats :+ typedMatch
 
         case LabelDef(name, params, rhs) if containsAwait =>
           List(LabelDef(name, params, Block(inline.transformToList(rhs), Literal(Constant(())))).setSymbol(tree.symbol))

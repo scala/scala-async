@@ -100,4 +100,16 @@ class MatchSpec {
     }
     result mustBe ((Some(""), true))
   }
+
+  @Test def `await in scrutinee`() {
+    import AsyncId.{async, await}
+    val result = async {
+      await(if ("".isEmpty) await(1) else ???) match {
+        case x if x < 0 => ???
+        case y: Int => y * await(3)
+        case _ => ???
+      }
+    }
+    result mustBe (3)
+  }
 }

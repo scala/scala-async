@@ -41,26 +41,28 @@ class TreeInterrogation {
 }
 
 object TreeInterrogation extends App {
-  sys.props("scala.async.debug") = true.toString
-  sys.props("scala.async.trace") = true.toString
+  def withDebug[T](t: => T) {
+    AsyncUtils.trace = true
+    AsyncUtils.verbose = true
+    try t
+    finally {
+      AsyncUtils.trace = false
+      AsyncUtils.verbose = false
+    }
+  }
 
-  val cm   = reflect.runtime.currentMirror
-  val tb   = mkToolbox("-cp target/scala-2.10/classes -Xprint:all")
-  val tree = tb.parse(
-    """ import _root_.scala.async.AsyncId._
-      | async {
-      |  val x = 1
-      |  Option(x) match {
-      |    case op @ Some(x) =>
-      |      assert(op != null)
-      |      println((op, x))
-      |      x + await(x)
-      |    case None => await(0)
-      |  }
-      | }
-      | """.stripMargin)
-  println(tree)
-  val tree1 = tb.typeCheck(tree.duplicate)
-  println(cm.universe.show(tree1))
-  println(tb.eval(tree))
+  withDebug {
+    val cm = reflect.runtime.currentMirror
+    val tb = mkToolbox("-cp target/scala-2.10/classes -Xprint:all")
+    val tree = tb.parse(
+      """ import _root_.scala.async.AsyncId._
+        | async {
+        |  await(0) match { case _ => 0 }
+        | }
+        | """.stripMargin)
+    println(tree)
+    val tree1 = tb.typeCheck(tree.duplicate)
+    println(cm.universe.show(tree1))
+    println(tb.eval(tree))
+  }
 }
