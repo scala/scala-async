@@ -54,6 +54,8 @@ private[async] final case class AnfTransform[C <: Context](c: C) {
           trans match {
             case ValDef(mods, name, tpt, rhs)                    =>
               treeCopy.ValDef(trans, mods, newName, tpt, rhs)
+            case Bind(name, body)                                =>
+              treeCopy.Bind(trans, newName, body)
             case DefDef(mods, name, tparams, vparamss, tpt, rhs) =>
               treeCopy.DefDef(trans, mods, newName, tparams, vparamss, tpt, rhs)
             case TypeDef(mods, name, tparams, rhs)               =>
@@ -82,9 +84,11 @@ private[async] final case class AnfTransform[C <: Context](c: C) {
     def indentString = "  " * indent
     def apply[T](prefix: String, args: Any)(t: => T): T = {
       indent += 1
-      def oneLine(s: Any) = s.toString.replaceAll("""\n""", "\\\\n").take(127)
+      def oneLine(s: Any) = s.toString.replaceAll( """\n""", "\\\\n").take(127)
       try {
-        AsyncUtils.trace(s"${indentString}$prefix(${oneLine(args)})")
+        AsyncUtils.trace(s"${
+          indentString
+        }$prefix(${oneLine(args)})")
         val result = t
         AsyncUtils.trace(s"${indentString}= ${oneLine(result)}")
         result
@@ -201,8 +205,18 @@ private[async] final case class AnfTransform[C <: Context](c: C) {
           val scrutStats :+ scrutExpr = inline.transformToList(scrut)
           val caseDefs = cases map {
             case CaseDef(pat, guard, body) =>
+              // extract local variables for all names bound in `pat`, and rewrite `body`
+              // to refer to these.
+              // TODO we can move this into ExprBuilder once we get rid of `AsyncDefinitionUseAnalyzer`.
               val block = inline.transformToBlock(body)
-              attachCopy(tree)(CaseDef(pat, guard, block))
+              val (valDefs, mappings) = (pat collect {
+                case b@Bind(name, _) =>
+                  val newName = newTermName(utils.name.fresh(name.toTermName + utils.name.bindSuffix))
+                  val vd = ValDef(NoMods, newName, TypeTree(), Ident(b.symbol))
+                  (vd, (b.symbol, newName))
+              }).unzip
+              val Block(stats1, expr1) = utils.substituteNames(block, mappings.toMap).asInstanceOf[Block]
+              attachCopy(tree)(CaseDef(pat, guard, Block(valDefs ++ stats1, expr1)))
           }
           scrutStats :+ c.typeCheck(attachCopy(tree)(Match(scrutExpr, caseDefs)))
 

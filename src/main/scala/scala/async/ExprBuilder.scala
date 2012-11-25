@@ -146,7 +146,12 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
     def resultWithMatch(scrutTree: c.Tree, cases: List[CaseDef], caseStates: List[Int]): AsyncState = {
       // 1. build list of changed cases
       val newCases = for ((cas, num) <- cases.zipWithIndex) yield cas match {
-        case CaseDef(pat, guard, rhs) => CaseDef(pat, guard, Block(mkStateTree(caseStates(num)), mkResumeApply))
+        case CaseDef(pat, guard, rhs) =>
+          val bindAssigns = rhs.children.takeWhile(isSyntheticBindVal).map {
+            case ValDef(_, name, _, rhs) => Assign(Ident(name), rhs)
+            case t                       => sys.error(s"Unexpected tree. Expected ValDef, found: $t")
+          }
+          CaseDef(pat, guard, Block(bindAssigns :+ mkStateTree(caseStates(num)), mkResumeApply))
       }
       // 2. insert changed match tree at the end of the current state
       this += Match(renameReset(scrutTree), newCases)
@@ -237,7 +242,9 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
           stateBuilder.resultWithMatch(scrutinee, cases, caseStates)
 
         for ((cas, num) <- cases.zipWithIndex) {
-          val builder = nestedBlockBuilder(cas.body, caseStates(num), afterMatchState)
+          val (stats, expr) = statsAndExpr(cas.body)
+          val stats1 = stats.dropWhile(isSyntheticBindVal)
+          val builder = nestedBlockBuilder(Block(stats1, expr), caseStates(num), afterMatchState)
           asyncStates ++= builder.asyncStates
         }
 
@@ -344,6 +351,11 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
                   futureSystemOps.completeProm[T](c.Expr[futureSystem.Prom[T]](Ident(name.result)), reify(scala.util.Failure(t.splice))).tree
                 }), c.literalUnit.tree))), EmptyTree))
     }
+  }
+
+  private def isSyntheticBindVal(tree: Tree) = tree match {
+    case vd@ValDef(_, lname, _, Ident(rname)) => lname.toString.contains(name.bindSuffix)
+    case _                                    => false
   }
 
   private final case class Awaitable(expr: Tree, resultName: TermName, resultType: Type)

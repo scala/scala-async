@@ -27,9 +27,10 @@ private[async] final case class TransformUtils[C <: Context](c: C) {
     val tr                = newTermName("tr")
     val onCompleteHandler = suffixedName("onCompleteHandler")
 
-    val matchRes = "matchres"
-    val ifRes    = "ifres"
-    val await    = "await"
+    val matchRes   = "matchres"
+    val ifRes      = "ifres"
+    val await      = "await"
+    val bindSuffix = "$bind"
 
     def fresh(name: TermName): TermName = newTermName(fresh(name.toString))
 

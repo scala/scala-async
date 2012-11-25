@@ -11,6 +11,7 @@ private[async] final case class AsyncAnalysis[C <: Context](c: C) {
   import c.universe._
 
   val utils = TransformUtils[c.type](c)
+
   import utils._
 
   /**
@@ -67,15 +68,15 @@ private[async] final case class AsyncAnalysis[C <: Context](c: C) {
     override def traverse(tree: Tree) {
       def containsAwait = tree exists isAwait
       tree match {
-        case Try(_, _, _) if containsAwait =>
+        case Try(_, _, _) if containsAwait   =>
           reportUnsupportedAwait(tree, "try/catch")
           super.traverse(tree)
         case If(cond, _, _) if containsAwait =>
           reportUnsupportedAwait(cond, "condition")
           super.traverse(tree)
-        case Return(_) =>
+        case Return(_)                       =>
           c.abort(tree.pos, "return is illegal within a async block")
-        case _ =>
+        case _                               =>
           super.traverse(tree)
       }
     }
@@ -92,7 +93,7 @@ private[async] final case class AsyncAnalysis[C <: Context](c: C) {
           c.error(tree.pos, s"await must not be used under a $whyUnsupported.")
       }
       badAwaits.nonEmpty
-   }
+    }
   }
 
   private class AsyncDefinitionUseAnalyzer extends AsyncTraverser {
@@ -106,36 +107,37 @@ private[async] final case class AsyncAnalysis[C <: Context](c: C) {
 
     override def traverse(tree: Tree) = {
       tree match {
-        case If(cond, thenp, elsep) if tree exists isAwait =>
+        case If(cond, thenp, elsep) if tree exists isAwait     =>
           traverseChunks(List(cond, thenp, elsep))
-        case Match(selector, cases) if tree exists isAwait =>
+        case Match(selector, cases) if tree exists isAwait     =>
           traverseChunks(selector :: cases)
         case LabelDef(name, params, rhs) if rhs exists isAwait =>
           traverseChunks(rhs :: Nil)
-        case Apply(fun, args) if isAwait(fun)              =>
+        case Apply(fun, args) if isAwait(fun)                  =>
           super.traverse(tree)
           nextChunk()
-        case vd: ValDef                                    =>
+        case vd: ValDef                                        =>
           super.traverse(tree)
           valDefChunkId += (vd.symbol ->(vd, chunkId))
-          if (isAwait(vd.rhs)) valDefsToLift += vd
-        case as: Assign                                    =>
+          val isPatternBinder = vd.name.toString.contains(name.bindSuffix)
+          if (isAwait(vd.rhs) || isPatternBinder) valDefsToLift += vd
+        case as: Assign                                        =>
           if (isAwait(as.rhs)) {
-            assert(as.lhs.symbol != null, "internal error: null symbol for Assign tree:" + as +  " " + as.lhs.symbol)
+            assert(as.lhs.symbol != null, "internal error: null symbol for Assign tree:" + as + " " + as.lhs.symbol)
 
             // TODO test the orElse case, try to remove the restriction.
             val (vd, defBlockId) = valDefChunkId.getOrElse(as.lhs.symbol, c.abort(as.pos, s"await may only be assigned to a var/val defined in the async block. ${as.lhs} ${as.lhs.symbol}"))
             valDefsToLift += vd
           }
           super.traverse(tree)
-        case rt: RefTree                                   =>
+        case rt: RefTree                                       =>
           valDefChunkId.get(rt.symbol) match {
             case Some((vd, defChunkId)) if defChunkId != chunkId =>
               valDefsToLift += vd
             case _                                               =>
           }
           super.traverse(tree)
-        case _                                             => super.traverse(tree)
+        case _                                                 => super.traverse(tree)
       }
     }
 
@@ -145,4 +147,5 @@ private[async] final case class AsyncAnalysis[C <: Context](c: C) {
       }
     }
   }
+
 }
