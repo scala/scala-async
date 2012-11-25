@@ -106,39 +106,55 @@ abstract class AsyncBase {
         DefDef(mods, renameMap(dd.symbol), tparams, vparamss, tpt, c.resetAllAttrs(utils.substituteNames(rhs, renameMap)))
     }
 
-    val onCompleteHandler = asyncBlock.onCompleteHandler
+    val onCompleteHandler = {
+      Function(
+        List(ValDef(Modifiers(Flag.PARAM), name.tr, TypeTree(defn.TryAnyType), EmptyTree)),
+        asyncBlock.onCompleteHandler)
+    }
     val resumeFunTree = asyncBlock.resumeFunTree[T]
 
-    val prom: Expr[futureSystem.Prom[T]] = reify {
-      // Create the empty promise
-      val result$async = futureSystemOps.createProm[T].splice
-      // Initialize the state
-      var state$async = 0
-      // Resolve the execution context
-      val execContext$async = futureSystemOps.execContext.splice
-      var onCompleteHandler$async: util.Try[Any] => Unit = null
-
-      // Spawn a future to:
-      futureSystemOps.future[Unit] {
-        c.Expr[Unit](Block(
-          // define vars for all intermediate results that are accessed from multiple states
-          localVarTrees :+
-            // define the resume() method
-            resumeFunTree :+
-            // assign onComplete function. (The var breaks the circular dependency with resume)`
-            Assign(Ident(name.onCompleteHandler), onCompleteHandler),
-          // and get things started by calling resume()
-          Apply(Ident(name.resume), Nil)))
-      }(c.Expr[futureSystem.ExecContext](Ident(name.execContext))).splice
-      // Return the promise from this reify block...
-      result$async
+    val stateMachine: ModuleDef = {
+      val body: List[Tree] = {
+        val constr = DefDef(NoMods, nme.CONSTRUCTOR, List(), List(List()), TypeTree(), Block(List(Apply(Select(Super(This(tpnme.EMPTY), tpnme.EMPTY), nme.CONSTRUCTOR), List())), c.literalUnit.tree))
+        val stateVar = ValDef(Modifiers(Flag.MUTABLE), name.state, TypeTree(definitions.IntTpe), Literal(Constant(0)))
+        val result = ValDef(NoMods, name.result, TypeTree(), futureSystemOps.createProm[T].tree)
+        val execContext = ValDef(NoMods, name.execContext, TypeTree(), futureSystemOps.execContext.tree)
+        val applyDefDef: DefDef = {
+          val applyVParamss = List(List(ValDef(Modifiers(Flag.PARAM), name.tr, TypeTree(defn.TryAnyType), EmptyTree)))
+          val applyBody = asyncBlock.onCompleteHandler
+          DefDef(NoMods, name.apply, Nil, applyVParamss, TypeTree(definitions.UnitTpe), applyBody)
+        }
+        val apply0DefDef: DefDef = {
+          // We extend () => Unit so we can pass this class as the by-name argument to `Future.apply`.
+          // See SI-1247 for the the optimization that avoids creation of another thunk class.
+          val applyVParamss = List(List(ValDef(Modifiers(Flag.PARAM), name.tr, TypeTree(defn.TryAnyType), EmptyTree)))
+          val applyBody = asyncBlock.onCompleteHandler
+          DefDef(NoMods, name.apply, Nil, Nil, TypeTree(definitions.UnitTpe), Apply(Ident(name.resume), Nil))
+        }
+        List(constr, stateVar, result, execContext) ++ localVarTrees ++ List(resumeFunTree, applyDefDef, apply0DefDef)
+      }
+      val template = {
+        val `Try[Any] => Unit` = AppliedTypeTree(Ident(c.mirror.staticClass("scala.runtime.AbstractFunction1")), List(TypeTree(defn.TryAnyType), TypeTree(definitions.UnitTpe)))
+        val `() => Unit` = AppliedTypeTree(Ident(c.mirror.staticClass("scala.Function0")), List(TypeTree(definitions.UnitTpe)))
+        Template(List(`Try[Any] => Unit`, `() => Unit`), emptyValDef, body)
+      }
+      ModuleDef(NoMods, name.stateMachine, template)
     }
-    // ... and return its Future from the macro.
-    val result = futureSystemOps.promiseToFuture(prom)
 
-    AsyncUtils.vprintln(s"async state machine transform expands to:\n ${result.tree}")
+    def selectStateMachine(selection: TermName) = Select(Ident(name.stateMachine), selection)
 
-    result
+    val code = c.Expr[futureSystem.Fut[T]](Block(List[Tree](
+      stateMachine,
+      futureSystemOps.future(
+        c.Expr[Unit](Apply(selectStateMachine(name.apply), Nil)))
+        (c.Expr[futureSystem.ExecContext](selectStateMachine(name.execContext))).tree),
+      futureSystemOps.promiseToFuture(
+        c.Expr[futureSystem.Prom[T]](selectStateMachine(name.result))).tree
+    ))
+
+    AsyncUtils.vprintln(s"async state machine transform expands to:\n ${code.tree}")
+    code
+
   }
 
   def logDiagnostics(c: Context)(anfTree: c.Tree, states: Seq[String]) {

@@ -87,4 +87,17 @@ class HygieneSpec {
     }
     ext mustBe (14)
   }
+
+//  @Test def `this reference is maintained`() {
+//    object Test {
+//      def blerg = 1
+//      def check() {
+//        AsyncId.async {
+//          assert(this.blerg == 1)
+//          assert(this == Test, this.getClass)
+//        }
+//      }
+//    }
+//    Test.check()
+//  }
 }

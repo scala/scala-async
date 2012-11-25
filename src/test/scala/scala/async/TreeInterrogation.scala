@@ -30,13 +30,14 @@ class TreeInterrogation {
     import tb.mirror.universe._
     val functions = tree1.collect {
       case f: Function => f
+      case t: Template => t
     }
     functions.size mustBe 1
 
     val varDefs = tree1.collect {
       case ValDef(mods, name, _, _) if mods.hasFlag(Flag.MUTABLE) => name
     }
-    varDefs.map(_.decoded).toSet mustBe (Set("state$async", "onCompleteHandler$async", "await$1", "await$2"))
+    varDefs.map(_.decoded.trim).toSet mustBe (Set("state$async", "await$1", "await$2"))
   }
 }
 
@@ -56,7 +57,15 @@ object TreeInterrogation extends App {
     val tb = mkToolbox("-cp target/scala-2.10/classes -Xprint:all")
     val tree = tb.parse(
       """ import _root_.scala.async.AsyncId._
-        | async { val a = 0; val x = await(a) - 1; def foo(z: Any) = (a.toDouble, x.toDouble, z); foo(await(2)) }
+        | object Test {
+        |   def blerg = 1
+        |   def check() {
+        |     async {
+        |       assert(this.blerg == 1)
+        |       assert(this == Test, this.getClass)
+        |     }
+        |   }
+        | }
         | """.stripMargin)
     println(tree)
     val tree1 = tb.typeCheck(tree.duplicate)

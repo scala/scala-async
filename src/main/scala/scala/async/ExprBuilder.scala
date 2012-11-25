@@ -70,7 +70,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
 
     override def mkHandlerCaseForState: CaseDef = {
       val callOnComplete = futureSystemOps.onComplete(c.Expr(awaitable.expr),
-        c.Expr(Ident(name.onCompleteHandler)), c.Expr(Ident(name.execContext))).tree
+        c.Expr(This(tpnme.EMPTY)), c.Expr(Ident(name.execContext))).tree
       mkHandlerCase(state, stats :+ callOnComplete)
     }
 
@@ -310,20 +310,16 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
       val initStates = asyncStates.init
 
       /**
-       * lazy val onCompleteHandler = (tr: Try[Any]) => state match {
+       * // assumes tr: Try[Any] is in scope.
+       * //
+       * state match {
        * case 0 => {
        * x11 = tr.get.asInstanceOf[Double];
        * state = 1;
        * resume()
        * }
        */
-      val onCompleteHandler: Tree = {
-        val onCompleteHandlers = initStates.flatMap(_.mkOnCompleteHandler).toList
-        Function(
-          List(ValDef(Modifiers(Flag.PARAM), name.tr, TypeTree(defn.TryAnyType), EmptyTree)),
-          Match(Ident(name.state), onCompleteHandlers))
-      }
-
+      val onCompleteHandler: Tree = Match(Ident(name.state), initStates.flatMap(_.mkOnCompleteHandler).toList)
       /**
        * def resume(): Unit = {
        * try {

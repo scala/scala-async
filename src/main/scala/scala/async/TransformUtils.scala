@@ -18,19 +18,17 @@ private[async] final case class TransformUtils[C <: Context](c: C) {
 
     def suffixedName(prefix: String) = newTermName(suffix(prefix))
 
-    val state       = suffixedName("state")
-    val result      = suffixedName("result")
-    val resume      = suffixedName("resume")
-    val execContext = suffixedName("execContext")
-
-    // TODO do we need to freshen any of these?
-    val tr                = newTermName("tr")
-    val onCompleteHandler = suffixedName("onCompleteHandler")
-
-    val matchRes   = "matchres"
-    val ifRes      = "ifres"
-    val await      = "await"
-    val bindSuffix = "$bind"
+    val state        = suffixedName("state")
+    val result       = suffixedName("result")
+    val resume       = suffixedName("resume")
+    val execContext  = suffixedName("execContext")
+    val stateMachine = suffixedName("stateMachine")
+    val apply        = newTermName("apply")
+    val tr           = newTermName("tr")
+    val matchRes     = "matchres"
+    val ifRes        = "ifres"
+    val await        = "await"
+    val bindSuffix   = "$bind"
 
     def fresh(name: TermName): TermName = newTermName(fresh(name.toString))
 
