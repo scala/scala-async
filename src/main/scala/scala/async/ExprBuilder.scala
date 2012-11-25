@@ -102,6 +102,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
       assert(nextJumpState.isEmpty, s"statement appeared after a label jump: $stat")
       def addStat() = stats += renameReset(stat)
       stat match {
+        case _: DefDef       => // these have been lifted.
         case Apply(fun, Nil) =>
           labelDefStates get fun.symbol match {
             case Some(nextState) => nextJumpState = Some(nextState)

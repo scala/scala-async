@@ -11,6 +11,7 @@ import scala.reflect.macros.Context
  * @author Philipp Haller
  */
 object Async extends AsyncBase {
+
   import scala.concurrent.Future
 
   lazy val futureSystem = ScalaConcurrentFutureSystem
@@ -87,9 +88,9 @@ abstract class AsyncBase {
     // states of our generated state machine, e.g. a value assigned before
     // an `await` and read afterwards.
     val renameMap: Map[Symbol, TermName] = {
-      anaylzer.valDefsUsedInSubsequentStates(anfTree).map {
+      anaylzer.defTreesUsedInSubsequentStates(anfTree).map {
         vd =>
-          (vd.symbol, name.fresh(vd.name))
+          (vd.symbol, name.fresh(vd.name.toTermName))
       }.toMap
     }
 
@@ -97,9 +98,12 @@ abstract class AsyncBase {
     import asyncBlock.asyncStates
     logDiagnostics(c)(anfTree, asyncStates.map(_.toString))
 
+    // Important to retain the original declaration order here!
     val localVarTrees = anfTree.collect {
       case vd@ValDef(_, _, tpt, _) if renameMap contains vd.symbol =>
         utils.mkVarDefTree(tpt.tpe, renameMap(vd.symbol))
+      case dd@DefDef(mods, name, tparams, vparamss, tpt, rhs)      =>
+        DefDef(mods, renameMap(dd.symbol), tparams, vparamss, tpt, c.resetAllAttrs(utils.substituteNames(rhs, renameMap)))
     }
 
     val onCompleteHandler = asyncBlock.onCompleteHandler
