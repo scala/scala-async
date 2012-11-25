@@ -66,7 +66,6 @@ abstract class AsyncBase {
   def asyncImpl[T: c.WeakTypeTag](c: Context)(body: c.Expr[T]): c.Expr[futureSystem.Fut[T]] = {
     import c.universe._
 
-    val builder = ExprBuilder[c.type, futureSystem.type](c, self.futureSystem)
     val anaylzer = AsyncAnalysis[c.type](c)
     val utils = TransformUtils[c.type](c)
     import utils.{name, defn}
@@ -94,6 +93,7 @@ abstract class AsyncBase {
       }.toMap
     }
 
+    val builder = ExprBuilder[c.type, futureSystem.type](c, self.futureSystem, anfTree)
     val asyncBlock: builder.AsyncBlock = builder.build(anfTree, renameMap)
     import asyncBlock.asyncStates
     logDiagnostics(c)(anfTree, asyncStates.map(_.toString))
@@ -115,7 +115,6 @@ abstract class AsyncBase {
 
     val stateMachine: ModuleDef = {
       val body: List[Tree] = {
-        val constr = DefDef(NoMods, nme.CONSTRUCTOR, List(), List(List()), TypeTree(), Block(List(Apply(Select(Super(This(tpnme.EMPTY), tpnme.EMPTY), nme.CONSTRUCTOR), List())), c.literalUnit.tree))
         val stateVar = ValDef(Modifiers(Flag.MUTABLE), name.state, TypeTree(definitions.IntTpe), Literal(Constant(0)))
         val result = ValDef(NoMods, name.result, TypeTree(), futureSystemOps.createProm[T].tree)
         val execContext = ValDef(NoMods, name.execContext, TypeTree(), futureSystemOps.execContext.tree)
@@ -126,16 +125,16 @@ abstract class AsyncBase {
         }
         val apply0DefDef: DefDef = {
           // We extend () => Unit so we can pass this class as the by-name argument to `Future.apply`.
-          // See SI-1247 for the the optimization that avoids creation of another thunk class.
+          // See SI-1247 for the the optimization that avoids creatio
           val applyVParamss = List(List(ValDef(Modifiers(Flag.PARAM), name.tr, TypeTree(defn.TryAnyType), EmptyTree)))
           val applyBody = asyncBlock.onCompleteHandler
           DefDef(NoMods, name.apply, Nil, Nil, TypeTree(definitions.UnitTpe), Apply(Ident(name.resume), Nil))
         }
-        List(constr, stateVar, result, execContext) ++ localVarTrees ++ List(resumeFunTree, applyDefDef, apply0DefDef)
+        List(utils.emptyConstructor, stateVar, result, execContext) ++ localVarTrees ++ List(resumeFunTree, applyDefDef, apply0DefDef)
       }
       val template = {
-        val `Try[Any] => Unit` = AppliedTypeTree(Ident(c.mirror.staticClass("scala.runtime.AbstractFunction1")), List(TypeTree(defn.TryAnyType), TypeTree(definitions.UnitTpe)))
-        val `() => Unit` = AppliedTypeTree(Ident(c.mirror.staticClass("scala.Function0")), List(TypeTree(definitions.UnitTpe)))
+        val `Try[Any] => Unit` = utils.applied("scala.runtime.AbstractFunction1", List(defn.TryAnyType, definitions.UnitTpe))
+        val `() => Unit` = utils.applied("scala.Function0", List(definitions.UnitTpe))
         Template(List(`Try[Any] => Unit`, `() => Unit`), emptyValDef, body)
       }
       ModuleDef(NoMods, name.stateMachine, template)
@@ -145,11 +144,10 @@ abstract class AsyncBase {
 
     val code = c.Expr[futureSystem.Fut[T]](Block(List[Tree](
       stateMachine,
-      futureSystemOps.future(
-        c.Expr[Unit](Apply(selectStateMachine(name.apply), Nil)))
-        (c.Expr[futureSystem.ExecContext](selectStateMachine(name.execContext))).tree),
-      futureSystemOps.promiseToFuture(
-        c.Expr[futureSystem.Prom[T]](selectStateMachine(name.result))).tree
+      futureSystemOps.future(c.Expr[Unit](Apply(selectStateMachine(name.apply), Nil)))
+        (c.Expr[futureSystem.ExecContext](selectStateMachine(name.execContext))).tree
+    ),
+      futureSystemOps.promiseToFuture(c.Expr[futureSystem.Prom[T]](selectStateMachine(name.result))).tree
     ))
 
     AsyncUtils.vprintln(s"async state machine transform expands to:\n ${code.tree}")

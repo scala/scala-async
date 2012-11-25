@@ -6,11 +6,12 @@ package scala.async
 import scala.reflect.macros.Context
 import scala.collection.mutable.ListBuffer
 import collection.mutable
+import language.existentials
 
 /*
  * @author Philipp Haller
  */
-private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c: C, futureSystem: FS) {
+private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c: C, futureSystem: FS, origTree: C#Tree) {
   builder =>
 
   val utils = TransformUtils[c.type](c)
@@ -96,7 +97,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
     /** The state of the target of a LabelDef application (while loop jump) */
     private var nextJumpState: Option[Int] = None
 
-    private def renameReset(tree: Tree) = resetDuplicate(substituteNames(tree, nameMap))
+    private def renameReset(tree: Tree) = resetInternalAttrs(substituteNames(tree, nameMap))
 
     def +=(stat: c.Tree): this.type = {
       assert(nextJumpState.isEmpty, s"statement appeared after a label jump: $stat")
@@ -320,6 +321,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
        * }
        */
       val onCompleteHandler: Tree = Match(Ident(name.state), initStates.flatMap(_.mkOnCompleteHandler).toList)
+
       /**
        * def resume(): Unit = {
        * try {
@@ -357,7 +359,11 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
 
   private final case class Awaitable(expr: Tree, resultName: TermName, resultType: Type)
 
-  private def resetDuplicate(tree: Tree) = c.resetAllAttrs(tree.duplicate)
+  private val internalSyms = origTree.collect {
+    case dt: DefTree => dt.symbol
+  }
+
+  private def resetInternalAttrs(tree: Tree) = utils.resetInternalAttrs(tree, internalSyms)
 
   private def mkResumeApply = Apply(Ident(name.resume), Nil)
 

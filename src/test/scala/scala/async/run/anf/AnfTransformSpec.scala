@@ -24,8 +24,8 @@ class AnfTestClass {
   }
 
   def m(y: Int): Future[Int] = async {
-    val f = base(y)
-    await(f)
+    val blerg = base(y)
+    await(blerg)
   }
 
   def m2(y: Int): Future[Int] = async {

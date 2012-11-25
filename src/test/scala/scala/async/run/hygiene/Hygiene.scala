@@ -88,16 +88,39 @@ class HygieneSpec {
     ext mustBe (14)
   }
 
-//  @Test def `this reference is maintained`() {
-//    object Test {
-//      def blerg = 1
-//      def check() {
-//        AsyncId.async {
-//          assert(this.blerg == 1)
-//          assert(this == Test, this.getClass)
-//        }
-//      }
-//    }
-//    Test.check()
-//  }
+  trait T1 {
+    def blerg = 0
+  }
+
+  object O1 extends T1 {
+    override def blerg = 1
+
+    def check() {
+      val blerg = 3
+      AsyncId.async {
+        assert(this == O1, this.getClass)
+        assert(this.blerg == 1)
+        assert(super.blerg == 0)
+        assert(super[T1].blerg == 0)
+      }
+    }
+  }
+
+  @Test def `this reference is maintained`() {
+    O1.check()
+  }
+
+  @Test def `this reference is maintained to local class`() {
+    object O2 {
+      def blerg = 2
+
+      def check() {
+        AsyncId.async {
+          assert(this.blerg == 2)
+          assert(this == O2, this.getClass)
+        }
+      }
+    }
+    O2.check()
+  }
 }
