@@ -43,7 +43,8 @@ private[async] final case class AsyncAnalysis[C <: Context](c: C) {
       val kind = if (classDef.symbol.asClass.isTrait) "trait" else "class"
       if (!reportUnsupportedAwait(classDef, s"nested $kind")) {
         // do not allow local class definitions, because of SI-5467 (specific to case classes, though)
-        c.error(classDef.pos, s"Local class ${classDef.name.decoded} illegal within `async` block")
+        if (classDef.symbol.asClass.isCaseClass)
+          c.error(classDef.pos, s"Local case class ${classDef.name.decoded} illegal within `async` block")
       }
     }
 

@@ -30,28 +30,6 @@ class HygieneSpec {
     res mustBe ((25, "result", "resume"))
   }
 
-/* TODO:
-[error] /Users/phaller/git/async/src/test/scala/scala/async/run/hygiene/Hygiene.scala:52: not found: value tr$1
-[error]       val f1 = async { state + 2 }
-[error]                      ^
-  @Test
-  def `is hygenic`() {
-    val state = 23
-    val result: Any = "result"
-    def resume(): Any = "resume"
-    val res = async {
-      val f1 = async { state + 2 }
-      val x  = await(f1)
-      val y  = await(async { result })
-      val z  = await(async { resume() })
-      (x, y, z)
-    }
-    res._1 mustBe (25)
-    res._2 mustBe ("result")
-    res._3 mustBe ("resume")
-  }
-*/
-
   @Test
   def `external var as result of await`() {
     var ext = 0
@@ -88,39 +66,21 @@ class HygieneSpec {
     ext mustBe (14)
   }
 
-  trait T1 {
-    def blerg = 0
-  }
-
-  object O1 extends T1 {
-    override def blerg = 1
-
-    def check() {
-      val blerg = 3
-      AsyncId.async {
-        assert(this == O1, this.getClass)
-        assert(this.blerg == 1)
-        assert(super.blerg == 0)
-        assert(super[T1].blerg == 0)
-      }
+  @Test
+  def `is hygenic nested`() {
+    val state = 23
+    val result: Any = "result"
+    def resume(): Any = "resume"
+    import AsyncId.{await, async}
+    val res = async {
+      val f1 = async { state + 2 }
+      val x  = await(f1)
+      val y  = await(async { result })
+      val z  = await(async { resume() })
+      (x, y, z)
     }
-  }
-
-  @Test def `this reference is maintained`() {
-    O1.check()
-  }
-
-  @Test def `this reference is maintained to local class`() {
-    object O2 {
-      def blerg = 2
-
-      def check() {
-        AsyncId.async {
-          assert(this.blerg == 2)
-          assert(this == O2, this.getClass)
-        }
-      }
-    }
-    O2.check()
+    res._1 mustBe (25)
+    res._2 mustBe ("result")
+    res._3 mustBe ("resume")
   }
 }

@@ -57,7 +57,17 @@ object TreeInterrogation extends App {
     val tb = mkToolbox("-cp target/scala-2.10/classes -Xprint:all")
     val tree = tb.parse(
       """ import _root_.scala.async.AsyncId._
-        | async { val a = 0; val x = await(a) - 1; def foo(z: Any) = (a.toDouble, x.toDouble, z); foo(await(2)) }
+        | val state = 23
+        | val result: Any = "result"
+        | def resume(): Any = "resume"
+        | val res = async {
+        |   val f1 = async { state + 2 }
+        |   val x  = await(f1)
+        |   val y  = await(async { result })
+        |   val z  = await(async { resume() })
+        |   (x, y, z)
+        | }
+        | ()
         | """.stripMargin)
     println(tree)
     val tree1 = tb.typeCheck(tree.duplicate)

@@ -10,7 +10,9 @@ import scala.reflect.macros.Context
 private[async] final case class AnfTransform[C <: Context](c: C) {
 
   import c.universe._
+
   val utils = TransformUtils[c.type](c)
+
   import utils._
 
   def apply(tree: Tree): List[Tree] = {
@@ -29,9 +31,21 @@ private[async] final case class AnfTransform[C <: Context](c: C) {
     * This step is needed to allow us to safely merge blocks during the `inline` transform below.
     */
   private final class UniqueNames(tree: Tree) extends Transformer {
-    val repeatedNames: Set[Name] = tree.collect {
-      case dt: DefTree => dt.symbol.name
-    }.groupBy(x => x).filter(_._2.size > 1).keySet
+    class DuplicateNameTraverser extends AsyncTraverser {
+      val result = collection.mutable.Buffer[Name]()
+
+      override def traverse(tree: Tree) {
+        tree match {
+          case dt: DefTree => result += dt.symbol.name
+          case _           => super.traverse(tree)
+        }
+      }
+    }
+    val repeatedNames: Set[Name] = {
+      val dupNameTraverser = new DuplicateNameTraverser
+      dupNameTraverser.traverse(tree)
+      dupNameTraverser.result.groupBy(x => x).filter(_._2.size > 1).keySet
+    }
 
     /** Stepping outside of the public Macro API to call [[scala.reflect.internal.Symbols.Symbol.name_=]] */
     val symtab = c.universe.asInstanceOf[reflect.internal.SymbolTable]
@@ -81,7 +95,9 @@ private[async] final case class AnfTransform[C <: Context](c: C) {
 
   private object trace {
     private var indent = -1
+
     def indentString = "  " * indent
+
     def apply[T](prefix: String, args: Any)(t: => T): T = {
       indent += 1
       def oneLine(s: Any) = s.toString.replaceAll( """\n""", "\\\\n").take(127)
@@ -242,4 +258,5 @@ private[async] final case class AnfTransform[C <: Context](c: C) {
       }
     }
   }
+
 }
