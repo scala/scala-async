@@ -168,18 +168,17 @@ private[async] final case class TransformUtils[C <: Context](c: C) {
     }.headOption.getOrElse(sys.error(s"Unable to find a method symbol in ${apply.tree}"))
   }
 
-  /** Using [[scala.reflect.api.Trees.TreeCopier]] copies more than we would like:
-    * we don't want to copy types and symbols to the new trees in some cases.
-    *
-    * Instead, we just copy positions and attachments.
-    */
-  object attachCopy {
-    def apply[T <: Tree](orig: Tree)(tree: T): tree.type = {
-      tree.setPos(orig.pos)
-      for (att <- orig.attachments.all)
-        tree.updateAttachment[Any](att)(ClassTag.apply[Any](att.getClass))
-      tree
-    }
+  /**
+   * Using [[scala.reflect.api.Trees.TreeCopier]] copies more than we would like:
+   * we don't want to copy types and symbols to the new trees in some cases.
+   *
+   * Instead, we just copy positions and attachments.
+   */
+  def attachCopy[T <: Tree](orig: Tree)(tree: T): tree.type = {
+    tree.setPos(orig.pos)
+    for (att <- orig.attachments.all)
+      tree.updateAttachment[Any](att)(ClassTag.apply[Any](att.getClass))
+    tree
   }
 
 }
