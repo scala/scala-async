@@ -30,9 +30,9 @@ libraryDependencies <<= (scalaVersion, libraryDependencies) {
 
 scalacOptions += "-P:continuations:enable"
 
-scalacOptions ++= Seq("-deprecation", "-unchecked", "-Xlint")
+scalacOptions ++= Seq("-deprecation", "-unchecked", "-Xlint", "-feature")
 
-description := "An asynchronous programminig facility for Scala, in the spirit of C# await/async"
+description := "An asynchronous programming facility for Scala, in the spirit of C# await/async"
 
 homepage := Some(url("http://github.com/phaller/scala-async"))
 

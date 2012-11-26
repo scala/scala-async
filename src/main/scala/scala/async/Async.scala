@@ -1,6 +1,7 @@
-/**
+/*
  * Copyright (C) 2012 Typesafe Inc. <http://www.typesafe.com>
  */
+
 package scala.async
 
 import scala.language.experimental.macros
@@ -63,13 +64,11 @@ abstract class AsyncBase {
 
   def asyncImpl[T: c.WeakTypeTag](c: Context)(body: c.Expr[T]): c.Expr[futureSystem.Fut[T]] = {
     import c.universe._
-    import Flag._
 
-    val builder = new ExprBuilder[c.type, futureSystem.type](c, self.futureSystem)
-    val anaylzer = new AsyncAnalysis[c.type](c)
-
-    import builder.defn._
-    import builder.name
+    val builder = ExprBuilder[c.type, futureSystem.type](c, self.futureSystem)
+    val anaylzer = AsyncAnalysis[c.type](c)
+    val utils = TransformUtils[c.type](c)
+    import utils.{name, defn}
     import builder.futureSystemOps
 
     anaylzer.reportUnsupportedAwaits(body.tree)
@@ -78,12 +77,9 @@ abstract class AsyncBase {
     //  - no await calls in qualifiers or arguments,
     //  - if/match only used in statement position.
     val anfTree: Block = {
-      val transform = new AnfTransform[c.type](c)
-      val unique = transform.uniqueNames(body.tree)
-      val stats1 :+ expr1 = transform.anf.transformToList(unique)
-
+      val anf = AnfTransform[c.type](c)
+      val stats1 :+ expr1 = anf(body.tree)
       val block = Block(stats1, expr1)
-
       c.typeCheck(block).asInstanceOf[Block]
     }
 
@@ -93,64 +89,21 @@ abstract class AsyncBase {
     val renameMap: Map[Symbol, TermName] = {
       anaylzer.valDefsUsedInSubsequentStates(anfTree).map {
         vd =>
-          (vd.symbol, builder.name.fresh(vd.name))
+          (vd.symbol, name.fresh(vd.name))
       }.toMap
     }
 
-    val startState = builder.stateAssigner.nextState()
-    val endState = Int.MaxValue
-
-    val asyncBlockBuilder = new builder.AsyncBlockBuilder(anfTree.stats, anfTree.expr, startState, endState, renameMap)
-    val handlerCases: List[CaseDef] = asyncBlockBuilder.mkCombinedHandlerCases[T]()
-
-    import asyncBlockBuilder.asyncStates
+    val asyncBlock: builder.AsyncBlock = builder.build(anfTree, renameMap)
+    import asyncBlock.asyncStates
     logDiagnostics(c)(anfTree, asyncStates.map(_.toString))
-    val initStates = asyncStates.init
-    val localVarTrees = asyncStates.flatMap(_.allVarDefs).toList
 
-    /*
-      lazy val onCompleteHandler = (tr: Try[Any]) => state match {
-        case 0 => {
-          x11 = tr.get.asInstanceOf[Double];
-          state = 1;
-          resume()
-        }
-        ...
-     */
-    val onCompleteHandler = {
-      val onCompleteHandlers = initStates.flatMap(_.mkOnCompleteHandler()).toList
-      Function(
-        List(ValDef(Modifiers(PARAM), name.tr, TypeTree(TryAnyType), EmptyTree)),
-        Match(Ident(name.state), onCompleteHandlers))
+    val localVarTrees = anfTree.collect {
+      case vd@ValDef(_, _, tpt, _) if renameMap contains vd.symbol =>
+        utils.mkVarDefTree(tpt.tpe, renameMap(vd.symbol))
     }
 
-    /*
-      def resume(): Unit = {
-        try {
-          state match {
-            case 0 => {
-               f11 = exprReturningFuture
-               f11.onComplete(onCompleteHandler)(context)
-             }
-            ...
-           }
-        } catch {
-          case NonFatal(t) => result.failure(t)
-        }
-      }
-     */
-    val resumeFunTree: c.Tree = DefDef(Modifiers(), name.resume, Nil, List(Nil), Ident(definitions.UnitClass),
-      Try(
-        Match(Ident(name.state), handlerCases),
-        List(
-          CaseDef(
-            Apply(Ident(NonFatalClass), List(Bind(name.tr, Ident(nme.WILDCARD)))),
-            EmptyTree,
-            Block(List({
-              val t = c.Expr[Throwable](Ident(name.tr))
-              futureSystemOps.completeProm[T](c.Expr[futureSystem.Prom[T]](Ident(name.result)), reify(scala.util.Failure(t.splice))).tree
-            }), c.literalUnit.tree))), EmptyTree))
-
+    val onCompleteHandler = asyncBlock.onCompleteHandler
+    val resumeFunTree = asyncBlock.resumeFunTree[T]
 
     val prom: Expr[futureSystem.Prom[T]] = reify {
       // Create the empty promise

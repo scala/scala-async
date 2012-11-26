@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2012 Typesafe Inc. <http://www.typesafe.com>
  */
 
@@ -171,5 +171,38 @@ class AnfTransformSpec {
       }
     }
     result mustBe (103)
+  }
+
+  @Test
+  def nestedAwaitAsBareExpression() {
+    import ExecutionContext.Implicits.global
+    import _root_.scala.async.AsyncId.{async, await}
+    val result = async {
+      await(await("").isEmpty)
+    }
+    result mustBe (true)
+  }
+
+  @Test
+  def nestedAwaitInBlock() {
+    import ExecutionContext.Implicits.global
+    import _root_.scala.async.AsyncId.{async, await}
+    val result = async {
+      ()
+      await(await("").isEmpty)
+    }
+    result mustBe (true)
+  }
+
+  @Test
+  def nestedAwaitInIf() {
+    import ExecutionContext.Implicits.global
+    import _root_.scala.async.AsyncId.{async, await}
+    val result = async {
+      if ("".isEmpty)
+        await(await("").isEmpty)
+      else 0
+    }
+    result mustBe (true)
   }
 }

@@ -1,13 +1,25 @@
 
+/*
+ * Copyright (C) 2012 Typesafe Inc. <http://www.typesafe.com>
+ */
+
 package scala.async
 
 import scala.reflect.macros.Context
 
-class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
+private[async] final case class AnfTransform[C <: Context](val c: C) {
 
   import c.universe._
+  val utils = TransformUtils[c.type](c)
+  import utils._
 
-  def uniqueNames(tree: Tree): Tree = {
+  def apply(tree: Tree): List[Tree] = {
+    val unique = uniqueNames(tree)
+    // Must prepend the () for issue #31.
+    anf.transformToList(Block(List(c.literalUnit.tree), unique))
+  }
+
+  private def uniqueNames(tree: Tree): Tree = {
     new UniqueNames(tree).transform(tree)
   }
 
@@ -16,7 +28,7 @@ class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
     *
     * This step is needed to allow us to safely merge blocks during the `inline` transform below.
     */
-  final class UniqueNames(tree: Tree) extends Transformer {
+  private final class UniqueNames(tree: Tree) extends Transformer {
     val repeatedNames: Set[Name] = tree.collect {
       case dt: DefTree => dt.symbol.name
     }.groupBy(x => x).filter(_._2.size > 1).keySet
@@ -32,7 +44,7 @@ class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
           val trans = super.transform(defTree)
           val origName = defTree.symbol.name
           val sym = defTree.symbol.asInstanceOf[symtab.Symbol]
-          val fresh = c.fresh("" + sym.name + "$")
+          val fresh = name.fresh(sym.name.toString)
           sym.name = defTree.symbol.name match {
             case _: TermName => symtab.newTermName(fresh)
             case _: TypeName => symtab.newTypeName(fresh)
@@ -65,12 +77,29 @@ class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
     }
   }
 
-  object inline {
-    def transformToList(tree: Tree): List[Tree] = {
+  private object trace {
+    private var indent = -1
+    def indentString = "  " * indent
+    def apply[T](prefix: String, args: Any)(t: => T): T = {
+      indent += 1
+      def oneLine(s: Any) = s.toString.replaceAll("""\n""", "\\\\n").take(127)
+      try {
+        AsyncUtils.trace(s"${indentString}$prefix(${oneLine(args)})")
+        val result = t
+        AsyncUtils.trace(s"${indentString}= ${oneLine(result)}")
+        result
+      } finally {
+        indent -= 1
+      }
+    }
+  }
+
+  private object inline {
+    def transformToList(tree: Tree): List[Tree] = trace("inline", tree) {
       val stats :+ expr = anf.transformToList(tree)
       expr match {
         case Apply(fun, args) if isAwait(fun) =>
-          val valDef = defineVal("await", expr, tree.pos)
+          val valDef = defineVal(name.await, expr, tree.pos)
           stats :+ valDef :+ Ident(valDef.name)
 
         case If(cond, thenp, elsep) =>
@@ -79,7 +108,7 @@ class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
           if (expr.tpe =:= definitions.UnitTpe) {
             stats :+ expr :+ Literal(Constant(()))
           } else {
-            val varDef = defineVar("ifres", expr.tpe, tree.pos)
+            val varDef = defineVar(name.ifRes, expr.tpe, tree.pos)
             def branchWithAssign(orig: Tree) = orig match {
               case Block(thenStats, thenExpr) => Block(thenStats, Assign(Ident(varDef.name), thenExpr))
               case _                          => Assign(Ident(varDef.name), orig)
@@ -95,7 +124,7 @@ class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
             stats :+ expr :+ Literal(Constant(()))
           }
           else {
-            val varDef = defineVar("matchres", expr.tpe, tree.pos)
+            val varDef = defineVar(name.matchRes, expr.tpe, tree.pos)
             val casesWithAssign = cases map {
               case cd@CaseDef(pat, guard, Block(caseStats, caseExpr)) =>
                 attachCopy.CaseDef(cd)(pat, guard, Block(caseStats, Assign(Ident(varDef.name), caseExpr)))
@@ -119,23 +148,22 @@ class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
       case stats :+ expr => Block(stats, expr)
     }
 
-    def liftedName(prefix: String) = c.fresh(prefix + "$")
-
     private def defineVar(prefix: String, tp: Type, pos: Position): ValDef = {
-      val vd = ValDef(Modifiers(Flag.MUTABLE), liftedName(prefix), TypeTree(tp), defaultValue(tp))
+      val vd = ValDef(Modifiers(Flag.MUTABLE), name.fresh(prefix), TypeTree(tp), defaultValue(tp))
       vd.setPos(pos)
       vd
     }
 
     private def defineVal(prefix: String, lhs: Tree, pos: Position): ValDef = {
-      val vd = ValDef(NoMods, liftedName(prefix), TypeTree(), lhs)
+      val vd = ValDef(NoMods, name.fresh(prefix), TypeTree(), lhs)
       vd.setPos(pos)
       vd
     }
   }
 
-  object anf {
-    def transformToList(tree: Tree): List[Tree] = {
+  private object anf {
+
+    private[AnfTransform] def transformToList(tree: Tree): List[Tree] = trace("anf", tree) {
       def containsAwait = tree exists isAwait
       tree match {
         case Select(qual, sel) if containsAwait =>
@@ -181,6 +209,9 @@ class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
           }
           scrutStats :+ c.typeCheck(attachCopy.Match(tree)(scrutExpr, caseDefs))
 
+        case LabelDef(name, params, rhs) if containsAwait =>
+          List(LabelDef(name, params, Block(inline.transformToList(rhs), Literal(Constant(())))).setSymbol(tree.symbol))
+
         case TypeApply(fun, targs) if containsAwait =>
           val funStats :+ simpleFun = inline.transformToList(fun)
           funStats :+ attachCopy.TypeApply(tree)(simpleFun, targs).setSymbol(tree.symbol)
@@ -190,5 +221,4 @@ class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
       }
     }
   }
-
 }

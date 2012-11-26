@@ -1,10 +1,17 @@
+/*
+ * Copyright (C) 2012 Typesafe Inc. <http://www.typesafe.com>
+ */
+
 package scala.async
 
 import scala.reflect.macros.Context
 import collection.mutable
 
-private[async] final class AsyncAnalysis[C <: Context](override val c: C) extends TransformUtils(c) {
+private[async] final case class AsyncAnalysis[C <: Context](val c: C) {
   import c.universe._
+
+  val utils = TransformUtils[c.type](c)
+  import utils._
 
   /**
    * Analyze the contents of an `async` block in order to:
@@ -29,7 +36,7 @@ private[async] final class AsyncAnalysis[C <: Context](override val c: C) extend
     analyzer.valDefsToLift.toList
   }
 
-  private class UnsupportedAwaitAnalyzer extends super.AsyncTraverser {
+  private class UnsupportedAwaitAnalyzer extends AsyncTraverser {
     override def nestedClass(classDef: ClassDef) {
       val kind = if (classDef.symbol.asClass.isTrait) "trait" else "class"
       if (!reportUnsupportedAwait(classDef, s"nested $kind")) {
@@ -45,12 +52,32 @@ private[async] final class AsyncAnalysis[C <: Context](override val c: C) extend
       }
     }
 
+    override def nestedMethod(module: DefDef) {
+      reportUnsupportedAwait(module, "nested method")
+    }
+
     override def byNameArgument(arg: Tree) {
       reportUnsupportedAwait(arg, "by-name argument")
     }
 
     override def function(function: Function) {
       reportUnsupportedAwait(function, "nested function")
+    }
+
+    override def traverse(tree: Tree) {
+      def containsAwait = tree exists isAwait
+      tree match {
+        case Try(_, _, _) if containsAwait =>
+          reportUnsupportedAwait(tree, "try/catch")
+          super.traverse(tree)
+        case If(cond, _, _) if containsAwait =>
+          reportUnsupportedAwait(cond, "condition")
+          super.traverse(tree)
+        case Return(_) =>
+          c.abort(tree.pos, "return is illegal within a async block")
+        case _ =>
+          super.traverse(tree)
+      }
     }
 
     /**
@@ -68,7 +95,7 @@ private[async] final class AsyncAnalysis[C <: Context](override val c: C) extend
    }
   }
 
-  private class AsyncDefinitionUseAnalyzer extends super.AsyncTraverser {
+  private class AsyncDefinitionUseAnalyzer extends AsyncTraverser {
     private var chunkId = 0
 
     private def nextChunk() = chunkId += 1
@@ -83,6 +110,8 @@ private[async] final class AsyncAnalysis[C <: Context](override val c: C) extend
           traverseChunks(List(cond, thenp, elsep))
         case Match(selector, cases) if tree exists isAwait =>
           traverseChunks(selector :: cases)
+        case LabelDef(name, params, rhs) if rhs exists isAwait =>
+          traverseChunks(rhs :: Nil)
         case Apply(fun, args) if isAwait(fun)              =>
           super.traverse(tree)
           nextChunk()
@@ -92,10 +121,10 @@ private[async] final class AsyncAnalysis[C <: Context](override val c: C) extend
           if (isAwait(vd.rhs)) valDefsToLift += vd
         case as: Assign                                    =>
           if (isAwait(as.rhs)) {
-            assert(as.symbol != null, "internal error: null symbol for Assign tree:" + as)
+            assert(as.lhs.symbol != null, "internal error: null symbol for Assign tree:" + as +  " " + as.lhs.symbol)
 
             // TODO test the orElse case, try to remove the restriction.
-            val (vd, defBlockId) = valDefChunkId.getOrElse(as.symbol, c.abort(as.pos, "await may only be assigned to a var/val defined in the async block. " + as.symbol))
+            val (vd, defBlockId) = valDefChunkId.getOrElse(as.lhs.symbol, c.abort(as.pos, s"await may only be assigned to a var/val defined in the async block. ${as.lhs} ${as.lhs.symbol}"))
             valDefsToLift += vd
           }
           super.traverse(tree)

@@ -1,3 +1,7 @@
+/*
+ * Copyright (C) 2012 Typesafe Inc. <http://www.typesafe.com>
+ */
+
 package scala.async
 package neg
 
@@ -85,6 +89,69 @@ class NakedAwait {
         | import _root_.scala.async.AsyncId._
         | async { () => { await(false) } }
       """.stripMargin
+    }
+  }
+
+  @Test
+  def tryBody() {
+    expectError("await must not be used under a try/catch.") {
+      """
+        | import _root_.scala.async.AsyncId._
+        | async { try { await(false) } catch { case _ => } }
+      """.stripMargin
+    }
+  }
+
+  @Test
+  def catchBody() {
+    expectError("await must not be used under a try/catch.") {
+      """
+        | import _root_.scala.async.AsyncId._
+        | async { try { () } catch { case _ => await(false) } }
+      """.stripMargin
+    }
+  }
+
+  @Test
+  def finallyBody() {
+    expectError("await must not be used under a try/catch.") {
+      """
+        | import _root_.scala.async.AsyncId._
+        | async { try { () } finally { await(false) } }
+      """.stripMargin
+    }
+  }
+
+  @Test
+  def nestedMethod() {
+    expectError("await must not be used under a nested method.") {
+      """
+        | import _root_.scala.async.AsyncId._
+        | async { def foo = await(false) }
+      """.stripMargin
+    }
+  }
+
+  @Test
+  def returnIllegal() {
+    expectError("return is illegal") {
+      """
+        | import _root_.scala.async.AsyncId._
+        | def foo(): Any = async { return false }
+        | ()
+        |
+        |""".stripMargin
+    }
+  }
+
+  // TODO Anf transform if to have a simple condition.
+  @Test
+  def ifCondition() {
+    expectError("await must not be used under a condition.") {
+      """
+        | import _root_.scala.async.AsyncId._
+        | async { if (await(true)) () }
+        |""".stripMargin
     }
   }
 }
