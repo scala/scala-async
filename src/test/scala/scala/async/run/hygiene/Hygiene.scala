@@ -27,9 +27,7 @@ class HygieneSpec {
       val z  = await(resume())
       (x, y, z)
     }
-    res._1 mustBe (25)
-    res._2 mustBe ("result")
-    res._3 mustBe ("resume")
+    res mustBe ((25, "result", "resume"))
   }
 
 /* TODO:
