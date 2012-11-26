@@ -21,7 +21,7 @@ class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
       case dt: DefTree => dt.symbol.name
     }.groupBy(x => x).filter(_._2.size > 1).keySet
 
-    /** Stepping outside of the public Macro API to call [[scala.reflect.internal.Symbols# S y m b o l.n a m e _ =]] */
+    /** Stepping outside of the public Macro API to call [[scala.reflect.internal.Symbols.Symbol.name_=]] */
     val symtab = c.universe.asInstanceOf[reflect.internal.SymbolTable]
 
     val renamed = collection.mutable.Set[Symbol]()
@@ -40,27 +40,27 @@ class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
           renamed += trans.symbol
           val newName = trans.symbol.name
           trans match {
-            case ValDef(mods, name, tpt, rhs) =>
+            case ValDef(mods, name, tpt, rhs)                    =>
               treeCopy.ValDef(trans, mods, newName, tpt, rhs)
             case DefDef(mods, name, tparams, vparamss, tpt, rhs) =>
               treeCopy.DefDef(trans, mods, newName, tparams, vparamss, tpt, rhs)
-            case TypeDef(mods, name, tparams, rhs) =>
+            case TypeDef(mods, name, tparams, rhs)               =>
               treeCopy.TypeDef(tree, mods, newName, tparams, transform(rhs))
             // If we were to allow local classes / objects, we would need to rename here.
             case ClassDef(mods, name, tparams, impl) =>
               treeCopy.ClassDef(tree, mods, newName, tparams, transform(impl).asInstanceOf[Template])
-            case ModuleDef(mods, name, impl) =>
+            case ModuleDef(mods, name, impl)         =>
               treeCopy.ModuleDef(tree, mods, newName, transform(impl).asInstanceOf[Template])
-            case x => super.transform(x)
+            case x                                   => super.transform(x)
           }
-        case Ident(name) =>
+        case Ident(name)                                            =>
           if (renamed(tree.symbol)) treeCopy.Ident(tree, tree.symbol.name)
           else tree
-        case Select(fun, name) =>
+        case Select(fun, name)                                      =>
           if (renamed(tree.symbol)) {
             treeCopy.Select(tree, transform(fun), tree.symbol.name)
           } else super.transform(tree)
-        case _ => super.transform(tree)
+        case _                                                      => super.transform(tree)
       }
     }
   }
@@ -70,7 +70,7 @@ class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
       val stats :+ expr = anf.transformToList(tree)
       expr match {
         case Apply(fun, args) if isAwait(fun) =>
-          val valDef = defineVal("await", expr)
+          val valDef = defineVal("await", expr, tree.pos)
           stats :+ valDef :+ Ident(valDef.name)
 
         case If(cond, thenp, elsep) =>
@@ -79,10 +79,10 @@ class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
           if (expr.tpe =:= definitions.UnitTpe) {
             stats :+ expr :+ Literal(Constant(()))
           } else {
-            val varDef = defineVar("ifres", expr.tpe)
+            val varDef = defineVar("ifres", expr.tpe, tree.pos)
             def branchWithAssign(orig: Tree) = orig match {
               case Block(thenStats, thenExpr) => Block(thenStats, Assign(Ident(varDef.name), thenExpr))
-              case _ => Assign(Ident(varDef.name), orig)
+              case _                          => Assign(Ident(varDef.name), orig)
             }
             val ifWithAssign = If(cond, branchWithAssign(thenp), branchWithAssign(elsep))
             stats :+ varDef :+ ifWithAssign :+ Ident(varDef.name)
@@ -95,22 +95,24 @@ class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
             stats :+ expr :+ Literal(Constant(()))
           }
           else {
-            val varDef = defineVar("matchres", expr.tpe)
+            val varDef = defineVar("matchres", expr.tpe, tree.pos)
             val casesWithAssign = cases map {
-              case CaseDef(pat, guard, Block(caseStats, caseExpr)) => CaseDef(pat, guard, Block(caseStats, Assign(Ident(varDef.name), caseExpr)))
-              case CaseDef(pat, guard, body) => CaseDef(pat, guard, Assign(Ident(varDef.name), body))
+              case cd@CaseDef(pat, guard, Block(caseStats, caseExpr)) =>
+                attachCopy.CaseDef(cd)(pat, guard, Block(caseStats, Assign(Ident(varDef.name), caseExpr)))
+              case cd@CaseDef(pat, guard, body)                       =>
+                attachCopy.CaseDef(cd)(pat, guard, Assign(Ident(varDef.name), body))
             }
-            val matchWithAssign = Match(scrut, casesWithAssign)
+            val matchWithAssign = attachCopy.Match(tree)(scrut, casesWithAssign)
             stats :+ varDef :+ matchWithAssign :+ Ident(varDef.name)
           }
-        case _ =>
+        case _                   =>
           stats :+ expr
       }
     }
 
     def transformToList(trees: List[Tree]): List[Tree] = trees match {
       case fst :: rest => transformToList(fst) ++ transformToList(rest)
-      case Nil => Nil
+      case Nil         => Nil
     }
 
     def transformToBlock(tree: Tree): Block = transformToList(tree) match {
@@ -119,11 +121,17 @@ class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
 
     def liftedName(prefix: String) = c.fresh(prefix + "$")
 
-    private def defineVar(prefix: String, tp: Type): ValDef =
-      ValDef(Modifiers(Flag.MUTABLE), liftedName(prefix), TypeTree(tp), defaultValue(tp))
+    private def defineVar(prefix: String, tp: Type, pos: Position): ValDef = {
+      val vd = ValDef(Modifiers(Flag.MUTABLE), liftedName(prefix), TypeTree(tp), defaultValue(tp))
+      vd.setPos(pos)
+      vd
+    }
 
-    private def defineVal(prefix: String, lhs: Tree): ValDef =
-      ValDef(NoMods, liftedName(prefix), TypeTree(), lhs)
+    private def defineVal(prefix: String, lhs: Tree, pos: Position): ValDef = {
+      val vd = ValDef(NoMods, liftedName(prefix), TypeTree(), lhs)
+      vd.setPos(pos)
+      vd
+    }
   }
 
   object anf {
@@ -132,7 +140,7 @@ class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
       tree match {
         case Select(qual, sel) if containsAwait =>
           val stats :+ expr = inline.transformToList(qual)
-          stats :+ Select(expr, sel).setSymbol(tree.symbol)
+          stats :+ attachCopy.Select(tree)(expr, sel).setSymbol(tree.symbol)
 
         case Apply(fun, args) if containsAwait =>
           // we an assume that no await call appears in a by-name argument position,
@@ -142,7 +150,7 @@ class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
           val argLists = args map inline.transformToList
           val allArgStats = argLists flatMap (_.init)
           val simpleArgs = argLists map (_.last)
-          funStats ++ allArgStats :+ Apply(simpleFun, simpleArgs).setSymbol(tree.symbol)
+          funStats ++ allArgStats :+ attachCopy.Apply(tree)(simpleFun, simpleArgs).setSymbol(tree.symbol)
 
         case Block(stats, expr) if containsAwait =>
           inline.transformToList(stats :+ expr)
@@ -150,35 +158,37 @@ class AnfTransform[C <: Context](override val c: C) extends TransformUtils(c) {
         case ValDef(mods, name, tpt, rhs) if containsAwait =>
           if (rhs exists isAwait) {
             val stats :+ expr = inline.transformToList(rhs)
-            stats :+ ValDef(mods, name, tpt, expr).setSymbol(tree.symbol)
+            stats :+ attachCopy.ValDef(tree)(mods, name, tpt, expr).setSymbol(tree.symbol)
           } else List(tree)
+
         case Assign(lhs, rhs) if containsAwait =>
           val stats :+ expr = inline.transformToList(rhs)
-          stats :+ Assign(lhs, expr)
+          stats :+ attachCopy.Assign(tree)(lhs, expr)
 
         case If(cond, thenp, elsep) if containsAwait =>
           val stats :+ expr = inline.transformToList(cond)
           val thenBlock = inline.transformToBlock(thenp)
           val elseBlock = inline.transformToBlock(elsep)
           stats :+
-            c.typeCheck(If(expr, thenBlock, elseBlock))
+            c.typeCheck(attachCopy.If(tree)(expr, thenBlock, elseBlock))
 
         case Match(scrut, cases) if containsAwait =>
           val scrutStats :+ scrutExpr = inline.transformToList(scrut)
           val caseDefs = cases map {
             case CaseDef(pat, guard, body) =>
               val block = inline.transformToBlock(body)
-              CaseDef(pat, guard, block)
+              attachCopy.CaseDef(tree)(pat, guard, block)
           }
-          scrutStats :+ c.typeCheck(Match(scrutExpr, caseDefs))
+          scrutStats :+ c.typeCheck(attachCopy.Match(tree)(scrutExpr, caseDefs))
 
         case TypeApply(fun, targs) if containsAwait =>
           val funStats :+ simpleFun = inline.transformToList(fun)
-          funStats :+ TypeApply(simpleFun, targs).setSymbol(tree.symbol)
+          funStats :+ attachCopy.TypeApply(tree)(simpleFun, targs).setSymbol(tree.symbol)
 
         case _ =>
           List(tree)
       }
     }
   }
+
 }
