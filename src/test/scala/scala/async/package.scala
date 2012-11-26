@@ -5,7 +5,7 @@
 package scala
 
 import reflect._
-import tools.reflect.ToolBoxError
+import tools.reflect.{ToolBox, ToolBoxError}
 
 package object async {
 
@@ -36,7 +36,7 @@ package object async {
     tb.eval(tb.parse(code))
   }
 
-  def mkToolbox(compileOptions: String = "") = {
+  def mkToolbox(compileOptions: String = ""): ToolBox[_ <: scala.reflect.api.Universe] = {
     val m = scala.reflect.runtime.currentMirror
     import scala.tools.reflect.ToolBox
     m.mkToolBox(options = compileOptions)

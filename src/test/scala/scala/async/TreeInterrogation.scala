@@ -8,6 +8,7 @@ import org.junit.runner.RunWith
 import org.junit.runners.JUnit4
 import org.junit.Test
 import AsyncId._
+import tools.reflect.ToolBox
 
 @RunWith(classOf[JUnit4])
 class TreeInterrogation {
@@ -20,14 +21,16 @@ class TreeInterrogation {
         | async {
         |   val x = await(1)
         |   val y = x * 2
+        |   def foo(a: Int) = { def nested = 0; a } // don't lift `nested`.
         |   val z = await(x * 3)
+        |   foo(z)
         |   z
         | }""".stripMargin)
     val tree1 = tb.typeCheck(tree)
 
     //println(cm.universe.show(tree1))
 
-    import tb.mirror.universe._
+    import tb.u._
     val functions = tree1.collect {
       case f: Function => f
       case t: Template => t
@@ -38,6 +41,18 @@ class TreeInterrogation {
       case ValDef(mods, name, _, _) if mods.hasFlag(Flag.MUTABLE) => name
     }
     varDefs.map(_.decoded.trim).toSet mustBe (Set("state$async", "await$1", "await$2"))
+    varDefs.map(_.decoded.trim).toSet mustBe (Set("state$async", "await$1", "await$2"))
+
+    val defDefs = tree1.collect {
+      case t: Template =>
+        val stats: List[Tree] = t.body
+        stats.collect {
+          case dd : DefDef
+            if !dd.symbol.isImplementationArtifact
+              && !dd.symbol.asTerm.isAccessor && !dd.symbol.asTerm.isSetter => dd.name
+        }
+    }.flatten
+    defDefs.map(_.decoded.trim).toSet mustBe (Set("foo$1", "apply", "resume$async", "<init>"))
   }
 }
 
