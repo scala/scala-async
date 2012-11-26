@@ -127,11 +127,11 @@ private[async] final case class AnfTransform[C <: Context](c: C) {
             val varDef = defineVar(name.matchRes, expr.tpe, tree.pos)
             val casesWithAssign = cases map {
               case cd@CaseDef(pat, guard, Block(caseStats, caseExpr)) =>
-                attachCopy.CaseDef(cd)(pat, guard, Block(caseStats, Assign(Ident(varDef.name), caseExpr)))
+                attachCopy(cd)(CaseDef(pat, guard, Block(caseStats, Assign(Ident(varDef.name), caseExpr))))
               case cd@CaseDef(pat, guard, body)                       =>
-                attachCopy.CaseDef(cd)(pat, guard, Assign(Ident(varDef.name), body))
+                attachCopy(cd)(CaseDef(pat, guard, Assign(Ident(varDef.name), body)))
             }
-            val matchWithAssign = attachCopy.Match(tree)(scrut, casesWithAssign)
+            val matchWithAssign = attachCopy(tree)(Match(scrut, casesWithAssign))
             stats :+ varDef :+ matchWithAssign :+ Ident(varDef.name)
           }
         case _                   =>
@@ -168,7 +168,7 @@ private[async] final case class AnfTransform[C <: Context](c: C) {
       tree match {
         case Select(qual, sel) if containsAwait =>
           val stats :+ expr = inline.transformToList(qual)
-          stats :+ attachCopy.Select(tree)(expr, sel).setSymbol(tree.symbol)
+          stats :+ attachCopy(tree)(Select(expr, sel).setSymbol(tree.symbol))
 
         case Apply(fun, args) if containsAwait =>
           // we an assume that no await call appears in a by-name argument position,
@@ -178,7 +178,7 @@ private[async] final case class AnfTransform[C <: Context](c: C) {
           val argLists = args map inline.transformToList
           val allArgStats = argLists flatMap (_.init)
           val simpleArgs = argLists map (_.last)
-          funStats ++ allArgStats :+ attachCopy.Apply(tree)(simpleFun, simpleArgs).setSymbol(tree.symbol)
+          funStats ++ allArgStats :+ attachCopy(tree)(Apply(simpleFun, simpleArgs).setSymbol(tree.symbol))
 
         case Block(stats, expr) if containsAwait =>
           inline.transformToList(stats :+ expr)
@@ -186,35 +186,35 @@ private[async] final case class AnfTransform[C <: Context](c: C) {
         case ValDef(mods, name, tpt, rhs) if containsAwait =>
           if (rhs exists isAwait) {
             val stats :+ expr = inline.transformToList(rhs)
-            stats :+ attachCopy.ValDef(tree)(mods, name, tpt, expr).setSymbol(tree.symbol)
+            stats :+ attachCopy(tree)(ValDef(mods, name, tpt, expr).setSymbol(tree.symbol))
           } else List(tree)
 
         case Assign(lhs, rhs) if containsAwait =>
           val stats :+ expr = inline.transformToList(rhs)
-          stats :+ attachCopy.Assign(tree)(lhs, expr)
+          stats :+ attachCopy(tree)(Assign(lhs, expr))
 
         case If(cond, thenp, elsep) if containsAwait =>
           val stats :+ expr = inline.transformToList(cond)
           val thenBlock = inline.transformToBlock(thenp)
           val elseBlock = inline.transformToBlock(elsep)
           stats :+
-            c.typeCheck(attachCopy.If(tree)(expr, thenBlock, elseBlock))
+            c.typeCheck(attachCopy(tree)(If(expr, thenBlock, elseBlock)))
 
         case Match(scrut, cases) if containsAwait =>
           val scrutStats :+ scrutExpr = inline.transformToList(scrut)
           val caseDefs = cases map {
             case CaseDef(pat, guard, body) =>
               val block = inline.transformToBlock(body)
-              attachCopy.CaseDef(tree)(pat, guard, block)
+              attachCopy(tree)(CaseDef(pat, guard, block))
           }
-          scrutStats :+ c.typeCheck(attachCopy.Match(tree)(scrutExpr, caseDefs))
+          scrutStats :+ c.typeCheck(attachCopy(tree)(Match(scrutExpr, caseDefs)))
 
         case LabelDef(name, params, rhs) if containsAwait =>
           List(LabelDef(name, params, Block(inline.transformToList(rhs), Literal(Constant(())))).setSymbol(tree.symbol))
 
         case TypeApply(fun, targs) if containsAwait =>
           val funStats :+ simpleFun = inline.transformToList(fun)
-          funStats :+ attachCopy.TypeApply(tree)(simpleFun, targs).setSymbol(tree.symbol)
+          funStats :+ attachCopy(tree)(TypeApply(simpleFun, targs).setSymbol(tree.symbol))
 
         case _ =>
           List(tree)

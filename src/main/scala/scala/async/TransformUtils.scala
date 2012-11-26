@@ -168,43 +168,17 @@ private[async] final case class TransformUtils[C <: Context](c: C) {
     }.headOption.getOrElse(sys.error(s"Unable to find a method symbol in ${apply.tree}"))
   }
 
-  /** Using [[scala.reflect.api.Trees.TreeCopier]] copies more than we would like:
-    * we don't want to copy types and symbols to the new trees in some cases.
-    *
-    * Instead, we just copy positions and attachments.
-    */
-  object attachCopy {
-    def copyAttach[T <: Tree](orig: Tree, tree: T): tree.type = {
-      tree.setPos(orig.pos)
-      for (att <- orig.attachments.all)
-        tree.updateAttachment[Any](att)(ClassTag.apply[Any](att.getClass))
-      tree
-    }
-
-    def Apply(tree: Tree)(fun: Tree, args: List[Tree]): Apply =
-      copyAttach(tree, c.universe.Apply(fun, args))
-
-    def Assign(tree: Tree)(lhs: Tree, rhs: Tree): Assign =
-      copyAttach(tree, c.universe.Assign(lhs, rhs))
-
-    def CaseDef(tree: Tree)(pat: Tree, guard: Tree, block: Tree): CaseDef =
-      copyAttach(tree, c.universe.CaseDef(pat, guard, block))
-
-    def If(tree: Tree)(cond: Tree, thenp: Tree, elsep: Tree): If =
-      copyAttach(tree, c.universe.If(cond, thenp, elsep))
-
-    def Match(tree: Tree)(selector: Tree, cases: List[CaseDef]): Match =
-      copyAttach(tree, c.universe.Match(selector, cases))
-
-    def Select(tree: Tree)(qual: Tree, name: Name): Select =
-      copyAttach(tree, c.universe.Select(qual, name))
-
-    def TypeApply(tree: Tree)(fun: Tree, args: List[Tree]): TypeApply = {
-      copyAttach(tree, c.universe.TypeApply(fun, args))
-    }
-
-    def ValDef(tree: Tree)(mods: Modifiers, name: TermName, tpt: Tree, rhs: Tree): ValDef =
-      copyAttach(tree, c.universe.ValDef(mods, name, tpt, rhs))
+  /**
+   * Using [[scala.reflect.api.Trees.TreeCopier]] copies more than we would like:
+   * we don't want to copy types and symbols to the new trees in some cases.
+   *
+   * Instead, we just copy positions and attachments.
+   */
+  def attachCopy[T <: Tree](orig: Tree)(tree: T): tree.type = {
+    tree.setPos(orig.pos)
+    for (att <- orig.attachments.all)
+      tree.updateAttachment[Any](att)(ClassTag.apply[Any](att.getClass))
+    tree
   }
 
 }
