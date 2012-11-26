@@ -15,6 +15,8 @@ import scala.collection._
 import scala.runtime.NonLocalReturnControl
 import scala.util.{Try,Success,Failure}
 
+import scala.async.Async.{async, await}
+
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.JUnit4
@@ -56,7 +58,10 @@ class FutureSpec {
         Await.ready(latch, 5 seconds)
         "success"
       }
-      val f3 = f2 map { s => s.toUpperCase }
+      val f3 = async {
+        val s = await(f2)
+        s.toUpperCase
+      }
       
       f2 foreach { _ => throw new ThrowableTest("dispatcher foreach") }
       f2 onSuccess { case _ => throw new ThrowableTest("dispatcher receive") }
@@ -82,16 +87,19 @@ class FutureSpec {
     import ExecutionContext.Implicits._
 
     @Test def `A future with global ExecutionContext should compose with for-comprehensions`() {
-      def async(x: Int) = future { (x * 2).toString }
+      import scala.reflect.ClassTag
+      
+      def asyncInt(x: Int) = future { (x * 2).toString }
       val future0 = future[Any] {
         "five!".length
       }
       
-      val future1 = for {
-        a <- future0.mapTo[Int]  // returns 5
-        b <- async(a)            // returns "10"
-        c <- async(7)            // returns "14"
-      } yield b + "-" + c
+      val future1 = async {
+        val a = await(future0.mapTo[Int])  // returns 5
+        val b = await(asyncInt(a))         // returns "10"
+        val c = await(asyncInt(7))         // returns "14"
+        b + "-" + c
+      }
       
       val future2 = for {
         a <- future0.mapTo[Int]
@@ -104,24 +112,25 @@ class FutureSpec {
       intercept[ClassCastException] { Await.result(future2, defaultTimeout) }
     }
     
+    //TODO this is not yet supported by Async
     @Test def `support pattern matching within a for-comprehension`() {
       case class Req[T](req: T)
       case class Res[T](res: T)
-      def async[T](req: Req[T]) = req match {
+      def asyncReq[T](req: Req[T]) = req match {
         case Req(s: String) => future { Res(s.length) }
         case Req(i: Int)    => future { Res((i * 2).toString) }
       }
       
       val future1 = for {
-        Res(a: Int) <- async(Req("Hello"))
-        Res(b: String) <- async(Req(a))
-        Res(c: String) <- async(Req(7))
+        Res(a: Int)    <- asyncReq(Req("Hello"))
+        Res(b: String) <- asyncReq(Req(a))
+        Res(c: String) <- asyncReq(Req(7))
       } yield b + "-" + c
       
       val future2 = for {
-        Res(a: Int) <- async(Req("Hello"))
-        Res(b: Int) <- async(Req(a))
-        Res(c: Int) <- async(Req(7))
+        Res(a: Int) <- asyncReq(Req("Hello"))
+        Res(b: Int) <- asyncReq(Req(a))
+        Res(c: Int) <- asyncReq(Req(7))
       } yield b + "-" + c
       
       Await.result(future1, defaultTimeout) mustBe ("10-14")
@@ -431,8 +440,8 @@ class FutureSpec {
         Await.ready(latch(1), TestLatch.DefaultTimeout)
         "Hello"
       }
-      val f2 = f1 map {
-        s =>
+      val f2 = async {
+        val s = await(f1)
         latch(2).open()
         Await.ready(latch(3), TestLatch.DefaultTimeout)
         s.length
@@ -450,8 +459,8 @@ class FutureSpec {
       f1.isCompleted mustBe (true)
       f2.isCompleted mustBe (false)
       
-      val f3 = f1 map {
-        s =>
+      val f3 = async {
+        val s = await(f1)
         latch(5).open()
         Await.ready(latch(6), TestLatch.DefaultTimeout)
         s.length * 2
@@ -469,8 +478,8 @@ class FutureSpec {
       f3.isCompleted mustBe (true)
       
       val p1 = Promise[String]()
-      val f4 = p1.future map {
-        s =>
+      val f4 = async {
+        val s = await(p1.future)
         latch(7).open()
         Await.ready(latch(8), TestLatch.DefaultTimeout)
         s.length
@@ -494,8 +503,8 @@ class FutureSpec {
     }
     
     @Test def `should not deadlock with nested await (ticket 1313)`() {
-      val simple = Future() map {
-        _ =>
+      val simple = async {
+        await { Future { } }
         val unit = Future(())
         val umap = unit map { _ => () }
         Await.result(umap, Inf)
@@ -503,8 +512,8 @@ class FutureSpec {
       Await.ready(simple, Inf).isCompleted mustBe (true)
       
       val l1, l2 = new TestLatch
-      val complex = Future() map {
-        _ =>
+      val complex = async {
+        await{ Future { } }
         blocking {
           val nested = Future(())
           for (_ <- nested) l1.open()
