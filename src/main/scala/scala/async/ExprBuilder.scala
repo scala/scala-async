@@ -10,7 +10,7 @@ import collection.mutable
 /*
  * @author Philipp Haller
  */
-private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](val c: C, val futureSystem: FS) {
+private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c: C, futureSystem: FS) {
   builder =>
 
   val utils = TransformUtils[c.type](c)

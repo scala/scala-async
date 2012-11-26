@@ -7,7 +7,7 @@ package scala.async
 import scala.reflect.macros.Context
 import collection.mutable
 
-private[async] final case class AsyncAnalysis[C <: Context](val c: C) {
+private[async] final case class AsyncAnalysis[C <: Context](c: C) {
   import c.universe._
 
   val utils = TransformUtils[c.type](c)

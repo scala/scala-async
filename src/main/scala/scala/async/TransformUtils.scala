@@ -9,7 +9,7 @@ import reflect.ClassTag
 /**
  * Utilities used in both `ExprBuilder` and `AnfTransform`.
  */
-private[async] final case class TransformUtils[C <: Context](val c: C) {
+private[async] final case class TransformUtils[C <: Context](c: C) {
 
   import c.universe._
 
