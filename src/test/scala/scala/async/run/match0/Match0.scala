@@ -69,4 +69,47 @@ class MatchSpec {
     val res = Await.result(fut, 2 seconds)
     res mustBe (5)
   }
+
+  @Test def `support await in a match expression with binds`() {
+    val result = AsyncId.async {
+      val x = 1
+      Option(x) match {
+        case op @ Some(x) =>
+          assert(op == Some(1))
+          x + AsyncId.await(x)
+        case None => AsyncId.await(0)
+      }
+    }
+    result mustBe (2)
+  }
+
+  @Test def `support await referring to pattern matching vals`() {
+    import AsyncId.{async, await}
+    val result = async {
+      val x = 1
+      val opt = Some("")
+      await(0)
+      val o @ Some(y) = opt
+
+      {
+        val o @ Some(y) = Some(".")
+      }
+
+      await(0)
+      await((o, y.isEmpty))
+    }
+    result mustBe ((Some(""), true))
+  }
+
+  @Test def `await in scrutinee`() {
+    import AsyncId.{async, await}
+    val result = async {
+      await(if ("".isEmpty) await(1) else ???) match {
+        case x if x < 0 => ???
+        case y: Int => y * await(3)
+        case _ => ???
+      }
+    }
+    result mustBe (3)
+  }
 }

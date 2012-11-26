@@ -6,11 +6,12 @@ package scala.async
 import scala.reflect.macros.Context
 import scala.collection.mutable.ListBuffer
 import collection.mutable
+import language.existentials
 
 /*
  * @author Philipp Haller
  */
-private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c: C, futureSystem: FS) {
+private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c: C, futureSystem: FS, origTree: C#Tree) {
   builder =>
 
   val utils = TransformUtils[c.type](c)
@@ -70,7 +71,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
 
     override def mkHandlerCaseForState: CaseDef = {
       val callOnComplete = futureSystemOps.onComplete(c.Expr(awaitable.expr),
-        c.Expr(Ident(name.onCompleteHandler)), c.Expr(Ident(name.execContext))).tree
+        c.Expr(This(tpnme.EMPTY)), c.Expr(Ident(name.execContext))).tree
       mkHandlerCase(state, stats :+ callOnComplete)
     }
 
@@ -96,12 +97,13 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
     /** The state of the target of a LabelDef application (while loop jump) */
     private var nextJumpState: Option[Int] = None
 
-    private def renameReset(tree: Tree) = resetDuplicate(substituteNames(tree, nameMap))
+    private def renameReset(tree: Tree) = resetInternalAttrs(substituteNames(tree, nameMap))
 
     def +=(stat: c.Tree): this.type = {
       assert(nextJumpState.isEmpty, s"statement appeared after a label jump: $stat")
       def addStat() = stats += renameReset(stat)
       stat match {
+        case _: DefDef       => // these have been lifted.
         case Apply(fun, Nil) =>
           labelDefStates get fun.symbol match {
             case Some(nextState) => nextJumpState = Some(nextState)
@@ -146,7 +148,12 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
     def resultWithMatch(scrutTree: c.Tree, cases: List[CaseDef], caseStates: List[Int]): AsyncState = {
       // 1. build list of changed cases
       val newCases = for ((cas, num) <- cases.zipWithIndex) yield cas match {
-        case CaseDef(pat, guard, rhs) => CaseDef(pat, guard, Block(mkStateTree(caseStates(num)), mkResumeApply))
+        case CaseDef(pat, guard, rhs) =>
+          val bindAssigns = rhs.children.takeWhile(isSyntheticBindVal).map {
+            case ValDef(_, name, _, rhs) => Assign(Ident(name), rhs)
+            case t                       => sys.error(s"Unexpected tree. Expected ValDef, found: $t")
+          }
+          CaseDef(pat, guard, Block(bindAssigns :+ mkStateTree(caseStates(num)), mkResumeApply))
       }
       // 2. insert changed match tree at the end of the current state
       this += Match(renameReset(scrutTree), newCases)
@@ -237,7 +244,9 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
           stateBuilder.resultWithMatch(scrutinee, cases, caseStates)
 
         for ((cas, num) <- cases.zipWithIndex) {
-          val builder = nestedBlockBuilder(cas.body, caseStates(num), afterMatchState)
+          val (stats, expr) = statsAndExpr(cas.body)
+          val stats1 = stats.dropWhile(isSyntheticBindVal)
+          val builder = nestedBlockBuilder(Block(stats1, expr), caseStates(num), afterMatchState)
           asyncStates ++= builder.asyncStates
         }
 
@@ -302,19 +311,16 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
       val initStates = asyncStates.init
 
       /**
-       * lazy val onCompleteHandler = (tr: Try[Any]) => state match {
+       * // assumes tr: Try[Any] is in scope.
+       * //
+       * state match {
        * case 0 => {
        * x11 = tr.get.asInstanceOf[Double];
        * state = 1;
        * resume()
        * }
        */
-      val onCompleteHandler: Tree = {
-        val onCompleteHandlers = initStates.flatMap(_.mkOnCompleteHandler).toList
-        Function(
-          List(ValDef(Modifiers(Flag.PARAM), name.tr, TypeTree(defn.TryAnyType), EmptyTree)),
-          Match(Ident(name.state), onCompleteHandlers))
-      }
+      val onCompleteHandler: Tree = Match(Ident(name.state), initStates.flatMap(_.mkOnCompleteHandler).toList)
 
       /**
        * def resume(): Unit = {
@@ -346,9 +352,18 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
     }
   }
 
+  private def isSyntheticBindVal(tree: Tree) = tree match {
+    case vd@ValDef(_, lname, _, Ident(rname)) => lname.toString.contains(name.bindSuffix)
+    case _                                    => false
+  }
+
   private final case class Awaitable(expr: Tree, resultName: TermName, resultType: Type)
 
-  private def resetDuplicate(tree: Tree) = c.resetAllAttrs(tree.duplicate)
+  private val internalSyms = origTree.collect {
+    case dt: DefTree => dt.symbol
+  }
+
+  private def resetInternalAttrs(tree: Tree) = utils.resetInternalAttrs(tree, internalSyms)
 
   private def mkResumeApply = Apply(Ident(name.resume), Nil)
 

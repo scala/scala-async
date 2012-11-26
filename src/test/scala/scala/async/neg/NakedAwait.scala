@@ -143,15 +143,4 @@ class NakedAwait {
         |""".stripMargin
     }
   }
-
-  // TODO Anf transform if to have a simple condition.
-  @Test
-  def ifCondition() {
-    expectError("await must not be used under a condition.") {
-      """
-        | import _root_.scala.async.AsyncId._
-        | async { if (await(true)) () }
-        |""".stripMargin
-    }
-  }
 }

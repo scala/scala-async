@@ -18,7 +18,7 @@ class LocalClasses0Spec {
 
   @Test
   def `reject a local class`() {
-    expectError("Local class Person illegal within `async` block", "-cp target/scala-2.10/classes -deprecation -Xfatal-warnings") {
+    expectError("Local case class Person illegal within `async` block") {
       """
         | import scala.concurrent.ExecutionContext.Implicits.global
         | import scala.async.Async._
@@ -32,7 +32,7 @@ class LocalClasses0Spec {
 
   @Test
   def `reject a local class 2`() {
-    expectError("Local class Person illegal within `async` block", "-cp target/scala-2.10/classes -deprecation -Xfatal-warnings") {
+    expectError("Local case class Person illegal within `async` block") {
       """
         | import scala.concurrent.{Future, ExecutionContext}
         | import ExecutionContext.Implicits.global
@@ -50,7 +50,7 @@ class LocalClasses0Spec {
 
   @Test
   def `reject a local class 3`() {
-    expectError("Local class Person illegal within `async` block", "-cp target/scala-2.10/classes -deprecation -Xfatal-warnings") {
+    expectError("Local case class Person illegal within `async` block") {
       """
         | import scala.concurrent.{Future, ExecutionContext}
         | import ExecutionContext.Implicits.global
@@ -68,7 +68,7 @@ class LocalClasses0Spec {
 
   @Test
   def `reject a local class with symbols in its name`() {
-    expectError("Local class :: illegal within `async` block", "-cp target/scala-2.10/classes -deprecation -Xfatal-warnings") {
+    expectError("Local case class :: illegal within `async` block") {
       """
         | import scala.concurrent.{Future, ExecutionContext}
         | import ExecutionContext.Implicits.global
@@ -86,7 +86,7 @@ class LocalClasses0Spec {
 
   @Test
   def `reject a nested local class`() {
-    expectError("Local class Person illegal within `async` block", "-cp target/scala-2.10/classes -deprecation -Xfatal-warnings") {
+    expectError("Local case class Person illegal within `async` block") {
       """
         | import scala.concurrent.{Future, ExecutionContext}
         | import ExecutionContext.Implicits.global
@@ -110,7 +110,7 @@ class LocalClasses0Spec {
 
   @Test
   def `reject a local singleton object`() {
-    expectError("Local object Person illegal within `async` block", "-cp target/scala-2.10/classes -deprecation -Xfatal-warnings") {
+    expectError("Local object Person illegal within `async` block") {
       """
         | import scala.concurrent.ExecutionContext.Implicits.global
         | import scala.async.Async._

@@ -18,18 +18,18 @@ private[async] final case class TransformUtils[C <: Context](c: C) {
 
     def suffixedName(prefix: String) = newTermName(suffix(prefix))
 
-    val state       = suffixedName("state")
-    val result      = suffixedName("result")
-    val resume      = suffixedName("resume")
-    val execContext = suffixedName("execContext")
-
-    // TODO do we need to freshen any of these?
-    val tr                = newTermName("tr")
-    val onCompleteHandler = suffixedName("onCompleteHandler")
-
-    val matchRes = "matchres"
-    val ifRes    = "ifres"
-    val await    = "await"
+    val state         = suffixedName("state")
+    val result        = suffixedName("result")
+    val resume        = suffixedName("resume")
+    val execContext   = suffixedName("execContext")
+    val stateMachine  = newTermName(fresh("stateMachine"))
+    val stateMachineT = stateMachine.toTypeName
+    val apply         = newTermName("apply")
+    val tr            = newTermName("tr")
+    val matchRes      = "matchres"
+    val ifRes         = "ifres"
+    val await         = "await"
+    val bindSuffix    = "$bind"
 
     def fresh(name: TermName): TermName = newTermName(fresh(name.toString))
 
@@ -127,6 +127,14 @@ private[async] final case class TransformUtils[C <: Context](c: C) {
     ValDef(Modifiers(Flag.MUTABLE), resultName, TypeTree(resultType), defaultValue(resultType))
   }
 
+  def emptyConstructor: DefDef = {
+    val emptySuperCall = Apply(Select(Super(This(tpnme.EMPTY), tpnme.EMPTY), nme.CONSTRUCTOR), Nil)
+    DefDef(NoMods, nme.CONSTRUCTOR, List(), List(List()), TypeTree(), Block(List(emptySuperCall), c.literalUnit.tree))
+  }
+
+  def applied(className: String, types: List[Type]): AppliedTypeTree =
+    AppliedTypeTree(Ident(c.mirror.staticClass(className)), types.map(TypeTree(_)))
+
   object defn {
     def mkList_apply[A](args: List[Expr[A]]): Expr[List[A]] = {
       c.Expr(Apply(Ident(definitions.List_apply), args.map(_.tree)))
@@ -146,8 +154,7 @@ private[async] final case class TransformUtils[C <: Context](c: C) {
       self.splice.get
     }
 
-    val Try_get = methodSym(reify((null: scala.util.Try[Any]).get))
-
+    val Try_get       = methodSym(reify((null: scala.util.Try[Any]).get))
     val TryClass      = c.mirror.staticClass("scala.util.Try")
     val TryAnyType    = appliedType(TryClass.toType, List(definitions.AnyTpe))
     val NonFatalClass = c.mirror.staticModule("scala.util.control.NonFatal")
@@ -158,7 +165,6 @@ private[async] final case class TransformUtils[C <: Context](c: C) {
       tpe.member(c.universe.newTermName("await")).ensuring(_ != NoSymbol)
     }
   }
-
 
   /** `termSym( (_: Foo).bar(null: A, null: B)` will return the symbol of `bar`, after overload resolution. */
   private def methodSym(apply: c.Expr[Any]): Symbol = {
@@ -179,6 +185,61 @@ private[async] final case class TransformUtils[C <: Context](c: C) {
     for (att <- orig.attachments.all)
       tree.updateAttachment[Any](att)(ClassTag.apply[Any](att.getClass))
     tree
+  }
+
+  def resetInternalAttrs(tree: Tree, internalSyms: List[Symbol]) =
+    new ResetInternalAttrs(internalSyms.toSet).transform(tree)
+
+  /**
+   * Adaptation of [[scala.reflect.internal.Trees.ResetAttrs]]
+   *
+   * A transformer which resets symbol and tpe fields of all nodes in a given tree,
+   * with special treatment of:
+   * `TypeTree` nodes: are replaced by their original if it exists, otherwise tpe field is reset
+   * to empty if it started out empty or refers to local symbols (which are erased).
+   * `TypeApply` nodes: are deleted if type arguments end up reverted to empty
+   *
+   * `This` and `Ident` nodes referring to an external symbol are ''not'' reset.
+   */
+  private final class ResetInternalAttrs(internalSyms: Set[Symbol]) extends Transformer {
+
+    import language.existentials
+
+    override def transform(tree: Tree): Tree = super.transform {
+      def isExternal = tree.symbol != NoSymbol && !internalSyms(tree.symbol)
+
+      tree match {
+        case tpt: TypeTree                         => resetTypeTree(tpt)
+        case TypeApply(fn, args)
+          if args map transform exists (_.isEmpty) => transform(fn)
+        case EmptyTree                             => tree
+        case (_: Ident | _: This) if isExternal    => tree // #35 Don't reset the symbol of Ident/This bound outside of the async block
+        case _                                     => resetTree(tree)
+      }
+    }
+
+    private def resetTypeTree(tpt: TypeTree): Tree = {
+      if (tpt.original != null)
+        transform(tpt.original)
+      else if (tpt.tpe != null && tpt.asInstanceOf[symtab.TypeTree forSome {val symtab: reflect.internal.SymbolTable}].wasEmpty) {
+        val dupl = tpt.duplicate
+        dupl.tpe = null
+        dupl
+      }
+      else tpt
+    }
+
+    private def resetTree(tree: Tree): Tree = {
+      val hasSymbol: Boolean = {
+        val reflectInternalTree = tree.asInstanceOf[symtab.Tree forSome {val symtab: reflect.internal.SymbolTable}]
+        reflectInternalTree.hasSymbol
+      }
+      val dupl = tree.duplicate
+      if (hasSymbol)
+        dupl.symbol = NoSymbol
+      dupl.tpe = null
+      dupl
+    }
   }
 
 }

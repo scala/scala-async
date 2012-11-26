@@ -33,6 +33,9 @@ trait FutureSystem {
     /** Lookup the execution context, typically with an implicit search */
     def execContext: Expr[ExecContext]
 
+    def promType[A: WeakTypeTag]: Type
+    def execContextType: Type
+
     /** Create an empty promise */
     def createProm[A: WeakTypeTag]: Expr[Prom[A]]
 
@@ -70,6 +73,9 @@ object ScalaConcurrentFutureSystem extends FutureSystem {
       case EmptyTree => c.abort(c.macroApplication.pos, "Unable to resolve implicit ExecutionContext")
       case context => context
     })
+
+    def promType[A: WeakTypeTag]: Type = c.weakTypeOf[Promise[A]]
+    def execContextType: Type = c.weakTypeOf[ExecutionContext]
 
     def createProm[A: WeakTypeTag]: Expr[Prom[A]] = reify {
       Promise[A]()
@@ -112,6 +118,9 @@ object IdentityFutureSystem extends FutureSystem {
     import context.universe._
 
     def execContext: Expr[ExecContext] = c.literalUnit
+
+    def promType[A: WeakTypeTag]: Type = c.weakTypeOf[Prom[A]]
+    def execContextType: Type = c.weakTypeOf[Unit]
 
     def createProm[A: WeakTypeTag]: Expr[Prom[A]] = reify {
       new Prom(null.asInstanceOf[A])
