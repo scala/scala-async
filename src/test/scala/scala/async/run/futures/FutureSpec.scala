@@ -101,11 +101,12 @@ class FutureSpec {
         b + "-" + c
       }
       
-      val future2 = for {
-        a <- future0.mapTo[Int]
-        b <- (future { (a * 2).toString }).mapTo[Int]
-        c <- future { (7 * 2).toString } 
-      } yield b + "-" + c
+      val future2 = async {
+        val a = await(future0.mapTo[Int])
+        val b = await((future { (a * 2).toString }).mapTo[Int])
+        val c = await(future { (7 * 2).toString })
+        b + "-" + c
+      }
       
       Await.result(future1, defaultTimeout) mustBe ("10-14")
       //assert(checkType(future1, manifest[String]))
@@ -139,20 +140,23 @@ class FutureSpec {
     
     @Test def `recover from exceptions`() {
       val future1 = Future(5)
-      val future2 = future1 map (_ / 0)
-      val future3 = future2 map (_.toString)
-      
-      val future4 = future1 recover {
+      val future2 = async { await(future1) / 0 }
+      val future3 = async { await(future2).toString }
+
+      val future1Recovered = future1 recover {
         case e: ArithmeticException => 0
-      } map (_.toString)
+      }
+      val future4 = async { await(future1Recovered).toString }
       
-      val future5 = future2 recover {
+      val future2Recovered = future2 recover {
         case e: ArithmeticException => 0
-      } map (_.toString)
+      }
+      val future5 = async { await(future2Recovered).toString }
       
-      val future6 = future2 recover {
+      val future2Recovered2 = future2 recover {
         case e: MatchError => 0
-      } map (_.toString)
+      }
+      val future6 = async { await(future2Recovered2).toString }
       
       val future7 = future3 recover {
         case e: ArithmeticException => "You got ERROR"
@@ -527,7 +531,7 @@ class FutureSpec {
 
     @Test def `should not throw when Await.ready`() {
       val expected = try Success(5 / 0) catch { case a: ArithmeticException => Failure(a) }
-      val f = future(5).map(_ / 0)
+      val f = async { await(future(5)) / 0 }
       Await.ready(f, defaultTimeout).value.get.toString mustBe expected.toString
     }
   

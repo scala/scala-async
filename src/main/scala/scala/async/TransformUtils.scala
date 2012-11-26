@@ -155,6 +155,8 @@ private[async] final case class TransformUtils[C <: Context](c: C) {
     }
 
     val Try_get       = methodSym(reify((null: scala.util.Try[Any]).get))
+    val Try_isFailure = methodSym(reify((null: scala.util.Try[Any]).isFailure))
+
     val TryClass      = c.mirror.staticClass("scala.util.Try")
     val TryAnyType    = appliedType(TryClass.toType, List(definitions.AnyTpe))
     val NonFatalClass = c.mirror.staticModule("scala.util.control.NonFatal")

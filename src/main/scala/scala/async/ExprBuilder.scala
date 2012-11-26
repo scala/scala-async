@@ -30,7 +30,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
 
     def mkHandlerCaseForState: CaseDef
 
-    def mkOnCompleteHandler: Option[CaseDef] = None
+    def mkOnCompleteHandler[T: c.WeakTypeTag]: Option[CaseDef] = None
 
     def stats: List[Tree]
 
@@ -75,13 +75,32 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
       mkHandlerCase(state, stats :+ callOnComplete)
     }
 
-    override def mkOnCompleteHandler: Option[CaseDef] = {
+    override def mkOnCompleteHandler[T: c.WeakTypeTag]: Option[CaseDef] = {
       val tryGetTree =
         Assign(
           Ident(awaitable.resultName),
           TypeApply(Select(Select(Ident(name.tr), Try_get), newTermName("asInstanceOf")), List(TypeTree(awaitable.resultType)))
         )
-      Some(mkHandlerCase(state, List(tryGetTree, mkStateTree(nextState), mkResumeApply)))
+
+      /* if (tr.isFailure)
+       *   result$async.complete(tr.asInstanceOf[Try[T]])
+       * else {
+       *   <resultName> = tr.get.asInstanceOf[<resultType>]
+       *   <nextState>
+       *   <mkResumeApply>
+       * }
+       */
+      val ifIsFailureTree =
+        If(Select(Ident(name.tr), Try_isFailure),
+           futureSystemOps.completeProm[T](
+             c.Expr[futureSystem.Prom[T]](Ident(name.result)),
+             c.Expr[scala.util.Try[T]](
+               TypeApply(Select(Ident(name.tr), newTermName("asInstanceOf")),
+                         List(TypeTree(weakTypeOf[scala.util.Try[T]]))))).tree,
+           Block(List(tryGetTree, mkStateTree(nextState), mkResumeApply): _*)
+           )
+
+      Some(mkHandlerCase(state, List(ifIsFailureTree)))
     }
 
     override val toString: String =
@@ -276,7 +295,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
   trait AsyncBlock {
     def asyncStates: List[AsyncState]
 
-    def onCompleteHandler: Tree
+    def onCompleteHandler[T: c.WeakTypeTag]: Tree
 
     def resumeFunTree[T]: Tree
   }
@@ -320,7 +339,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
        * resume()
        * }
        */
-      val onCompleteHandler: Tree = Match(Ident(name.state), initStates.flatMap(_.mkOnCompleteHandler).toList)
+      def onCompleteHandler[T: c.WeakTypeTag]: Tree = Match(Ident(name.state), initStates.flatMap(_.mkOnCompleteHandler[T]).toList)
 
       /**
        * def resume(): Unit = {
