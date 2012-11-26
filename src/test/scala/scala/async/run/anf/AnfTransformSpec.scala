@@ -163,7 +163,7 @@ class AnfTransformSpec {
     val result = AsyncId.async {
       val x = "" match {
         case "" if false => AsyncId.await(1) + 1
-        case _ => 2 + AsyncId.await(1)
+        case _           => 2 + AsyncId.await(1)
       }
       val y = x
       "" match {
@@ -222,9 +222,37 @@ class AnfTransformSpec {
     def foo(a: Int, b: Int) = (a, b)
     val result = async {
       var i = 0
-      def next() = {i += 1; i}
+      def next() = {
+        i += 1; i
+      }
       foo(next(), await(next()))
     }
     result mustBe ((1, 2))
+  }
+
+  @Test
+  def awaitNotAllowedInNonPrimaryParamSection1() {
+    expectError("implementation restriction: await may only be used in the first parameter list.") {
+      """
+        | import _root_.scala.async.AsyncId.{async, await}
+        | def foo(primary: Any)(i: Int) = i
+        | async {
+        |   foo(???)(await(0))
+        | }
+      """.stripMargin
+    }
+  }
+
+  @Test
+  def awaitNotAllowedInNonPrimaryParamSection2() {
+    expectError("implementation restriction: await may only be used in the first parameter list.") {
+      """
+        | import _root_.scala.async.AsyncId.{async, await}
+        | def foo[T](primary: Any)(i: Int) = i
+        | async {
+        |   foo[Int](???)(await(0))
+        | }
+      """.stripMargin
+    }
   }
 }
