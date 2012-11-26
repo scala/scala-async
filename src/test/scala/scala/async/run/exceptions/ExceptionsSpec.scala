@@ -21,19 +21,41 @@ import org.junit.runners.JUnit4
 class ExceptionsSpec {
 
   @Test
-  def `complete future with exception`() {
-    val future0 = future[Any] {
-      "five!".length
-    }
+  def `uncaught exception within async`() {
+    val fut = async { throw new Exception("problem") }
+    intercept[Exception] { Await.result(fut, 2.seconds) }
+  }
 
-    val future2 = async {
-      val a = await(future0.mapTo[Int])                       // result: 5
-      val b = await((future { (a * 2).toString }).mapTo[Int]) // result: 10
+  @Test
+  def `uncaught exception within async after await`() {
+    val base = future { "five!".length }
+    val fut = async {
+      val len = await(base)
+      throw new Exception(s"illegal length: $len")
+    }
+    intercept[Exception] { Await.result(fut, 2.seconds) }
+  }
+
+  @Test
+  def `await failing future within async`() {
+    val base = future[Int] { throw new Exception("problem") }
+    val fut = async {
+      val x = await(base)
+      x * 2
+    }
+    intercept[Exception] { Await.result(fut, 2.seconds) }
+  }
+
+  @Test
+  def `await failing future within async after await`() {
+    val base = future[Any] { "five!".length }
+    val fut = async {
+      val a = await(base.mapTo[Int])                          // result: 5
+      val b = await((future { (a * 2).toString }).mapTo[Int]) // result: ClassCastException
       val c = await(future { (7 * 2).toString })              // result: "14"
       b + "-" + c
     }
-
-    intercept[ClassCastException] { Await.result(future2, 5.seconds) }
+    intercept[ClassCastException] { Await.result(fut, 2.seconds) }
   }
 
 }
