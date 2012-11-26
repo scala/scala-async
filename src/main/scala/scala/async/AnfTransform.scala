@@ -31,20 +31,20 @@ private[async] final case class AnfTransform[C <: Context](c: C) {
     * This step is needed to allow us to safely merge blocks during the `inline` transform below.
     */
   private final class UniqueNames(tree: Tree) extends Transformer {
-    class DuplicateNameTraverser extends AsyncTraverser {
-      val result = collection.mutable.Buffer[Name]()
+    val repeatedNames: Set[Symbol] = {
+      class DuplicateNameTraverser extends AsyncTraverser {
+        val result = collection.mutable.Buffer[Symbol]()
 
-      override def traverse(tree: Tree) {
-        tree match {
-          case dt: DefTree => result += dt.symbol.name
-          case _           => super.traverse(tree)
+        override def traverse(tree: Tree) {
+          tree match {
+            case dt: DefTree => result += dt.symbol
+            case _           => super.traverse(tree)
+          }
         }
       }
-    }
-    val repeatedNames: Set[Name] = {
       val dupNameTraverser = new DuplicateNameTraverser
       dupNameTraverser.traverse(tree)
-      dupNameTraverser.result.groupBy(x => x).filter(_._2.size > 1).keySet
+      dupNameTraverser.result.groupBy(x => x.name).filter(_._2.size > 1).values.flatten.toSet[Symbol]
     }
 
     /** Stepping outside of the public Macro API to call [[scala.reflect.internal.Symbols.Symbol.name_=]] */
@@ -54,7 +54,7 @@ private[async] final case class AnfTransform[C <: Context](c: C) {
 
     override def transform(tree: Tree): Tree = {
       tree match {
-        case defTree: DefTree if repeatedNames(defTree.symbol.name) =>
+        case defTree: DefTree if repeatedNames(defTree.symbol) =>
           val trans = super.transform(defTree)
           val origName = defTree.symbol.name
           val sym = defTree.symbol.asInstanceOf[symtab.Symbol]

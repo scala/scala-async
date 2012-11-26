@@ -76,7 +76,7 @@ class HygieneSpec {
       val f1 = async { state + 2 }
       val x  = await(f1)
       val y  = await(async { result })
-      val z  = await(async { resume() })
+      val z  = await(async(await(async { resume() })))
       (x, y, z)
     }
     res._1 mustBe (25)
