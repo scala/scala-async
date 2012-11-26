@@ -223,7 +223,8 @@ class AnfTransformSpec {
     val result = async {
       var i = 0
       def next() = {
-        i += 1; i
+        i += 1;
+        i
       }
       foo(next(), await(next()))
     }
@@ -254,5 +255,38 @@ class AnfTransformSpec {
         | }
       """.stripMargin
     }
+  }
+
+  @Test
+  def namedArgumentsRespectEvaluationOrder() {
+    import scala.async.AsyncId.{async, await}
+    def foo(a: Int, b: Int) = (a, b)
+    val result = async {
+      var i = 0
+      def next() = {
+        i += 1;
+        i
+      }
+      foo(b = next(), a = await(next()))
+    }
+    result mustBe ((2, 1))
+  }
+
+  @Test
+  def namedAndDefaultArgumentsRespectEvaluationOrder() {
+    import scala.async.AsyncId.{async, await}
+    var i = 0
+    def next() = {
+      i += 1;
+      i
+    }
+    def foo(a: Int = next(), b: Int = next()) = (a, b)
+    async {
+      foo(b = await(next()))
+    } mustBe ((2, 1))
+    i = 0
+    async {
+      foo(a = await(next()))
+    } mustBe ((1, 2))
   }
 }
