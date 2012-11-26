@@ -170,12 +170,12 @@ private[async] final case class AnfTransform[C <: Context](c: C) {
       vd.setPos(pos)
       vd
     }
+  }
 
-    private def defineVal(prefix: String, lhs: Tree, pos: Position): ValDef = {
-      val vd = ValDef(NoMods, name.fresh(prefix), TypeTree(), lhs)
-      vd.setPos(pos)
-      vd
-    }
+  private def defineVal(prefix: String, lhs: Tree, pos: Position): ValDef = {
+    val vd = ValDef(NoMods, name.fresh(prefix), TypeTree(), lhs)
+    vd.setPos(pos)
+    vd
   }
 
   private object anf {
@@ -190,10 +190,18 @@ private[async] final case class AnfTransform[C <: Context](c: C) {
         case Apply(fun, args) if containsAwait =>
           // we an assume that no await call appears in a by-name argument position,
           // this has already been checked.
-
+          val isByName: (Int) => Boolean = utils.isByName(fun)
           val funStats :+ simpleFun = inline.transformToList(fun)
-          val argLists = args map inline.transformToList
-          val allArgStats = argLists flatMap (_.init)
+          val argLists: List[List[Tree]] = args.zipWithIndex map {
+            case (arg, i) if isByName(i) => List(arg)
+            case (arg, i)                => inline.transformToList(arg) match {
+              case stats :+ expr =>
+                val valDef = defineVal(s"arg$i", expr, arg.pos)
+                stats ::: List(valDef, Ident(valDef.name))
+              case xs => xs
+            }
+          }
+          val allArgStats = argLists  flatMap (_.init)
           val simpleArgs = argLists map (_.last)
           funStats ++ allArgStats :+ attachCopy(tree)(Apply(simpleFun, simpleArgs).setSymbol(tree.symbol))
 

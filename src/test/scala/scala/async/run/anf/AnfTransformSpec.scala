@@ -205,4 +205,26 @@ class AnfTransformSpec {
     }
     result mustBe (true)
   }
+
+  @Test
+  def byNameExpressionsArentLifted() {
+    import _root_.scala.async.AsyncId.{async, await}
+    def foo(ignored: => Any, b: Int) = b
+    val result = async {
+      foo(???, await(1))
+    }
+    result mustBe (1)
+  }
+
+  @Test
+  def evaluationOrderRespected() {
+    import scala.async.AsyncId.{async, await}
+    def foo(a: Int, b: Int) = (a, b)
+    val result = async {
+      var i = 0
+      def next() = {i += 1; i}
+      foo(next(), await(next()))
+    }
+    result mustBe ((1, 2))
+  }
 }
