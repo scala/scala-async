@@ -115,7 +115,7 @@ abstract class AsyncBase {
 
     val stateMachineType = utils.applied("scala.async.StateMachine", List(futureSystemOps.promType[T], futureSystemOps.execContextType))
 
-    val stateMachine: ClassDef = {
+    lazy val stateMachine: ClassDef = {
       val body: List[Tree] = {
         val stateVar = ValDef(Modifiers(Flag.MUTABLE), name.state, TypeTree(definitions.IntTpe), Literal(Constant(0)))
         val result = ValDef(NoMods, name.result, TypeTree(futureSystemOps.promType[T]), futureSystemOps.createProm[T].tree)
@@ -142,14 +142,24 @@ abstract class AsyncBase {
 
     def selectStateMachine(selection: TermName) = Select(Ident(name.stateMachine), selection)
 
-    val code = c.Expr[futureSystem.Fut[T]](Block(List[Tree](
-      stateMachine,
-      ValDef(NoMods, name.stateMachine, stateMachineType, New(Ident(name.stateMachineT), Nil)),
-      futureSystemOps.future(c.Expr[Unit](Apply(selectStateMachine(name.apply), Nil)))
-        (c.Expr[futureSystem.ExecContext](selectStateMachine(name.execContext))).tree
-    ),
-      futureSystemOps.promiseToFuture(c.Expr[futureSystem.Prom[T]](selectStateMachine(name.result))).tree
-    ))
+    def spawn(tree: Tree): Tree =
+      futureSystemOps.future(c.Expr[Unit](tree))(c.Expr[futureSystem.ExecContext](selectStateMachine(name.execContext))).tree
+
+    val code: c.Expr[futureSystem.Fut[T]] = {
+      val isSimple = asyncStates.size == 1
+      val tree =
+        if (isSimple)
+          Block(Nil, spawn(body.tree)) // generate lean code for the simple case of `async { 1 + 1 }`
+        else {
+          Block(List[Tree](
+            stateMachine,
+            ValDef(NoMods, name.stateMachine, stateMachineType, New(Ident(name.stateMachineT), Nil)),
+            spawn(Apply(selectStateMachine(name.apply), Nil))
+          ),
+          futureSystemOps.promiseToFuture(c.Expr[futureSystem.Prom[T]](selectStateMachine(name.result))).tree)
+        }
+      c.Expr[futureSystem.Fut[T]](tree)
+    }
 
     AsyncUtils.vprintln(s"async state machine transform expands to:\n ${code.tree}")
     code
@@ -173,5 +183,6 @@ abstract class AsyncBase {
 /** Internal class used by the `async` macro; should not be manually extended by client code */
 abstract class StateMachine[Result, EC] extends (scala.util.Try[Any] => Unit) with (() => Unit) {
   def result$async: Result
+
   def execContext$async: EC
 }
