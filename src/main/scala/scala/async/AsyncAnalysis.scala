@@ -5,7 +5,7 @@
 package scala.async
 
 import scala.reflect.macros.Context
-import collection.mutable
+import scala.collection.mutable
 
 private[async] final case class AsyncAnalysis[C <: Context](c: C) {
   import c.universe._
@@ -102,7 +102,7 @@ private[async] final case class AsyncAnalysis[C <: Context](c: C) {
 
     private var valDefChunkId = Map[Symbol, (ValDef, Int)]()
 
-    val valDefsToLift: mutable.Set[ValDef] = collection.mutable.Set[ValDef]()
+    val valDefsToLift = mutable.Set[ValDef]()
 
     override def traverse(tree: Tree) = {
       tree match {
