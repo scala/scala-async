@@ -3,9 +3,6 @@
  */
 package scala.async
 
-/*
- * @author Philipp Haller
- */
 object AsyncUtils {
 
   private def enabled(level: String) = sys.props.getOrElse(s"scala.async.$level", "false").equalsIgnoreCase("true")

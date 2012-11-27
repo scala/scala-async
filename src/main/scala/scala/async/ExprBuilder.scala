@@ -8,9 +8,6 @@ import scala.collection.mutable.ListBuffer
 import collection.mutable
 import language.existentials
 
-/*
- * @author Philipp Haller
- */
 private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c: C, futureSystem: FS, origTree: C#Tree) {
   builder =>
 

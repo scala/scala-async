@@ -7,9 +7,6 @@ package scala.async
 import scala.language.experimental.macros
 import scala.reflect.macros.Context
 
-/*
- * @author Philipp Haller
- */
 object Async extends AsyncBase {
 
   import scala.concurrent.Future
