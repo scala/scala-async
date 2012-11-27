@@ -194,13 +194,14 @@ private[async] final case class AnfTransform[C <: Context](c: C) {
           // this has already been checked.
           val isByName: (Int) => Boolean = utils.isByName(fun)
           val funStats :+ simpleFun = inline.transformToList(fun)
+          def isAwaitRef(name: Name) = name.toString.startsWith(utils.name.await + "$")
           val argLists: List[List[Tree]] = args.zipWithIndex map {
-            case (arg, i) if isByName(i) => List(arg)
-            case (arg, i)                => inline.transformToList(arg) match {
+            case (arg, i) if isByName(i) || isSafeToInline(arg) => List(arg)
+            case (arg@Ident(name), _) if isAwaitRef(name)       => List(arg) // not typed, so it eludes the check in `isSafeToInline`
+            case (arg, i)                                       => inline.transformToList(arg) match {
               case stats :+ expr =>
-                val valDef = defineVal(s"arg$i", expr, arg.pos)
+                val valDef = defineVal(name.arg(i), expr, arg.pos)
                 stats ::: List(valDef, Ident(valDef.name))
-              case xs            => xs
             }
           }
           val allArgStats = argLists flatMap (_.init)

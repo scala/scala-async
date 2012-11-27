@@ -70,17 +70,15 @@ object TreeInterrogation extends App {
     val cm = reflect.runtime.currentMirror
     val tb = mkToolbox("-cp target/scala-2.10/classes -Xprint:all")
     val tree = tb.parse(
-      """
-        | import scala.async.Async.{async, await}
-        | import scala.concurrent.{future, ExecutionContext, Await}
-        | import ExecutionContext.Implicits._
-        | import scala.concurrent.duration._
-        |
-        | try {
-        |   val f = async { throw new Exception("problem") }
-        |   Await.result(f, 1.second)
-        | } catch {
-        |   case ex: Exception if ex.getMessage == "problem" => // okay
+      """ import scala.async.AsyncId.{async, await}
+        | def foo(a: Int, b: Int) = (a, b)
+        | val result = async {
+        |   var i = 0
+        |   def next() = {
+        |     i += 1;
+        |     i
+        |   }
+        |   foo(next(), await(next()))
         | }
         | ()
         | """.stripMargin)

@@ -30,6 +30,7 @@ private[async] final case class TransformUtils[C <: Context](c: C) {
     val ifRes         = "ifres"
     val await         = "await"
     val bindSuffix    = "$bind"
+    def arg(i: Int)   = "arg" + i
 
     def fresh(name: TermName): TermName = newTermName(fresh(name.toString))
 
@@ -244,4 +245,12 @@ private[async] final case class TransformUtils[C <: Context](c: C) {
     }
   }
 
+  def isSafeToInline(tree: Tree) = {
+    val symtab = c.universe.asInstanceOf[scala.reflect.internal.SymbolTable]
+    object treeInfo extends {
+      val global: symtab.type = symtab
+    } with reflect.internal.TreeInfo
+    val castTree = tree.asInstanceOf[symtab.Tree]
+    treeInfo.isExprSafeToInline(castTree)
+  }
 }
