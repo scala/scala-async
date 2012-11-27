@@ -289,4 +289,26 @@ class AnfTransformSpec {
       foo(a = await(next()))
     } mustBe ((1, 2))
   }
+
+  @Test
+  def repeatedParams1() {
+    import scala.async.AsyncId.{async, await}
+    var i = 0
+    def foo(a: Int, b: Int*) = b.toList
+    def id(i: Int) = i
+    async {
+      foo(await(0), id(1), id(2), id(3), await(4))
+    } mustBe (List(1, 2, 3, 4))
+  }
+
+  @Test
+  def repeatedParams2() {
+    import scala.async.AsyncId.{async, await}
+    var i = 0
+    def foo(a: Int, b: Int*) = b.toList
+    def id(i: Int) = i
+    async {
+      foo(await(0), List(id(1), id(2), id(3)): _*)
+    } mustBe (List(1, 2, 3))
+  }
 }

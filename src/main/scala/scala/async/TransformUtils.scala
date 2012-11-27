@@ -253,4 +253,25 @@ private[async] final case class TransformUtils[C <: Context](c: C) {
     val castTree = tree.asInstanceOf[symtab.Tree]
     treeInfo.isExprSafeToInline(castTree)
   }
+
+  /** Map a list of arguments to:
+    * - A list of argument Trees
+    * - A list of auxillary results.
+    *
+    * The function unwraps and rewraps the `arg :_*` construct.
+    *
+    * @param args The original argument trees
+    * @param f  A function from argument (with '_*' unwrapped) and argument index to argument.
+    * @tparam A The type of the auxillary result
+    */
+  def mapArguments[A](args: List[Tree])(f: (Tree, Int) => (A, Tree)): (List[A], List[Tree]) = {
+    args match {
+      case args :+ Typed(tree, Ident(tpnme.WILDCARD_STAR)) =>
+        val (a, argExprs :+ lastArgExpr) = (args :+ tree).zipWithIndex.map(f.tupled).unzip
+        val exprs = argExprs :+ Typed(lastArgExpr, Ident(tpnme.WILDCARD_STAR)).setPos(lastArgExpr.pos)
+        (a, exprs)
+      case args                                            =>
+        args.zipWithIndex.map(f.tupled).unzip
+    }
+  }
 }
