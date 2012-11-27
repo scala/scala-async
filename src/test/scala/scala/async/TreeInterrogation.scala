@@ -58,29 +58,29 @@ class TreeInterrogation {
 
 object TreeInterrogation extends App {
   def withDebug[T](t: => T) {
-    AsyncUtils.trace = true
-    AsyncUtils.verbose = true
-    try t
-    finally {
-      AsyncUtils.trace = false
-      AsyncUtils.verbose = false
-    }
+    def set(level: String, value: Boolean) = System.setProperty(s"scala.async.$level", value.toString)
+    val levels = Seq("trace", "debug")
+    def setAll(value: Boolean) = levels.foreach(set(_, value))
+
+    setAll(true)
+    try t finally setAll(false)
   }
 
   withDebug {
     val cm = reflect.runtime.currentMirror
     val tb = mkToolbox("-cp target/scala-2.10/classes -Xprint:all")
     val tree = tb.parse(
-      """ import _root_.scala.async.AsyncId._
-        | val state = 23
-        | val result: Any = "result"
-        | def resume(): Any = "resume"
-        | val res = async {
-        |   val f1 = async { state + 2 }
-        |   val x  = await(f1)
-        |   val y  = await(async { result })
-        |   val z  = await(async { resume() })
-        |   (x, y, z)
+      """
+        | import scala.async.Async.{async, await}
+        | import scala.concurrent.{future, ExecutionContext, Await}
+        | import ExecutionContext.Implicits._
+        | import scala.concurrent.duration._
+        |
+        | try {
+        |   val f = async { throw new Exception("problem") }
+        |   Await.result(f, 1.second)
+        | } catch {
+        |   case ex: Exception if ex.getMessage == "problem" => // okay
         | }
         | ()
         | """.stripMargin)

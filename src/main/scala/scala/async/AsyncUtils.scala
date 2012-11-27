@@ -10,8 +10,8 @@ object AsyncUtils {
 
   private def enabled(level: String) = sys.props.getOrElse(s"scala.async.$level", "false").equalsIgnoreCase("true")
 
-  var verbose = enabled("debug")
-  var trace   = enabled("trace")
+  private def verbose = enabled("debug")
+  private def trace   = enabled("trace")
 
   private[async] def vprintln(s: => Any): Unit = if (verbose) println(s"[async] $s")
 
