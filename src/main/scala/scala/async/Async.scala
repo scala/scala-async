@@ -143,7 +143,7 @@ abstract class AsyncBase {
     def selectStateMachine(selection: TermName) = Select(Ident(name.stateMachine), selection)
 
     def spawn(tree: Tree): Tree =
-      futureSystemOps.future(c.Expr[Unit](tree))(c.Expr[futureSystem.ExecContext](selectStateMachine(name.execContext))).tree
+      futureSystemOps.future(c.Expr[Unit](tree))(futureSystemOps.execContext).tree
 
     val code: c.Expr[futureSystem.Fut[T]] = {
       val isSimple = asyncStates.size == 1
