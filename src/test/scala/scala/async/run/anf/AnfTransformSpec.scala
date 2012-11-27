@@ -163,7 +163,7 @@ class AnfTransformSpec {
     val result = AsyncId.async {
       val x = "" match {
         case "" if false => AsyncId.await(1) + 1
-        case _ => 2 + AsyncId.await(1)
+        case _           => 2 + AsyncId.await(1)
       }
       val y = x
       "" match {
@@ -204,5 +204,89 @@ class AnfTransformSpec {
       else 0
     }
     result mustBe (true)
+  }
+
+  @Test
+  def byNameExpressionsArentLifted() {
+    import _root_.scala.async.AsyncId.{async, await}
+    def foo(ignored: => Any, b: Int) = b
+    val result = async {
+      foo(???, await(1))
+    }
+    result mustBe (1)
+  }
+
+  @Test
+  def evaluationOrderRespected() {
+    import scala.async.AsyncId.{async, await}
+    def foo(a: Int, b: Int) = (a, b)
+    val result = async {
+      var i = 0
+      def next() = {
+        i += 1;
+        i
+      }
+      foo(next(), await(next()))
+    }
+    result mustBe ((1, 2))
+  }
+
+  @Test
+  def awaitNotAllowedInNonPrimaryParamSection1() {
+    expectError("implementation restriction: await may only be used in the first parameter list.") {
+      """
+        | import _root_.scala.async.AsyncId.{async, await}
+        | def foo(primary: Any)(i: Int) = i
+        | async {
+        |   foo(???)(await(0))
+        | }
+      """.stripMargin
+    }
+  }
+
+  @Test
+  def awaitNotAllowedInNonPrimaryParamSection2() {
+    expectError("implementation restriction: await may only be used in the first parameter list.") {
+      """
+        | import _root_.scala.async.AsyncId.{async, await}
+        | def foo[T](primary: Any)(i: Int) = i
+        | async {
+        |   foo[Int](???)(await(0))
+        | }
+      """.stripMargin
+    }
+  }
+
+  @Test
+  def namedArgumentsRespectEvaluationOrder() {
+    import scala.async.AsyncId.{async, await}
+    def foo(a: Int, b: Int) = (a, b)
+    val result = async {
+      var i = 0
+      def next() = {
+        i += 1;
+        i
+      }
+      foo(b = next(), a = await(next()))
+    }
+    result mustBe ((2, 1))
+  }
+
+  @Test
+  def namedAndDefaultArgumentsRespectEvaluationOrder() {
+    import scala.async.AsyncId.{async, await}
+    var i = 0
+    def next() = {
+      i += 1;
+      i
+    }
+    def foo(a: Int = next(), b: Int = next()) = (a, b)
+    async {
+      foo(b = await(next()))
+    } mustBe ((2, 1))
+    i = 0
+    async {
+      foo(a = await(next()))
+    } mustBe ((1, 2))
   }
 }
