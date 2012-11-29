@@ -63,12 +63,12 @@ abstract class AsyncBase {
   def asyncImpl[T: c.WeakTypeTag](c: Context)(body: c.Expr[T]): c.Expr[futureSystem.Fut[T]] = {
     import c.universe._
 
-    val anaylzer = AsyncAnalysis[c.type](c)
+    val analyzer = AsyncAnalysis[c.type](c)
     val utils = TransformUtils[c.type](c)
     import utils.{name, defn}
     import builder.futureSystemOps
 
-    anaylzer.reportUnsupportedAwaits(body.tree)
+    analyzer.reportUnsupportedAwaits(body.tree)
 
     // Transform to A-normal form:
     //  - no await calls in qualifiers or arguments,
@@ -84,7 +84,7 @@ abstract class AsyncBase {
     // states of our generated state machine, e.g. a value assigned before
     // an `await` and read afterwards.
     val renameMap: Map[Symbol, TermName] = {
-      anaylzer.defTreesUsedInSubsequentStates(anfTree).map {
+      analyzer.defTreesUsedInSubsequentStates(anfTree).map {
         vd =>
           (vd.symbol, name.fresh(vd.name.toTermName))
       }.toMap
