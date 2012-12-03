@@ -195,18 +195,18 @@ private[async] final case class AnfTransform[C <: Context](c: C) {
           val isByName: (Int) => Boolean = utils.isByName(fun)
           val funStats :+ simpleFun = inline.transformToList(fun)
           def isAwaitRef(name: Name) = name.toString.startsWith(utils.name.await + "$")
-          val argLists: List[List[Tree]] = args.zipWithIndex map {
-            case (arg, i) if isByName(i) || isSafeToInline(arg) => List(arg)
-            case (arg@Ident(name), _) if isAwaitRef(name)       => List(arg) // not typed, so it eludes the check in `isSafeToInline`
-            case (arg, i)                                       => inline.transformToList(arg) match {
-              case stats :+ expr =>
-                val valDef = defineVal(name.arg(i), expr, arg.pos)
-                stats ::: List(valDef, Ident(valDef.name))
+          val (argStats, argExprs): (List[List[Tree]], List[Tree]) =
+            mapArguments[List[Tree]](args) {
+              case (arg, i) if isByName(i) || isSafeToInline(arg) => (Nil, arg)
+              case (arg@Ident(name), _) if isAwaitRef(name)       => (Nil, arg) // not typed, so it eludes the check in `isSafeToInline`
+              case (arg, i)                                       =>
+                inline.transformToList(arg) match {
+                  case stats :+ expr =>
+                    val valDef = defineVal(name.arg(i), expr, arg.pos)
+                    (stats :+ valDef, Ident(valDef.name))
+                }
             }
-          }
-          val allArgStats = argLists flatMap (_.init)
-          val simpleArgs = argLists map (_.last)
-          funStats ++ allArgStats :+ attachCopy(tree)(Apply(simpleFun, simpleArgs).setSymbol(tree.symbol))
+          funStats ++ argStats.flatten :+ attachCopy(tree)(Apply(simpleFun, argExprs).setSymbol(tree.symbol))
         case Block(stats, expr) if containsAwait =>
           inline.transformToList(stats :+ expr)
 
