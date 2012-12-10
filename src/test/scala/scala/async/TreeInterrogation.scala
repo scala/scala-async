@@ -62,23 +62,21 @@ object TreeInterrogation extends App {
     val levels = Seq("trace", "debug")
     def setAll(value: Boolean) = levels.foreach(set(_, value))
 
-    setAll(true)
-    try t finally setAll(false)
+    setAll(value = true)
+    try t finally setAll(value = false)
   }
 
   withDebug {
     val cm = reflect.runtime.currentMirror
-    val tb = mkToolbox("-cp target/scala-2.10/classes -Xprint:all")
+    val tb = mkToolbox("-cp target/scala-2.10/classes -Xprint:flatten")
     val tree = tb.parse(
       """ import scala.async.AsyncId.{async, await}
-        | def foo(a: Int, b: Int) = (a, b)
-        | val result = async {
-        |   var i = 0
-        |   def next() = {
-        |     i += 1;
-        |     i
-        |   }
-        |   foo(next(), await(next()))
+        | async {
+        |   await(1)
+        |   val neg1 = -1
+        |   val a = await(1)
+        |   val f = { case x => ({case x => neg1 * x}: PartialFunction[Int, Int])(x + a) }: PartialFunction[Int, Int]
+        |   await(f(2))
         | }
         | ()
         | """.stripMargin)

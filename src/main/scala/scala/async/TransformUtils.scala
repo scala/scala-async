@@ -25,12 +25,14 @@ private[async] final case class TransformUtils[C <: Context](c: C) {
     val stateMachine  = newTermName(fresh("stateMachine"))
     val stateMachineT = stateMachine.toTypeName
     val apply         = newTermName("apply")
+    val applyOrElse   = newTermName("applyOrElse")
     val tr            = newTermName("tr")
     val matchRes      = "matchres"
     val ifRes         = "ifres"
     val await         = "await"
     val bindSuffix    = "$bind"
-    def arg(i: Int)   = "arg" + i
+
+    def arg(i: Int) = "arg" + i
 
     def fresh(name: TermName): TermName = newTermName(fresh(name.toString))
 
@@ -64,7 +66,7 @@ private[async] final case class TransformUtils[C <: Context](c: C) {
 
   /** Descends into the regions of the tree that are subject to the
     * translation to a state machine by `async`. When a nested template,
-    * function, or by-name argument is encountered, the descend stops,
+    * function, or by-name argument is encountered, the descent stops,
     * and `nestedClass` etc are invoked.
     */
   trait AsyncTraverser extends Traverser {
@@ -83,20 +85,24 @@ private[async] final case class TransformUtils[C <: Context](c: C) {
     def function(function: Function) {
     }
 
+    def patMatFunction(tree: Match) {
+    }
+
     override def traverse(tree: Tree) {
       tree match {
-        case cd: ClassDef     => nestedClass(cd)
-        case md: ModuleDef    => nestedModule(md)
-        case dd: DefDef       => nestedMethod(dd)
-        case fun: Function    => function(fun)
-        case Apply(fun, args) =>
+        case cd: ClassDef          => nestedClass(cd)
+        case md: ModuleDef         => nestedModule(md)
+        case dd: DefDef            => nestedMethod(dd)
+        case fun: Function         => function(fun)
+        case m@Match(EmptyTree, _) => patMatFunction(m) // Pattern matching anonymous function under -Xoldpatmat of after `restorePatternMatchingFunctions`
+        case Apply(fun, args)      =>
           val isInByName = isByName(fun)
           for ((arg, index) <- args.zipWithIndex) {
             if (!isInByName(index)) traverse(arg)
             else byNameArgument(arg)
           }
           traverse(fun)
-        case _                => super.traverse(tree)
+        case _                     => super.traverse(tree)
       }
     }
   }
@@ -244,6 +250,40 @@ private[async] final case class TransformUtils[C <: Context](c: C) {
       dupl
     }
   }
+
+  /**
+   * Replaces expressions of the form `{ new $anon extends PartialFunction[A, B] { ... ; def applyOrElse[..](...) = ... match <cases> }`
+   * with `Match(EmptyTree, cases`.
+   *
+   * This reverses the transformation performed in `Typers`, and works around non-idempotency of typechecking such trees.
+   */
+  // TODO Reference JIRA issue.
+  final def restorePatternMatchingFunctions(tree: Tree) =
+    RestorePatternMatchingFunctions transform tree
+
+  private object RestorePatternMatchingFunctions extends Transformer {
+
+    import language.existentials
+
+    override def transform(tree: Tree): Tree = {
+      val SYNTHETIC = (1 << 21).toLong.asInstanceOf[FlagSet]
+      def isSynthetic(cd: ClassDef) = cd.mods hasFlag SYNTHETIC
+
+      tree match {
+        case Block(
+        (cd@ClassDef(_, _, _, Template(_, _, body))) :: Nil,
+        Apply(Select(New(a), nme.CONSTRUCTOR), Nil)) if isSynthetic(cd) =>
+          val restored = (body collectFirst {
+            case DefDef(_, /*name.apply | */ name.applyOrElse, _, _, _, Match(_, cases)) =>
+              val transformedCases = super.transformStats(cases, currentOwner).asInstanceOf[List[CaseDef]]
+              Match(EmptyTree, transformedCases)
+          }).getOrElse(c.abort(tree.pos, s"Internal Error: Unable to find original pattern matching cases in: $body"))
+          restored
+        case t                                                          => super.transform(t)
+      }
+    }
+  }
+
 
   def isSafeToInline(tree: Tree) = {
     val symtab = c.universe.asInstanceOf[scala.reflect.internal.SymbolTable]

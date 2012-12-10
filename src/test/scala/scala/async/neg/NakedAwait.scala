@@ -93,6 +93,16 @@ class NakedAwait {
   }
 
   @Test
+  def nestedPatMatFunction() {
+    expectError("await must not be used under a nested class.") { // TODO more specific error message
+      """
+        | import _root_.scala.async.AsyncId._
+        | async { { case x => { await(false) } } : PartialFunction[Any, Any] }
+      """.stripMargin
+    }
+  }
+
+  @Test
   def tryBody() {
     expectError("await must not be used under a try/catch.") {
       """

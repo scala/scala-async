@@ -78,7 +78,8 @@ abstract class AsyncBase {
     //  - if/match only used in statement position.
     val anfTree: Block = {
       val anf = AnfTransform[c.type](c)
-      val stats1 :+ expr1 = anf(body.tree)
+      val restored = utils.restorePatternMatchingFunctions(body.tree)
+      val stats1 :+ expr1 = anf(restored)
       val block = Block(stats1, expr1)
       c.typeCheck(block).asInstanceOf[Block]
     }
