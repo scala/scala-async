@@ -153,4 +153,16 @@ class NakedAwait {
         |""".stripMargin
     }
   }
+
+  @Test
+  def lazyValIllegal() {
+    expectError("lazy vals are illegal") {
+      """
+        | import _root_.scala.async.AsyncId._
+        | def foo(): Any = async { val x = { lazy val y = 0; y } }
+        | ()
+        |
+        |""".stripMargin
+    }
+  }
 }

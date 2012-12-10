@@ -8,6 +8,7 @@ import scala.reflect.macros.Context
 import scala.collection.mutable
 
 private[async] final case class AsyncAnalysis[C <: Context](c: C) {
+
   import c.universe._
 
   val utils = TransformUtils[c.type](c)
@@ -74,12 +75,14 @@ private[async] final case class AsyncAnalysis[C <: Context](c: C) {
     override def traverse(tree: Tree) {
       def containsAwait = tree exists isAwait
       tree match {
-        case Try(_, _, _) if containsAwait =>
+        case Try(_, _, _) if containsAwait                    =>
           reportUnsupportedAwait(tree, "try/catch")
           super.traverse(tree)
-        case Return(_)                     =>
+        case Return(_)                                        =>
           c.abort(tree.pos, "return is illegal within a async block")
-        case _                             =>
+        case ValDef(mods, _, _, _) if mods.hasFlag(Flag.LAZY) =>
+          c.abort(tree.pos, "lazy vals are illegal within an async block")
+        case _                                                =>
           super.traverse(tree)
       }
     }
