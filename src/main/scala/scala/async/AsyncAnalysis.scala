@@ -7,7 +7,7 @@ package scala.async
 import scala.reflect.macros.Context
 import scala.collection.mutable
 
-private[async] final case class AsyncAnalysis[C <: Context](c: C) {
+private[async] final case class AsyncAnalysis[C <: Context](c: C, asyncBase: AsyncBase) {
   import c.universe._
 
   val utils = TransformUtils[c.type](c)
@@ -20,8 +20,10 @@ private[async] final case class AsyncAnalysis[C <: Context](c: C) {
    *
    * Must be called on the original tree, not on the ANF transformed tree.
    */
-  def reportUnsupportedAwaits(tree: Tree) {
-    new UnsupportedAwaitAnalyzer().traverse(tree)
+  def reportUnsupportedAwaits(tree: Tree): Boolean = {
+    val analyzer = new UnsupportedAwaitAnalyzer
+    analyzer.traverse(tree)
+    analyzer.hasUnsupportedAwaits
   }
 
   /**
@@ -39,6 +41,8 @@ private[async] final case class AsyncAnalysis[C <: Context](c: C) {
   }
 
   private class UnsupportedAwaitAnalyzer extends AsyncTraverser {
+    var hasUnsupportedAwaits = false
+
     override def nestedClass(classDef: ClassDef) {
       val kind = if (classDef.symbol.asClass.isTrait) "trait" else "class"
       if (!reportUnsupportedAwait(classDef, s"nested $kind")) {
@@ -89,9 +93,15 @@ private[async] final case class AsyncAnalysis[C <: Context](c: C) {
       }
       badAwaits foreach {
         tree =>
-          c.error(tree.pos, s"await must not be used under a $whyUnsupported.")
+          reportError(tree.pos, s"await must not be used under a $whyUnsupported.")
       }
       badAwaits.nonEmpty
+    }
+
+    private def reportError(pos: Position, msg: String) {
+      hasUnsupportedAwaits = true
+      if (!asyncBase.fallbackEnabled)
+        c.error(pos, msg)
     }
   }
 

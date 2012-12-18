@@ -162,11 +162,14 @@ private[async] final case class TransformUtils[C <: Context](c: C) {
     val TryAnyType    = appliedType(TryClass.toType, List(definitions.AnyTpe))
     val NonFatalClass = c.mirror.staticModule("scala.util.control.NonFatal")
 
-    val Async_await = {
+    private def asyncMember(name: String) = {
       val asyncMod = c.mirror.staticClass("scala.async.AsyncBase")
       val tpe = asyncMod.asType.toType
-      tpe.member(c.universe.newTermName("await")).ensuring(_ != NoSymbol)
+      tpe.member(newTermName(name)).ensuring(_ != NoSymbol)
     }
+
+    val Async_await         = asyncMember("await")
+    val Async_awaitFallback = asyncMember("awaitFallback")
   }
 
   /** `termSym( (_: Foo).bar(null: A, null: B)` will return the symbol of `bar`, after overload resolution. */

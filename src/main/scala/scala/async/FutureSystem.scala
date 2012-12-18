@@ -51,9 +51,12 @@ trait FutureSystem {
 
     /** Complete a promise with a value */
     def completeProm[A](prom: Expr[Prom[A]], value: Expr[scala.util.Try[A]]): Expr[Unit]
+
+    def spawn(tree: context.Tree): context.Tree =
+      future(context.Expr[Unit](tree))(execContext).tree
   }
 
-  def mkOps(c: Context): Ops {val context: c.type}
+  def mkOps(c: Context): Ops { val context: c.type }
 }
 
 object ScalaConcurrentFutureSystem extends FutureSystem {
