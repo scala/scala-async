@@ -6,6 +6,7 @@ package scala.async
 
 import scala.language.experimental.macros
 import scala.reflect.macros.Context
+import scala.util.continuations.{cpsParam, reset}
 
 object Async extends AsyncBase {
 
@@ -60,16 +61,18 @@ abstract class AsyncBase {
   @deprecated("`await` must be enclosed in an `async` block", "0.1")
   def await[T](awaitable: futureSystem.Fut[T]): T = ???
 
+  def awaitFallback[T, U](awaitable: futureSystem.Fut[T], p: futureSystem.Prom[U]): T @cpsParam[U, Unit] = ???
+
+  def fallbackEnabled = false
+
   def asyncImpl[T: c.WeakTypeTag](c: Context)(body: c.Expr[T]): c.Expr[futureSystem.Fut[T]] = {
     import c.universe._
 
-    val analyzer = AsyncAnalysis[c.type](c)
+    val analyzer = AsyncAnalysis[c.type](c, this)
     val utils = TransformUtils[c.type](c)
     import utils.{name, defn}
-    import builder.futureSystemOps
 
-    analyzer.reportUnsupportedAwaits(body.tree)
-
+    if (!analyzer.reportUnsupportedAwaits(body.tree) || !fallbackEnabled) {
     // Transform to A-normal form:
     //  - no await calls in qualifiers or arguments,
     //  - if/match only used in statement position.
@@ -92,6 +95,7 @@ abstract class AsyncBase {
     }
 
     val builder = ExprBuilder[c.type, futureSystem.type](c, self.futureSystem, anfTree)
+    import builder.futureSystemOps
     val asyncBlock: builder.AsyncBlock = builder.build(anfTree, renameMap)
     import asyncBlock.asyncStates
     logDiagnostics(c)(anfTree, asyncStates.map(_.toString))
@@ -140,19 +144,16 @@ abstract class AsyncBase {
 
     def selectStateMachine(selection: TermName) = Select(Ident(name.stateMachine), selection)
 
-    def spawn(tree: Tree): Tree =
-      futureSystemOps.future(c.Expr[Unit](tree))(futureSystemOps.execContext).tree
-
     val code: c.Expr[futureSystem.Fut[T]] = {
       val isSimple = asyncStates.size == 1
       val tree =
         if (isSimple)
-          Block(Nil, spawn(body.tree)) // generate lean code for the simple case of `async { 1 + 1 }`
+          Block(Nil, futureSystemOps.spawn(body.tree)) // generate lean code for the simple case of `async { 1 + 1 }`
         else {
           Block(List[Tree](
             stateMachine,
             ValDef(NoMods, name.stateMachine, stateMachineType, New(Ident(name.stateMachineT), Nil)),
-            spawn(Apply(selectStateMachine(name.apply), Nil))
+            futureSystemOps.spawn(Apply(selectStateMachine(name.apply), Nil))
           ),
           futureSystemOps.promiseToFuture(c.Expr[futureSystem.Prom[T]](selectStateMachine(name.result))).tree)
         }
@@ -161,6 +162,35 @@ abstract class AsyncBase {
 
     AsyncUtils.vprintln(s"async state machine transform expands to:\n ${code.tree}")
     code
+    } else {
+      // replace `await` invocations with `awaitFallback` invocations
+      val awaitReplacer = new Transformer {
+        override def transform(tree: Tree): Tree = tree match {
+          case Apply(fun @ TypeApply(_, List(futArgTpt)), args) if fun.symbol == defn.Async_await =>
+            val typeApp = treeCopy.TypeApply(fun, Ident(defn.Async_awaitFallback), List(TypeTree(futArgTpt.tpe), TypeTree(body.tree.tpe)))
+            treeCopy.Apply(tree, typeApp, args.map(arg => c.resetAllAttrs(arg.duplicate)) :+ Ident(name.result))
+          case _ =>
+            super.transform(tree)
+        }
+      }
+      val newBody = awaitReplacer.transform(body.tree)
+
+      val resetBody = reify {
+        reset { c.Expr(c.resetAllAttrs(newBody.duplicate)).splice }
+      }
+
+      val futureSystemOps = futureSystem.mkOps(c)
+      val code = {
+        val tree = Block(List(
+          ValDef(NoMods, name.result, TypeTree(futureSystemOps.promType[T]), futureSystemOps.createProm[T].tree),
+          futureSystemOps.spawn(resetBody.tree)
+        ), futureSystemOps.promiseToFuture(c.Expr[futureSystem.Prom[T]](Ident(name.result))).tree)
+        c.Expr[futureSystem.Fut[T]](tree)
+      }
+
+      AsyncUtils.vprintln(s"async CPS fallback transform expands to:\n ${code.tree}")
+      code
+    }
   }
 
   def logDiagnostics(c: Context)(anfTree: c.Tree, states: Seq[String]) {
