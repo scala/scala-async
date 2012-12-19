@@ -93,6 +93,16 @@ class NakedAwait {
   }
 
   @Test
+  def nestedPatMatFunction() {
+    expectError("await must not be used under a nested class.") { // TODO more specific error message
+      """
+        | import _root_.scala.async.AsyncId._
+        | async { { case x => { await(false) } } : PartialFunction[Any, Any] }
+      """.stripMargin
+    }
+  }
+
+  @Test
   def tryBody() {
     expectError("await must not be used under a try/catch.") {
       """
@@ -138,6 +148,18 @@ class NakedAwait {
       """
         | import _root_.scala.async.AsyncId._
         | def foo(): Any = async { return false }
+        | ()
+        |
+        |""".stripMargin
+    }
+  }
+
+  @Test
+  def lazyValIllegal() {
+    expectError("lazy vals are illegal") {
+      """
+        | import _root_.scala.async.AsyncId._
+        | def foo(): Any = async { val x = { lazy val y = 0; y } }
         | ()
         |
         |""".stripMargin

@@ -8,6 +8,7 @@ import scala.reflect.macros.Context
 import scala.collection.mutable
 
 private[async] final case class AsyncAnalysis[C <: Context](c: C) {
+
   import c.universe._
 
   val utils = TransformUtils[c.type](c)
@@ -67,15 +68,21 @@ private[async] final case class AsyncAnalysis[C <: Context](c: C) {
       reportUnsupportedAwait(function, "nested function")
     }
 
+    override def patMatFunction(tree: Match) {
+      reportUnsupportedAwait(tree, "nested function")
+    }
+
     override def traverse(tree: Tree) {
       def containsAwait = tree exists isAwait
       tree match {
-        case Try(_, _, _) if containsAwait =>
+        case Try(_, _, _) if containsAwait                    =>
           reportUnsupportedAwait(tree, "try/catch")
           super.traverse(tree)
-        case Return(_)                     =>
+        case Return(_)                                        =>
           c.abort(tree.pos, "return is illegal within a async block")
-        case _                             =>
+        case ValDef(mods, _, _, _) if mods.hasFlag(Flag.LAZY) =>
+          c.abort(tree.pos, "lazy vals are illegal within an async block")
+        case _                                                =>
           super.traverse(tree)
       }
     }
@@ -107,19 +114,19 @@ private[async] final case class AsyncAnalysis[C <: Context](c: C) {
 
     override def nestedMethod(defDef: DefDef) {
       nestedMethodsToLift += defDef
-      defDef.rhs foreach {
-        case rt: RefTree =>
-          valDefChunkId.get(rt.symbol) match {
-            case Some((vd, defChunkId)) =>
-              valDefsToLift += vd // lift all vals referred to by nested methods.
-            case _                      =>
-          }
-        case _           =>
-      }
+      markReferencedVals(defDef)
     }
 
     override def function(function: Function) {
-      function foreach {
+      markReferencedVals(function)
+    }
+
+    override def patMatFunction(tree: Match) {
+      markReferencedVals(tree)
+    }
+
+    private def markReferencedVals(tree: Tree) {
+      tree foreach {
         case rt: RefTree =>
           valDefChunkId.get(rt.symbol) match {
             case Some((vd, defChunkId)) =>
