@@ -176,7 +176,7 @@ val future = async {
 
 After ANF transform.
 
- - await calls are moved to only appear on the LHS of a value definition.
+ - await calls are moved to only appear on the RHS of a value definition.
  - `if` is not used as an expression, instead each branch writes its result
    to a synthetic `var`.
 
