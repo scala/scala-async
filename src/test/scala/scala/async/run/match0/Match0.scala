@@ -107,7 +107,6 @@ class MatchSpec {
       await(if ("".isEmpty) await(1) else ???) match {
         case x if x < 0 => ???
         case y: Int => y * await(3)
-        case _ => ???
       }
     }
     result mustBe (3)
