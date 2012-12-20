@@ -1,6 +1,6 @@
 # Scala Async Project
 
-## Quickstart
+## Quick start
 
  - Add `scala-async.jar` to your classpath
  - Use Scala 2.10.0
@@ -53,7 +53,7 @@ has finished, we trigger it again, and suspend again.
 Finally, we add the results and complete `combined`, which
 in turn will release line 5 (unless it had already timed out).
 
-It is important to note that while we this code is non-blocking,
+It is important to note that while this code is non-blocking,
 it is not parallel. If we wanted to parallelize the two computations,
 we could rearrange the code as follows.
 
@@ -84,21 +84,21 @@ The `async` approach has two advantages over the use of
 `map` and `flatMap`.
   1. The code more directly reflects the programmers intent,
      and does not require us to name the results `r1` and `r2`.
-     This advantage is even more pronounces when we mix control
+     This advantage is even more pronounced when we mix control
      structures in `async` blocks.
   2. `async` blocks are compiled to a single anonymous class,
-     as opposed to a seperate anonymous class for each closure
+     as opposed to a separate anonymous class for each closure
      required at each generator (`<-`) in the for-comprehension.
      This reduces the size of generated code, and can avoid boxing
      of intermediate results.
 
 ## Comparison with CPS plugin
 
-The existing continations (CPS) plugin for Scala can also be used
-to provide syntactic layer like `async`. This approach has been
+The existing continuations (CPS) plugin for Scala can also be used
+to provide a syntactic layer like `async`. This approach has been
 used in Akka's [Dataflow Concurrency](http://doc.akka.io/docs/akka/snapshot/scala/dataflow.html)
 
-CPS based rewriting of asynchrous code also produces an closure
+CPS-based rewriting of asynchronous code also produces a closure
 for each suspension. It can also lead to type errors that are
 difficult to understand.
 
@@ -107,8 +107,8 @@ difficult to understand.
  - The async macro analyses the block of code, looking for control
    structures and locations of await calls. It then breaks the code
    into 'chunks'. Each chunk contains a linear sequence of statements
-   that concludes with branching decision, or with the registration
-   of subsequent state handler as a continuation.
+   that concludes with a branching decision, or with the registration
+   of a subsequent state handler as the continuation.
  - Before this analysis and transformation, the program is normalized
    into a form amenable to this manipulation. This is called the
    "A Normal Form" (ANF), and roughly means that:
@@ -122,7 +122,7 @@ difficult to understand.
    - an integer representing the current state ID
    - the lifted definitions
    - an `apply(value: Try[Any]): Unit` method that will be
-     called on completion of each future. This behaviour of
+     called on completion of each future. The behavior of
      this method is determined by the current state. It records
      the downcast result of the future in a field, and calls the
      `resume()` method.
@@ -176,7 +176,7 @@ val future = async {
 
 After ANF transform.
 
- - await calls are moved to only appear on the LHS of an value definition.
+ - await calls are moved to only appear on the LHS of a value definition.
  - `if` is not used as an expression, instead each branch writes its result
    to a synthetic `var`.
 
@@ -214,7 +214,7 @@ After async transform:
 
  - one class synthesized to act as the state machine. It's `apply()` method will
    be used to start the computation (even the code before the first await call
-   is executed asynchronously), and the the `apply(tr: scala.util.Try[Any])` method
+   is executed asynchronously), and the `apply(tr: scala.util.Try[Any])` method
    will continue after each completed background task.
  - each chunk of code moved into the a branch of the pattern match in `resume$async`.
  - value and method definitions accessed from multiple states are lifted to be
