@@ -1,4 +1,4 @@
-scalaVersion := "2.10.0-RC3"
+scalaVersion := "2.10.0-RC5"
 
 organization := "org.typesafe.async"
 
