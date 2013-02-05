@@ -1,10 +1,10 @@
-scalaVersion := "2.10.0-RC5"
+scalaVersion := "2.10.0"
 
 organization := "org.typesafe.async"
 
 name := "scala-async"
 
-version := "1.0.0-M1"
+version := "1.0.0-SNAPSHOT"
 
 libraryDependencies <++= (scalaVersion) {
   sv => Seq(
