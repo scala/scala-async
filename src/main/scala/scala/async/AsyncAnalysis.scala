@@ -76,16 +76,16 @@ private[async] final case class AsyncAnalysis[C <: Context](c: C, asyncBase: Asy
     }
 
     override def traverse(tree: Tree) {
-      def containsAwait = tree exists isAwait
+      def containsAwait(t: Tree) = t exists isAwait
       tree match {
-        case Try(_, _, _) if containsAwait                    =>
-          reportUnsupportedAwait(tree, "try/catch")
+        case Try(_, catches, _) if catches exists containsAwait =>
+          reportUnsupportedAwait(tree, "catch")
           super.traverse(tree)
-        case Return(_)                                        =>
+        case Return(_)                                          =>
           c.abort(tree.pos, "return is illegal within a async block")
-        case ValDef(mods, _, _, _) if mods.hasFlag(Flag.LAZY) =>
+        case ValDef(mods, _, _, _) if mods.hasFlag(Flag.LAZY)   =>
           c.abort(tree.pos, "lazy vals are illegal within an async block")
-        case _                                                =>
+        case _                                                  =>
           super.traverse(tree)
       }
     }

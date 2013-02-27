@@ -103,31 +103,11 @@ class NakedAwait {
   }
 
   @Test
-  def tryBody() {
-    expectError("await must not be used under a try/catch.") {
-      """
-        | import _root_.scala.async.AsyncId._
-        | async { try { await(false) } catch { case _ => } }
-      """.stripMargin
-    }
-  }
-
-  @Test
   def catchBody() {
-    expectError("await must not be used under a try/catch.") {
+    expectError("await must not be used under a catch.") {
       """
         | import _root_.scala.async.AsyncId._
         | async { try { () } catch { case _ => await(false) } }
-      """.stripMargin
-    }
-  }
-
-  @Test
-  def finallyBody() {
-    expectError("await must not be used under a try/catch.") {
-      """
-        | import _root_.scala.async.AsyncId._
-        | async { try { () } finally { await(false) } }
       """.stripMargin
     }
   }
