@@ -29,8 +29,11 @@ private[async] final case class TransformUtils[C <: Context](c: C) {
     val tr            = newTermName("tr")
     val matchRes      = "matchres"
     val ifRes         = "ifres"
+    val tryRes        = "tryRes"
     val await         = "await"
     val bindSuffix    = "$bind"
+    val handlers      = suffixedName("handlers")
+    val exception     = suffixedName("exception")
 
     def arg(i: Int) = "arg" + i
 
