@@ -53,7 +53,7 @@ has finished, we trigger it again, and suspend again.
 Finally, we add the results and complete `combined`, which
 in turn will release line 5 (unless it had already timed out).
 
-It is important to note that while this code is non-blocking,
+It is important to note that while line 1-4 is non-blocking,
 it is not parallel. If we wanted to parallelize the two computations,
 we could rearrange the code as follows.
 
