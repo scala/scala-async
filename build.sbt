@@ -34,11 +34,11 @@ scalacOptions ++= Seq("-deprecation", "-unchecked", "-Xlint", "-feature")
 
 description := "An asynchronous programming facility for Scala, in the spirit of C# await/async"
 
-homepage := Some(url("http://github.com/phaller/scala-async"))
+homepage := Some(url("http://github.com/scala/async"))
 
 startYear := Some(2012)
 
-licenses +=("Scala license", url("http://github.com/phaller/scala-async/LICENCE"))
+licenses +=("Scala license", url("https://github.com/scala/async/blob/master/LICENSE"))
 
 pomExtra := (
   <developers>
@@ -56,7 +56,7 @@ pomExtra := (
     </developer>
   </developers>
     <scm>
-      <url>git@github.com:phaller/scala-async.git/</url>
-      <connection>scm:git:git@github.com:phaller/scala-async.git</connection>
+      <url>git@github.com:scala/async.git/</url>
+      <connection>scm:git:git@github.com:scala/async.git</connection>
     </scm>
   )

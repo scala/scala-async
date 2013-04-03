@@ -136,14 +136,14 @@ difficult to understand.
  - Logging of the transform can be enabled with `scalac -Dscala.async.debug=true`.
  - Tracing of the ANF transform: `scalac -Dscala.async.trace=true`
  - Debug the macro expansion by checking out the project and executing the application
-   [`TreeInterrogation`](https://github.com/phaller/scala-async/blob/master/src/test/scala/scala/async/TreeInterrogation.scala#L59)
+   [`TreeInterrogation`](https://github.com/scala/async/blob/master/src/test/scala/scala/async/TreeInterrogation.scala#L59)
 
 ## Limitations
- - See the [neg](https://github.com/phaller/scala-async/tree/master/src/test/scala/scala/async/neg) test cases for
+ - See the [neg](https://github.com/scala/async/tree/master/src/test/scala/scala/async/neg) test cases for
    for constructs that are not allowed in a async block
- - See the [issue list](https://github.com/phaller/scala-async/issues?state=open) for which of these restrictions are planned
+ - See the [issue list](https://github.com/scala/async/issues?state=open) for which of these restrictions are planned
    to be dropped in the next milestone.
- - See [#13](https://github.com/phaller/scala-async/issues/13) for why `await` is not possible in closures, and for suggestions on
+ - See [#13](https://github.com/scala/async/issues/13) for why `await` is not possible in closures, and for suggestions on
    ways to structure the code to work around this limitation.
 
 ## Building
