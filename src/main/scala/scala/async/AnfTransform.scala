@@ -88,6 +88,11 @@ private[async] final case class AnfTransform[C <: Context](c: C) {
           if (renamed(tree.symbol)) {
             treeCopy.Select(tree, transform(fun), tree.symbol.name)
           } else super.transform(tree)
+        case tt: TypeTree =>
+          val tt1 = tt.asInstanceOf[symtab.TypeTree]
+          val orig = tt1.original
+          if (orig != null) tt1.setOriginal(transform(orig.asInstanceOf[Tree]).asInstanceOf[symtab.Tree])
+          super.transform(tt)
         case _                                                 => super.transform(tree)
       }
     }

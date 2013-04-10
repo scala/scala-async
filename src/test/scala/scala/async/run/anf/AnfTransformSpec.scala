@@ -112,24 +112,23 @@ class AnfTransformSpec {
     State.result mustBe (14)
   }
 
-// TODO 2.10.1
-//  @Test
-//  def `inlining block does not produce duplicate definition`() {
-//    import scala.async.AsyncId
-//
-//    AsyncId.async {
-//      val f = 12
-//      val x = AsyncId.await(f)
-//
-//      {
-//        type X = Int
-//        val x: X = 42
-//        println(x)
-//      }
-//      type X = Int
-//      x: X
-//    }
-//  }
+  @Test
+  def `inlining block does not produce duplicate definition`() {
+    import scala.async.AsyncId
+
+    AsyncId.async {
+      val f = 12
+      val x = AsyncId.await(f)
+
+      {
+        type X = Int
+        val x: X = 42
+        println(x)
+      }
+      type X = Int
+      x: X
+    }
+  }
 
   @Test
   def `inlining block in tail position does not produce duplicate definition`() {
