@@ -159,7 +159,7 @@ private[async] final case class AsyncAnalysis[C <: Context](c: C, asyncBase: Asy
           nextChunk()
         case vd: ValDef                                        =>
           super.traverse(tree)
-          valDefChunkId += (vd.symbol ->(vd, chunkId))
+          valDefChunkId += (vd.symbol -> (vd -> chunkId))
           val isPatternBinder = vd.name.toString.contains(name.bindSuffix)
           if (isAwait(vd.rhs) || isPatternBinder) valDefsToLift += vd
         case as: Assign                                        =>
