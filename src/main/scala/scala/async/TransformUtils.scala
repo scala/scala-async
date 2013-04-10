@@ -32,8 +32,6 @@ private[async] final case class TransformUtils[C <: Context](c: C) {
     val await         = "await"
     val bindSuffix    = "$bind"
 
-    def arg(i: Int) = "arg" + i
-
     def fresh(name: TermName): TermName = newTermName(fresh(name.toString))
 
     def fresh(name: String): String = if (name.toString.contains("$")) name else c.fresh("" + name + "$")
@@ -102,11 +100,13 @@ private[async] final case class TransformUtils[C <: Context](c: C) {
         case dd: DefDef            => nestedMethod(dd)
         case fun: Function         => function(fun)
         case m@Match(EmptyTree, _) => patMatFunction(m) // Pattern matching anonymous function under -Xoldpatmat of after `restorePatternMatchingFunctions`
-        case Apply(fun, args)      =>
+        case Applied(fun, targs, argss @ (_ :: _))      =>
           val isInByName = isByName(fun)
-          for ((arg, index) <- args.zipWithIndex) {
-            if (!isInByName(index)) traverse(arg)
-            else byNameArgument(arg)
+          for ((args, i) <- argss.zipWithIndex) {
+            for ((arg, j) <- args.zipWithIndex) {
+              if (!isInByName(i, j)) traverse(arg)
+              else byNameArgument(arg)
+            }
           }
           traverse(fun)
         case _                     => super.traverse(tree)
@@ -122,13 +122,31 @@ private[async] final case class TransformUtils[C <: Context](c: C) {
     Set(Boolean_&&, Boolean_||)
   }
 
-  def isByName(fun: Tree): (Int => Boolean) = {
-    if (Boolean_ShortCircuits contains fun.symbol) i => true
-    else fun.tpe match {
-      case MethodType(params, _) =>
-        val isByNameParams = params.map(_.asTerm.isByNameParam)
-        (i: Int) => isByNameParams.applyOrElse(i, (_: Int) => false)
-      case _                     => Map()
+  def isByName(fun: Tree): ((Int, Int) => Boolean) = {
+    if (Boolean_ShortCircuits contains fun.symbol) (i, j) => true
+    else {
+      val symtab = c.universe.asInstanceOf[reflect.internal.SymbolTable]
+      val paramss = fun.tpe.asInstanceOf[symtab.Type].paramss
+      val byNamess = paramss.map(_.map(_.isByNameParam))
+      (i, j) => util.Try(byNamess(i)(j)).getOrElse(false)
+    }
+  }
+  def argName(fun: Tree): ((Int, Int) => String) = {
+    val symtab = c.universe.asInstanceOf[reflect.internal.SymbolTable]
+    val paramss = fun.tpe.asInstanceOf[symtab.Type].paramss
+    val namess = paramss.map(_.map(_.name.toString))
+    (i, j) => util.Try(namess(i)(j)).getOrElse(s"arg_${i}_${j}")
+  }
+
+  object Applied {
+    val symtab = c.universe.asInstanceOf[scala.reflect.internal.SymbolTable]
+    object treeInfo extends {
+      val global: symtab.type = symtab
+    } with reflect.internal.TreeInfo
+
+    def unapply(tree: Tree): Some[(Tree, List[Tree], List[List[Tree]])] = {
+      val treeInfo.Applied(core, targs, argss) = tree.asInstanceOf[symtab.Tree]
+      Some((core.asInstanceOf[Tree], targs.asInstanceOf[List[Tree]], argss.asInstanceOf[List[List[Tree]]]))
     }
   }
 
@@ -302,7 +320,6 @@ private[async] final case class TransformUtils[C <: Context](c: C) {
     }
   }
 
-
   def isSafeToInline(tree: Tree) = {
     val symtab = c.universe.asInstanceOf[scala.reflect.internal.SymbolTable]
     object treeInfo extends {
@@ -322,7 +339,7 @@ private[async] final case class TransformUtils[C <: Context](c: C) {
     * @param f  A function from argument (with '_*' unwrapped) and argument index to argument.
     * @tparam A The type of the auxillary result
     */
-  def mapArguments[A](args: List[Tree])(f: (Tree, Int) => (A, Tree)): (List[A], List[Tree]) = {
+  private def mapArguments[A](args: List[Tree])(f: (Tree, Int) => (A, Tree)): (List[A], List[Tree]) = {
     args match {
       case args :+ Typed(tree, Ident(tpnme.WILDCARD_STAR)) =>
         val (a, argExprs :+ lastArgExpr) = (args :+ tree).zipWithIndex.map(f.tupled).unzip
@@ -331,5 +348,28 @@ private[async] final case class TransformUtils[C <: Context](c: C) {
       case args                                            =>
         args.zipWithIndex.map(f.tupled).unzip
     }
+  }
+
+  case class Arg(expr: Tree, isByName: Boolean, argName: String)
+
+  /**
+   * Transform a list of argument lists, producing the transformed lists, and lists of auxillary
+   * results.
+   *
+   * The function `f` need not concern itself with varargs arguments e.g (`xs : _*`). It will
+   * receive `xs`, and it's result will be re-wrapped as `f(xs) : _*`.
+   *
+   * @param fun   The function being applied
+   * @param argss The argument lists
+   * @return      (auxillary results, mapped argument trees)
+   */
+  def mapArgumentss[A](fun: Tree, argss: List[List[Tree]])(f: Arg => (A, Tree)): (List[List[A]], List[List[Tree]]) = {
+    val isByNamess: (Int, Int) => Boolean = isByName(fun)
+    val argNamess: (Int, Int) => String = argName(fun)
+    argss.zipWithIndex.map { case (args, i) =>
+      mapArguments[A](args) {
+        (tree, j) => f(Arg(tree, isByNamess(i, j), argNamess(i, j)))
+      }
+    }.unzip
   }
 }

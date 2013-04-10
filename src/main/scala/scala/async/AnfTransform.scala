@@ -187,31 +187,31 @@ private[async] final case class AnfTransform[C <: Context](c: C) {
 
     private[AnfTransform] def transformToList(tree: Tree): List[Tree] = trace("anf", tree) {
       def containsAwait = tree exists isAwait
+
       tree match {
         case Select(qual, sel) if containsAwait =>
           val stats :+ expr = inline.transformToList(qual)
           stats :+ attachCopy(tree)(Select(expr, sel).setSymbol(tree.symbol))
 
-        case Apply(fun, args) if containsAwait   =>
-          checkForAwaitInNonPrimaryParamSection(fun, args)
-
+        case utils.Applied(fun, targs, argss @ (args :: rest)) if containsAwait =>
           // we an assume that no await call appears in a by-name argument position,
           // this has already been checked.
-          val isByName: (Int) => Boolean = utils.isByName(fun)
           val funStats :+ simpleFun = inline.transformToList(fun)
           def isAwaitRef(name: Name) = name.toString.startsWith(utils.name.await + "$")
-          val (argStats, argExprs): (List[List[Tree]], List[Tree]) =
-            mapArguments[List[Tree]](args) {
-              case (arg, i) if isByName(i) || isSafeToInline(arg) => (Nil, arg)
-              case (arg@Ident(name), _) if isAwaitRef(name)       => (Nil, arg) // not typed, so it eludes the check in `isSafeToInline`
-              case (arg, i)                                       =>
-                inline.transformToList(arg) match {
+          val (argStatss, argExprss): (List[List[List[Tree]]], List[List[Tree]]) =
+            mapArgumentss[List[Tree]](fun, argss) {
+              case arg if arg.isByName || isSafeToInline(arg.expr) => (Nil, arg.expr)
+              case Arg(arg@Ident(name), _, _) if isAwaitRef(name)  => (Nil, arg) // not typed, so it eludes the check in `isSafeToInline`
+              case arg                                             =>
+                inline.transformToList(arg.expr) match {
                   case stats :+ expr =>
-                    val valDef = defineVal(name.arg(i), expr, arg.pos)
+                    val valDef = defineVal(arg.argName, expr, arg.expr.pos)
                     (stats :+ valDef, Ident(valDef.name))
                 }
             }
-          funStats ++ argStats.flatten :+ attachCopy(tree)(Apply(simpleFun, argExprs).setSymbol(tree.symbol))
+            val core = if (targs.isEmpty) simpleFun else TypeApply(simpleFun, targs)
+            val newApply = argExprss.foldLeft(core)(Apply(_, _).setSymbol(tree.symbol))
+          funStats ++ argStatss.flatten.flatten :+ attachCopy(tree)(newApply)
         case Block(stats, expr) if containsAwait =>
           inline.transformToList(stats :+ expr)
 
@@ -272,20 +272,5 @@ private[async] final case class AnfTransform[C <: Context](c: C) {
           List(tree)
       }
     }
-  }
-
-  def checkForAwaitInNonPrimaryParamSection(fun: Tree, args: List[Tree]) {
-    // TODO treat the Apply(Apply(.., argsN), ...), args0) holistically, and rewrite
-    // *all* argument lists in the correct order to preserve semantics.
-    fun match {
-      case Apply(fun1, _) =>
-        fun1.tpe match {
-          case MethodType(_, resultType: MethodType) if resultType =:= fun.tpe =>
-            c.error(fun.pos, "implementation restriction: await may only be used in the first parameter list.")
-          case _                                                               =>
-        }
-      case _              =>
-    }
-
   }
 }
