@@ -27,6 +27,7 @@ private[async] final case class TransformUtils[C <: Context](c: C) {
     val apply         = newTermName("apply")
     val applyOrElse   = newTermName("applyOrElse")
     val tr            = newTermName("tr")
+    val asInstanceOf  = newTermName("asInstanceOf")
     val matchRes      = "matchres"
     val ifRes         = "ifres"
     val await         = "await"
@@ -39,13 +40,11 @@ private[async] final case class TransformUtils[C <: Context](c: C) {
     def fresh(name: String): String = if (name.toString.contains("$")) name else c.fresh("" + name + "$")
   }
 
-  def defaultValue(tpe: Type): Literal = {
-    val defaultValue: Any =
-      if (tpe <:< definitions.BooleanTpe) false
-      else if (definitions.ScalaNumericValueClasses.exists(tpe <:< _.toType)) 0
-      else if (tpe <:< definitions.AnyValTpe) 0
-      else null
-    Literal(Constant(defaultValue))
+  def defaultValue(tpe: Type): Tree = {
+    if (tpe <:< definitions.BooleanTpe) c.literalFalse.tree
+    else if (definitions.ScalaNumericValueClasses.exists(tpe <:< _.toType)) c.literal(0).tree
+    else if (tpe <:< definitions.AnyValTpe) c.literal(0).tree
+    else TypeApply(Select(c.literalNull.tree, name.asInstanceOf), List(TypeTree(tpe))) // Cast our way out of https://github.com/scala/async/issues/6
   }
 
   def isAwait(fun: Tree) =
