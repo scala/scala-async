@@ -37,26 +37,28 @@ class ToughTypeSpec {
     res._1 mustBe (Nil)
   }
 
-  @Test def patternMatchingPartialFunction() {
-    import AsyncId.{await, async}
-    async {
-      await(1)
-      val a = await(1)
-      val f = { case x => x + a }: PartialFunction[Int, Int]
-      await(f(2))
-    } mustBe 3
-  }
+//  TODO 2.10.1
+//  @Test def patternMatchingPartialFunction() {
+//    import AsyncId.{await, async}
+//    async {
+//      await(1)
+//      val a = await(1)
+//      val f = { case x => x + a }: PartialFunction[Int, Int]
+//      await(f(2))
+//    } mustBe 3
+//  }
 
-  @Test def patternMatchingPartialFunctionNested() {
-    import AsyncId.{await, async}
-    async {
-      await(1)
-      val neg1 = -1
-      val a = await(1)
-      val f = { case x => ({case x => neg1 * x}: PartialFunction[Int, Int])(x + a) }: PartialFunction[Int, Int]
-      await(f(2))
-    } mustBe -3
-  }
+//  TODO 2.10.1
+//  @Test def patternMatchingPartialFunctionNested() {
+//    import AsyncId.{await, async}
+//    async {
+//      await(1)
+//      val neg1 = -1
+//      val a = await(1)
+//      val f = { case x => ({case x => neg1 * x}: PartialFunction[Int, Int])(x + a) }: PartialFunction[Int, Int]
+//      await(f(2))
+//    } mustBe -3
+//  }
 
   @Test def patternMatchingFunction() {
     import AsyncId.{await, async}

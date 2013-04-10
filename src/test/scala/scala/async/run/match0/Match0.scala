@@ -83,23 +83,24 @@ class MatchSpec {
     result mustBe (2)
   }
 
-  @Test def `support await referring to pattern matching vals`() {
-    import AsyncId.{async, await}
-    val result = async {
-      val x = 1
-      val opt = Some("")
-      await(0)
-      val o @ Some(y) = opt
-
-      {
-        val o @ Some(y) = Some(".")
-      }
-
-      await(0)
-      await((o, y.isEmpty))
-    }
-    result mustBe ((Some(""), true))
-  }
+// TODO 2.10.1
+//  @Test def `support await referring to pattern matching vals`() {
+//    import AsyncId.{async, await}
+//    val result = async {
+//      val x = 1
+//      val opt = Some("")
+//      await(0)
+//      val o @ Some(y) = opt
+//
+//      {
+//        val o @ Some(y) = Some(".")
+//      }
+//
+//      await(0)
+//      await((o, y.isEmpty))
+//    }
+//    result mustBe ((Some(""), true))
+//  }
 
   @Test def `await in scrutinee`() {
     import AsyncId.{async, await}
