@@ -274,18 +274,26 @@ private[async] final case class TransformUtils[C <: Context](c: C) {
   private object RestorePatternMatchingFunctions extends Transformer {
 
     import language.existentials
+    val DefaultCaseName: TermName = "defaultCase$"
 
     override def transform(tree: Tree): Tree = {
       val SYNTHETIC = (1 << 21).toLong.asInstanceOf[FlagSet]
       def isSynthetic(cd: ClassDef) = cd.mods hasFlag SYNTHETIC
 
+      /** Is this pattern node a synthetic catch-all case, added during PartialFuction synthesis before we know
+        * whether the user provided cases are exhaustive. */
+      def isSyntheticDefaultCase(cdef: CaseDef) = cdef match {
+        case CaseDef(Bind(DefaultCaseName, _), EmptyTree, _) => true
+        case _                                                => false
+      }
       tree match {
         case Block(
         (cd@ClassDef(_, _, _, Template(_, _, body))) :: Nil,
         Apply(Select(New(a), nme.CONSTRUCTOR), Nil)) if isSynthetic(cd) =>
           val restored = (body collectFirst {
             case DefDef(_, /*name.apply | */ name.applyOrElse, _, _, _, Match(_, cases)) =>
-              val transformedCases = super.transformStats(cases, currentOwner).asInstanceOf[List[CaseDef]]
+              val nonSyntheticCases = cases.takeWhile(cdef => !isSyntheticDefaultCase(cdef))
+              val transformedCases = super.transformStats(nonSyntheticCases, currentOwner).asInstanceOf[List[CaseDef]]
               Match(EmptyTree, transformedCases)
           }).getOrElse(c.abort(tree.pos, s"Internal Error: Unable to find original pattern matching cases in: $body"))
           restored
