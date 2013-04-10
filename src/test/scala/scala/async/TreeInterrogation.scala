@@ -69,8 +69,10 @@ object TreeInterrogation extends App {
   withDebug {
     val cm = reflect.runtime.currentMirror
     val tb = mkToolbox("-cp target/scala-2.10/classes -Xprint:flatten")
+    import scala.async.Async._
     val tree = tb.parse(
-      """ async {
+      """ import scala.async.AsyncId._
+        | async {
         |   val x = 1
         |   val opt = Some("")
         |   await(0)

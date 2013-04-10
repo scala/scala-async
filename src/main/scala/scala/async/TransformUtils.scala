@@ -58,6 +58,13 @@ private[async] final case class TransformUtils[C <: Context](c: C) {
     val renamer = new Transformer {
       override def transform(tree: Tree) = tree match {
         case Ident(_) => (renameMap get tree.symbol).fold(tree)(Ident(_))
+        case tt: TypeTree if tt.original != EmptyTree && tt.original != null =>
+          // We also have to apply our renaming transform on originals of TypeTrees.
+          // TODO 2.10.1 Can we find a cleaner way?
+          val symTab = c.universe.asInstanceOf[reflect.internal.SymbolTable]
+          val tt1 = tt.asInstanceOf[symTab.TypeTree]
+          tt1.setOriginal(transform(tt.original).asInstanceOf[symTab.Tree])
+          super.transform(tree)
         case _        => super.transform(tree)
       }
     }
