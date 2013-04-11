@@ -1,6 +1,6 @@
-scalaVersion := "2.10.0"
+scalaVersion := "2.10.1"
 
-organization := "org.typesafe.async"
+organization := "org.typesafe.async" // TODO new org name under scala-lang.
 
 name := "scala-async"
 

@@ -152,7 +152,7 @@ abstract class AsyncBase {
         else {
           Block(List[Tree](
             stateMachine,
-            ValDef(NoMods, name.stateMachine, stateMachineType, New(Ident(name.stateMachineT), Nil)),
+            ValDef(NoMods, name.stateMachine, stateMachineType, Apply(Select(New(Ident(name.stateMachineT)), nme.CONSTRUCTOR), Nil)),
             futureSystemOps.spawn(Apply(selectStateMachine(name.apply), Nil))
           ),
           futureSystemOps.promiseToFuture(c.Expr[futureSystem.Prom[T]](selectStateMachine(name.result))).tree)

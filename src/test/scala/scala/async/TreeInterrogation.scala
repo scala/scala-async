@@ -69,16 +69,19 @@ object TreeInterrogation extends App {
   withDebug {
     val cm = reflect.runtime.currentMirror
     val tb = mkToolbox("-cp target/scala-2.10/classes -Xprint:flatten")
+    import scala.async.Async._
     val tree = tb.parse(
-      """ import scala.async.AsyncId.{async, await}
+      """ import scala.async.AsyncId._
         | async {
-        |   await(1)
-        |   val neg1 = -1
-        |   val a = await(1)
-        |   val f = { case x => ({case x => neg1 * x}: PartialFunction[Int, Int])(x + a) }: PartialFunction[Int, Int]
-        |   await(f(2))
+        |   val x = 1
+        |   val opt = Some("")
+        |   await(0)
+        |   val o @ Some(y) = opt
+        |
+        |   {
+        |     val o @ Some(y) = Some(".")
+        |   }
         | }
-        | ()
         | """.stripMargin)
     println(tree)
     val tree1 = tb.typeCheck(tree.duplicate)
