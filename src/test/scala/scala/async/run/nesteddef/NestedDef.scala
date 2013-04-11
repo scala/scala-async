@@ -20,7 +20,7 @@ class NestedDef {
       def foo(z: Any) = (a.toDouble, bar(x).toDouble, z)
       foo(await(2))
     }
-    result mustBe (0d, 44d, 2)
+    result mustBe ((0d, 44d, 2))
   }
 
 
@@ -35,6 +35,6 @@ class NestedDef {
       val foo = (z: Any) => (a.toDouble, bar(x).toDouble, z)
       foo(await(2))
     }
-    result mustBe (0d, 44d, 2)
+    result mustBe ((0d, 44d, 2))
   }
 }

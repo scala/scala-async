@@ -33,7 +33,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
 
     final def body: c.Tree = stats match {
       case stat :: Nil => stat
-      case _           => Block(stats: _*)
+      case init :+ last => Block(init, last)
     }
   }
 
@@ -94,8 +94,8 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
              c.Expr[scala.util.Try[T]](
                TypeApply(Select(Ident(name.tr), newTermName("asInstanceOf")),
                          List(TypeTree(weakTypeOf[scala.util.Try[T]]))))).tree,
-           Block(List(tryGetTree, mkStateTree(nextState), mkResumeApply): _*)
-           )
+           Block(List(tryGetTree, mkStateTree(nextState)), mkResumeApply)
+         )
 
       Some(mkHandlerCase(state, List(ifIsFailureTree)))
     }
@@ -146,7 +146,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
       // 1. build changed if-else tree
       // 2. insert that tree at the end of the current state
       val cond = renameReset(condTree)
-      def mkBranch(state: Int) = Block(mkStateTree(state), mkResumeApply)
+      def mkBranch(state: Int) = Block(mkStateTree(state) :: Nil, mkResumeApply)
       this += If(cond, mkBranch(thenState), mkBranch(elseState))
       new AsyncStateWithoutAwait(stats.toList, state)
     }
@@ -177,7 +177,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
     }
 
     def resultWithLabel(startLabelState: Int): AsyncState = {
-      this += Block(mkStateTree(startLabelState), mkResumeApply)
+      this += Block(mkStateTree(startLabelState) :: Nil, mkResumeApply)
       new AsyncStateWithoutAwait(stats.toList, state)
     }
 
@@ -387,7 +387,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
     Assign(Ident(name.state), c.literal(nextState).tree)
 
   private def mkHandlerCase(num: Int, rhs: List[c.Tree]): CaseDef =
-    mkHandlerCase(num, Block(rhs: _*))
+    mkHandlerCase(num, Block(rhs, c.literalUnit.tree))
 
   private def mkHandlerCase(num: Int, rhs: c.Tree): CaseDef =
     CaseDef(c.literal(num).tree, EmptyTree, rhs)
