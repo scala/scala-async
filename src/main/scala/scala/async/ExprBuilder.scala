@@ -94,7 +94,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
              c.Expr[scala.util.Try[T]](
                TypeApply(Select(Ident(name.tr), newTermName("asInstanceOf")),
                          List(TypeTree(weakTypeOf[scala.util.Try[T]]))))).tree,
-           Block(List(tryGetTree, mkStateTree(nextState), mkResumeApply), c.literalUnit.tree)
+           Block(List(tryGetTree, mkStateTree(nextState)), mkResumeApply)
          )
 
       Some(mkHandlerCase(state, List(ifIsFailureTree)))
