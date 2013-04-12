@@ -212,4 +212,30 @@ class TrySpec {
     assert(xxx == 10)
   }
 
+  @Test
+  def tryFinallyANF() {
+    import Async._
+    import scala.concurrent.{ future, ExecutionContext, Await }
+    import ExecutionContext.Implicits.global
+    import scala.concurrent.duration.Duration
+
+    val x = 21
+    val fut = future { x * 2 }
+
+    val finalFut = async {
+      var offset = 0
+      val res = try {
+        throw new Exception("problem")
+        0 // normal result
+      } catch {
+        case e: Exception => 1 // exceptional result
+      } finally {
+        offset = await(fut)
+      }
+      res + offset
+    }
+    val finalRes = Await.result(finalFut, Duration.Inf)
+    assert(finalRes == 43)
+  }
+
 }
