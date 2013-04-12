@@ -152,6 +152,8 @@ private[async] final case class AsyncAnalysis[C <: Context](c: C, asyncBase: Asy
           traverseChunks(List(cond, thenp, elsep))
         case Match(selector, cases) if tree exists isAwait     =>
           traverseChunks(selector :: cases)
+        case Try(body, catches, fin) if tree exists isAwait    =>
+          traverseChunks((body :: catches) ::: (fin :: Nil))
         case LabelDef(name, params, rhs) if rhs exists isAwait =>
           traverseChunks(rhs :: Nil)
         case Apply(fun, args) if isAwait(fun)                  =>
