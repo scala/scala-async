@@ -6,7 +6,6 @@ package scala.async
 
 import scala.language.experimental.macros
 import scala.reflect.macros.Context
-import scala.util.continuations.{cpsParam, reset}
 
 object Async extends AsyncBase {
 
@@ -61,9 +60,7 @@ abstract class AsyncBase {
   @deprecated("`await` must be enclosed in an `async` block", "0.1")
   def await[T](awaitable: futureSystem.Fut[T]): T = ???
 
-  def awaitFallback[T, U](awaitable: futureSystem.Fut[T], p: futureSystem.Prom[U]): T @cpsParam[U, Unit] = ???
-
-  def fallbackEnabled = false
+  protected[async] def fallbackEnabled = false
 
   def asyncImpl[T: c.WeakTypeTag](c: Context)(body: c.Expr[T]): c.Expr[futureSystem.Fut[T]] = {
     import c.universe._
@@ -72,7 +69,8 @@ abstract class AsyncBase {
     val utils = TransformUtils[c.type](c)
     import utils.{name, defn}
 
-    if (!analyzer.reportUnsupportedAwaits(body.tree) || !fallbackEnabled) {
+    analyzer.reportUnsupportedAwaits(body.tree)
+
     // Transform to A-normal form:
     //  - no await calls in qualifiers or arguments,
     //  - if/match only used in statement position.
@@ -162,35 +160,6 @@ abstract class AsyncBase {
 
     AsyncUtils.vprintln(s"async state machine transform expands to:\n ${code.tree}")
     code
-    } else {
-      // replace `await` invocations with `awaitFallback` invocations
-      val awaitReplacer = new Transformer {
-        override def transform(tree: Tree): Tree = tree match {
-          case Apply(fun @ TypeApply(_, List(futArgTpt)), args) if fun.symbol == defn.Async_await =>
-            val typeApp = treeCopy.TypeApply(fun, Ident(defn.Async_awaitFallback), List(TypeTree(futArgTpt.tpe), TypeTree(body.tree.tpe)))
-            treeCopy.Apply(tree, typeApp, args.map(arg => c.resetAllAttrs(arg.duplicate)) :+ Ident(name.result))
-          case _ =>
-            super.transform(tree)
-        }
-      }
-      val newBody = awaitReplacer.transform(body.tree)
-
-      val resetBody = reify {
-        reset { c.Expr(c.resetAllAttrs(newBody.duplicate)).splice }
-      }
-
-      val futureSystemOps = futureSystem.mkOps(c)
-      val code = {
-        val tree = Block(List(
-          ValDef(NoMods, name.result, TypeTree(futureSystemOps.promType[T]), futureSystemOps.createProm[T].tree),
-          futureSystemOps.spawn(resetBody.tree)
-        ), futureSystemOps.promiseToFuture(c.Expr[futureSystem.Prom[T]](Ident(name.result))).tree)
-        c.Expr[futureSystem.Fut[T]](tree)
-      }
-
-      AsyncUtils.vprintln(s"async CPS fallback transform expands to:\n ${code.tree}")
-      code
-    }
   }
 
   def logDiagnostics(c: Context)(anfTree: c.Tree, states: Seq[String]) {

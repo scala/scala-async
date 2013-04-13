@@ -181,8 +181,7 @@ private[async] final case class TransformUtils[C <: Context](c: C) {
       tpe.member(newTermName(name)).ensuring(_ != NoSymbol)
     }
 
-    val Async_await         = asyncMember("await")
-    val Async_awaitFallback = asyncMember("awaitFallback")
+    val Async_await = asyncMember("await")
   }
 
   /** `termSym( (_: Foo).bar(null: A, null: B)` will return the symbol of `bar`, after overload resolution. */
