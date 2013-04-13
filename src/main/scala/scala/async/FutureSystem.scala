@@ -54,6 +54,8 @@ trait FutureSystem {
 
     def spawn(tree: context.Tree): context.Tree =
       future(context.Expr[Unit](tree))(execContext).tree
+
+    def castTo[A: WeakTypeTag](future: Expr[Fut[Any]]): Expr[Fut[A]]
   }
 
   def mkOps(c: Context): Ops { val context: c.type }
@@ -101,6 +103,10 @@ object ScalaConcurrentFutureSystem extends FutureSystem {
       prom.splice.complete(value.splice)
       context.literalUnit.splice
     }
+
+    def castTo[A: WeakTypeTag](future: Expr[Fut[Any]]): Expr[Fut[A]] = reify {
+      future.splice.asInstanceOf[Fut[A]]
+    }
   }
 }
 
@@ -145,5 +151,7 @@ object IdentityFutureSystem extends FutureSystem {
       prom.splice.a = value.splice.get
       context.literalUnit.splice
     }
+
+    def castTo[A: WeakTypeTag](future: Expr[Fut[Any]]): Expr[Fut[A]] = ???
   }
 }
