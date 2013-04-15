@@ -232,28 +232,68 @@ class AnfTransformSpec {
   }
 
   @Test
-  def awaitNotAllowedInNonPrimaryParamSection1() {
-    expectError("implementation restriction: await may only be used in the first parameter list.") {
-      """
-        | import _root_.scala.async.AsyncId.{async, await}
-        | def foo(primary: Any)(i: Int) = i
-        | async {
-        |   foo(???)(await(0))
-        | }
-      """.stripMargin
+  def awaitInNonPrimaryParamSection1() {
+    import _root_.scala.async.AsyncId.{async, await}
+    def foo(a0: Int)(b0: Int) = s"a0 = $a0, b0 = $b0"
+    val res = async {
+      var i = 0
+      def get = {i += 1; i}
+      foo(get)(get)
     }
+    res mustBe "a0 = 1, b0 = 2"
   }
 
   @Test
-  def awaitNotAllowedInNonPrimaryParamSection2() {
-    expectError("implementation restriction: await may only be used in the first parameter list.") {
-      """
-        | import _root_.scala.async.AsyncId.{async, await}
-        | def foo[T](primary: Any)(i: Int) = i
-        | async {
-        |   foo[Int](???)(await(0))
-        | }
-      """.stripMargin
+  def awaitInNonPrimaryParamSection2() {
+    import _root_.scala.async.AsyncId.{async, await}
+    def foo[T](a0: Int)(b0: Int*) = s"a0 = $a0, b0 = ${b0.head}"
+    val res = async {
+      var i = 0
+      def get = async {i += 1; i}
+      foo[Int](await(get))(await(get) :: await(async(Nil)) : _*)
+    }
+    res mustBe "a0 = 1, b0 = 2"
+  }
+
+  @Test
+  def awaitInNonPrimaryParamSectionWithLazy1() {
+    import _root_.scala.async.AsyncId.{async, await}
+    def foo[T](a: => Int)(b: Int) = b
+    val res = async {
+      def get = async {0}
+      foo[Int](???)(await(get))
+    }
+    res mustBe 0
+  }
+
+  @Test
+  def awaitInNonPrimaryParamSectionWithLazy2() {
+    import _root_.scala.async.AsyncId.{async, await}
+    def foo[T](a: Int)(b: => Int) = a
+    val res = async {
+      def get = async {0}
+      foo[Int](await(get))(???)
+    }
+    res mustBe 0
+  }
+
+  @Test
+  def awaitWithLazy() {
+    import _root_.scala.async.AsyncId.{async, await}
+    def foo[T](a: Int, b: => Int) = a
+    val res = async {
+      def get = async {0}
+      foo[Int](await(get), ???)
+    }
+    res mustBe 0
+  }
+
+  @Test
+  def awaitOkInReciever() {
+    import scala.async.AsyncId.{async, await}
+    class Foo { def bar(a: Int)(b: Int) = a + b }
+    async {
+      await(async(new Foo)).bar(1)(2)
     }
   }
 
