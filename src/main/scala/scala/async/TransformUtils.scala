@@ -100,7 +100,7 @@ private[async] final case class TransformUtils[C <: Context](c: C) {
         case dd: DefDef            => nestedMethod(dd)
         case fun: Function         => function(fun)
         case m@Match(EmptyTree, _) => patMatFunction(m) // Pattern matching anonymous function under -Xoldpatmat of after `restorePatternMatchingFunctions`
-        case Applied(fun, targs, argss @ (_ :: _))      =>
+        case Applied(fun, targs, argss) if argss.nonEmpty =>
           val isInByName = isByName(fun)
           for ((args, i) <- argss.zipWithIndex) {
             for ((arg, j) <- args.zipWithIndex) {

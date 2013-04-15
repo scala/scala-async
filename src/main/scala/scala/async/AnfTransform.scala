@@ -107,9 +107,7 @@ private[async] final case class AnfTransform[C <: Context](c: C) {
       indent += 1
       def oneLine(s: Any) = s.toString.replaceAll( """\n""", "\\\\n").take(127)
       try {
-        AsyncUtils.trace(s"${
-          indentString
-        }$prefix(${oneLine(args)})")
+        AsyncUtils.trace(s"${indentString}$prefix(${oneLine(args)})")
         val result = t
         AsyncUtils.trace(s"${indentString}= ${oneLine(result)}")
         result
@@ -193,19 +191,19 @@ private[async] final case class AnfTransform[C <: Context](c: C) {
           val stats :+ expr = inline.transformToList(qual)
           stats :+ attachCopy(tree)(Select(expr, sel).setSymbol(tree.symbol))
 
-        case utils.Applied(fun, targs, argss @ (args :: rest)) if containsAwait =>
+        case Applied(fun, targs, argss) if argss.nonEmpty && containsAwait =>
           // we an assume that no await call appears in a by-name argument position,
           // this has already been checked.
           val funStats :+ simpleFun = inline.transformToList(fun)
           def isAwaitRef(name: Name) = name.toString.startsWith(utils.name.await + "$")
           val (argStatss, argExprss): (List[List[List[Tree]]], List[List[Tree]]) =
             mapArgumentss[List[Tree]](fun, argss) {
-              case arg if arg.isByName || isSafeToInline(arg.expr) => (Nil, arg.expr)
-              case Arg(arg@Ident(name), _, _) if isAwaitRef(name)  => (Nil, arg) // not typed, so it eludes the check in `isSafeToInline`
-              case arg                                             =>
-                inline.transformToList(arg.expr) match {
-                  case stats :+ expr =>
-                    val valDef = defineVal(arg.argName, expr, arg.expr.pos)
+              case Arg(expr, byName, _) if byName || isSafeToInline(expr) => (Nil, expr)
+              case Arg(expr@Ident(name), _, _) if isAwaitRef(name)        => (Nil, expr) // not typed, so it eludes the check in `isSafeToInline`
+              case Arg(expr, _, argName)                                 =>
+                inline.transformToList(expr) match {
+                  case stats :+ expr1 =>
+                    val valDef = defineVal(argName, expr1, expr.pos)
                     (stats :+ valDef, Ident(valDef.name))
                 }
             }
