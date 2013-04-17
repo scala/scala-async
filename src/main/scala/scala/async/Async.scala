@@ -6,6 +6,7 @@ package scala.async
 
 import scala.language.experimental.macros
 import scala.reflect.macros.Context
+import scala.reflect.internal.annotations.compileTimeOnly
 
 object Async extends AsyncBase {
 
@@ -56,8 +57,7 @@ abstract class AsyncBase {
    * @tparam T        the type of that value.
    * @return          the value.
    */
-  // TODO Replace with `@compileTimeOnly when this is implemented SI-6539
-  @deprecated("`await` must be enclosed in an `async` block", "0.1")
+  @compileTimeOnly("`await` must be enclosed in an `async` block")
   def await[T](awaitable: futureSystem.Fut[T]): T = ???
 
   protected[async] def fallbackEnabled = false

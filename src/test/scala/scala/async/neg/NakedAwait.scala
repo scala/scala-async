@@ -13,7 +13,7 @@ import org.junit.Test
 class NakedAwait {
   @Test
   def `await only allowed in async neg`() {
-    expectError("`await` must be enclosed in an `async` block", "-deprecation -Xfatal-warnings") {
+    expectError("`await` must be enclosed in an `async` block") {
       """
         | import _root_.scala.async.Async._
         | await[Any](null)
