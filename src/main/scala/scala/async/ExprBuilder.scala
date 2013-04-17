@@ -473,7 +473,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
       else Try(rhs,
                List(
                  CaseDef(
-                   Apply(Ident(defn.NonFatalClass), List(Bind(newTermName("t"), Ident(nme.WILDCARD)))),
+                   Bind(newTermName("t"), Typed(Ident(nme.WILDCARD), TypeTree(typeOf[Throwable]))),
                    EmptyTree,
                    Block(List(
                      Assign(Ident(name.exception), Ident(newTermName("t"))),

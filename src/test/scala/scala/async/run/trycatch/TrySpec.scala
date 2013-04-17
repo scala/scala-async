@@ -213,6 +213,54 @@ class TrySpec {
   }
 
   @Test
+  def tryFinallyThrowable() {
+    import AsyncId._
+
+    var xxx: Int = 0
+    var uuu: Int = 10
+    val result = async {
+      try {
+        val y = await(xxx)
+        throw new Throwable
+        assert(false)
+        y + 2
+      } catch {
+        case _: Throwable =>
+          xxx + 4
+      } finally {
+        val v = await(uuu)
+        xxx = v
+      }
+    }
+    assert(result == 4)
+    assert(xxx == 10)
+  }
+
+  @Test
+  def tryFinallyFatal() {
+    import AsyncId._
+
+    var xxx: Int = 0
+    var uuu: Int = 10
+    val result = async {
+      try {
+        val y = await(xxx)
+        throw new util.control.ControlThrowable {}
+        assert(false)
+        y + 2
+      } catch {
+        case _: Throwable =>
+          xxx + 4
+      } finally {
+        val v = await(uuu)
+        xxx = v
+      }
+    }
+    assert(result == 4)
+    assert(xxx == 10)
+  }
+
+  @Test
   def tryFinallyANF() {
     import Async._
     import scala.concurrent.{ future, ExecutionContext, Await }
