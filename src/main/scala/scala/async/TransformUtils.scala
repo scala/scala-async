@@ -34,6 +34,10 @@ private[async] final case class TransformUtils[C <: Context](c: C) {
     val bindSuffix    = "$bind"
     val handlers      = suffixedName("handlers")
     val exception     = suffixedName("exception")
+    val head          = newTermName("head")
+    val tail          = newTermName("tail")
+
+    def handlerPF(i: Int) = newTermName("handlerPF$" + i)
 
     def arg(i: Int) = "arg" + i
 

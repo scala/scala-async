@@ -230,8 +230,7 @@ private[async] final case class AnfTransform[C <: Context](c: C) {
               val fstats :+ fexpr = inline.transformToList(finalizer)
               Block(fstats, fexpr)
             } else finalizer
-          val tryType = c.typeCheck(Try(Block(stats, expr), catches, finBlock)).tpe
-          List(attachCopy(tree)(Try(Block(stats, expr), catches, finBlock)).setType(tryType))
+          List(c.typeCheck(attachCopy(tree)(Try(Block(stats, expr), catches, finBlock))))
 
         case If(cond, thenp, elsep) if containsAwait =>
           val condStats :+ condExpr = inline.transformToList(cond)

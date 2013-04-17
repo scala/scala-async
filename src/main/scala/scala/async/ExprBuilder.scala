@@ -8,6 +8,8 @@ import scala.collection.mutable.ListBuffer
 import collection.mutable
 import language.existentials
 
+final case class ExceptionState(state: Option[Int])
+
 private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c: C, futureSystem: FS, origTree: C#Tree) {
   builder =>
 
@@ -38,7 +40,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
   }
 
   /** A sequence of statements the concludes with a unconditional transition to `nextState` */
-  final class SimpleAsyncState(val stats: List[Tree], val state: Int, nextState: Int, excState: Option[Int])
+  final class SimpleAsyncState(val stats: List[Tree], val state: Int, nextState: Int, excState: ExceptionState)
     extends AsyncState {
 
     def mkHandlerCaseForState: CaseDef =
@@ -51,7 +53,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
   /** A sequence of statements with a conditional transition to the next state, which will represent
     * a branch of an `if` or a `match`.
     */
-  final class AsyncStateWithoutAwait(val stats: List[c.Tree], val state: Int, excState: Option[Int]) extends AsyncState {
+  final class AsyncStateWithoutAwait(val stats: List[c.Tree], val state: Int, excState: ExceptionState) extends AsyncState {
     override def mkHandlerCaseForState: CaseDef =
       mkHandlerCase(state, stats, excState)
 
@@ -63,7 +65,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
     * handler will unconditionally transition to `nestState`.``
     */
   final class AsyncStateWithAwait(val stats: List[c.Tree], val state: Int, nextState: Int,
-                                  awaitable: Awaitable, excState: Option[Int])
+                                  awaitable: Awaitable, excState: ExceptionState)
     extends AsyncState {
 
     override def mkHandlerCaseForState: CaseDef = {
@@ -110,7 +112,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
    * The `excState` parameter is implicit, so that it is passed implicitly
    * when `AsyncBlockBuilder` creates new `AsyncStateBuilder`s.
    */
-  final class AsyncStateBuilder(state: Int, private val nameMap: Map[Symbol, c.Name])(implicit excState: Option[Int]) {
+  final class AsyncStateBuilder(state: Int, private val nameMap: Map[Symbol, c.Name], excState: ExceptionState) {
     /* Statements preceding an await call. */
     private val stats                      = ListBuffer[c.Tree]()
     /** The state of the target of a LabelDef application (while loop jump) */
@@ -207,10 +209,10 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
    * @param parentExcState the state to continue with in case of an exception not handled by the current exception handler
    */
   final private class AsyncBlockBuilder(stats: List[c.Tree],   expr: c.Tree, startState: Int, endState: Int, private val toRename: Map[Symbol, c.Name],
-                                        parentExcState: Option[Int] = None)(implicit excState: Option[Int]) {
+                                        excState: ExceptionState, parentExcState: ExceptionState) {
     val asyncStates = ListBuffer[AsyncState]()
 
-    var stateBuilder = new AsyncStateBuilder(startState, toRename)
+    var stateBuilder = new AsyncStateBuilder(startState, toRename, excState)
     var currState    = startState
 
     /* TODO Fall back to CPS plug-in if tree contains an `await` call. */
@@ -220,9 +222,9 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
     }) c.abort(tree.pos, "await must not be used in this position") //throw new FallbackToCpsException
 
     def nestedBlockBuilder(nestedTree: Tree, startState: Int, endState: Int,
-                           excState: Option[Int] = None, parentExcState: Option[Int] = None) = {
+                           excState: ExceptionState = ExceptionState(None), parentExcState: ExceptionState = ExceptionState(None)) = {
       val (nestedStats, nestedExpr) = statsAndExpr(nestedTree)
-      new AsyncBlockBuilder(nestedStats, nestedExpr, startState, endState, toRename, parentExcState)(excState)
+      new AsyncBlockBuilder(nestedStats, nestedExpr, startState, endState, toRename, excState, parentExcState)
     }
 
     import stateAssigner.nextState
@@ -235,7 +237,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
         val awaitable = Awaitable(arg, toRename(stat.symbol).toTermName, tpt.tpe)
         asyncStates += stateBuilder.resultWithAwait(awaitable, afterAwaitState) // complete with await
         currState = afterAwaitState
-        stateBuilder = new AsyncStateBuilder(currState, toRename)
+        stateBuilder = new AsyncStateBuilder(currState, toRename, excState)
 
       case ValDef(mods, name, tpt, rhs) if toRename contains stat.symbol =>
         checkForUnsupportedAwait(rhs)
@@ -259,13 +261,11 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
         }
 
         currState = afterIfState
-        stateBuilder = new AsyncStateBuilder(currState, toRename)
+        stateBuilder = new AsyncStateBuilder(currState, toRename, excState)
 
       case Try(block, catches, finalizer) if stat exists isAwait =>
-        val tryStartState   = nextState()
-        val afterTryState   = nextState()
-        val ehState         = nextState()
-        val finalizerState  = if (!finalizer.isEmpty) Some(nextState()) else None
+        val tryStartState, afterTryState, ehState = nextState()
+        val finalizerState                        = if (!finalizer.isEmpty) Some(nextState()) else None
 
         // complete current state so that it continues with tryStartState
         asyncStates += stateBuilder.resultWithLabel(tryStartState)
@@ -276,18 +276,18 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
         }
 
         // create handler state
-        def handlersDot(m: String) = Select(Ident(name.handlers), m)
-        val exceptionExpr          = c.Expr[Throwable](Ident(name.exception))
+        def handlersDot(m: TermName) = Select(Ident(name.handlers), m)
+        val exceptionExpr            = c.Expr[Throwable](Ident(name.exception))
         // handler state does not have active exception handler --> None
-        val handlerStateBuilder    = new AsyncStateBuilder(ehState, toRename)(None)
+        val handlerStateBuilder      = new AsyncStateBuilder(ehState, toRename, ExceptionState(None))
 
         val parentExpr: c.Expr[Unit] =
-          if (parentExcState.isEmpty) reify { throw exceptionExpr.splice }
-          else c.Expr[Unit](mkStateTree(parentExcState.get))
+          if (parentExcState.state.isEmpty) reify { throw exceptionExpr.splice }
+          else c.Expr[Unit](mkStateTree(parentExcState.state.get))
 
         val handlerExpr  = reify {
-          val h = c.Expr[PartialFunction[Throwable, Unit]](handlersDot("head")).splice
-          c.Expr[Unit](Assign(Ident(name.handlers), handlersDot("tail"))).splice
+          val h = c.Expr[PartialFunction[Throwable, Unit]](handlersDot(name.head)).splice
+          c.Expr[Unit](Assign(Ident(name.handlers), handlersDot(name.tail))).splice
 
           if (h isDefinedAt exceptionExpr.splice) {
             h(exceptionExpr.splice)
@@ -300,7 +300,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
         handlerStateBuilder += handlerExpr.tree
         asyncStates += handlerStateBuilder.resultWithoutAwait()
 
-        val ehName         = newTermName("handlerPF$" + ehState)
+        val ehName         = name.handlerPF(ehState)
         val partFunAssign  = ValDef(Modifiers(), ehName, TypeTree(typeOf[PartialFunction[Throwable, Unit]]), Match(EmptyTree, catches))
         val newHandler     = c.Expr[PartialFunction[Throwable, Unit]](Ident(ehName))
         val handlersIdent  = c.Expr[List[PartialFunction[Throwable, Unit]]](Ident(name.handlers))
@@ -309,11 +309,11 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
 
         val (tryStats, tryExpr) = statsAndExpr(block)
         val builder = nestedBlockBuilder(Block(partFunAssign :: pushAssign :: tryStats, tryExpr),
-                                         tryStartState, if (!finalizer.isEmpty) finalizerState.get else afterTryState, Some(ehState), excState)
+                                         tryStartState, if (!finalizer.isEmpty) finalizerState.get else afterTryState, ExceptionState(Some(ehState)), excState)
         asyncStates ++= builder.asyncStates
 
         currState = afterTryState
-        stateBuilder = new AsyncStateBuilder(currState, toRename)
+        stateBuilder = new AsyncStateBuilder(currState, toRename, excState)
 
       case Match(scrutinee, cases) if stat exists isAwait =>
         checkForUnsupportedAwait(scrutinee)
@@ -332,7 +332,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
         }
 
         currState = afterMatchState
-        stateBuilder = new AsyncStateBuilder(currState, toRename)
+        stateBuilder = new AsyncStateBuilder(currState, toRename, excState)
 
       case ld@LabelDef(name, params, rhs) if rhs exists isAwait =>
         val startLabelState = nextState()
@@ -343,7 +343,8 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
         asyncStates ++= builder.asyncStates
 
         currState = afterLabelState
-        stateBuilder = new AsyncStateBuilder(currState, toRename)
+        stateBuilder = new AsyncStateBuilder(currState, toRename, excState)
+
       case _                                                    =>
         checkForUnsupportedAwait(stat)
         stateBuilder += stat
@@ -367,7 +368,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
     val startState = stateAssigner.nextState()
     val endState = Int.MaxValue
 
-    val blockBuilder = new AsyncBlockBuilder(stats, expr, startState, endState, toRename)(None)
+    val blockBuilder = new AsyncBlockBuilder(stats, expr, startState, endState, toRename, ExceptionState(None), ExceptionState(None))
 
     new AsyncBlock {
       def asyncStates = blockBuilder.asyncStates.toList
@@ -378,7 +379,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
           val lastStateBody = c.Expr[T](lastState.body)
           val rhs = futureSystemOps.completeProm(
             c.Expr[futureSystem.Prom[T]](Ident(name.result)), reify(scala.util.Success(lastStateBody.splice)))
-          mkHandlerCase(lastState.state, rhs.tree, None)
+          mkHandlerCase(lastState.state, rhs.tree, ExceptionState(None))
         }
         asyncStates.toList match {
           case s :: Nil =>
@@ -451,7 +452,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
   private def mkStateTree(nextState: Int): c.Tree =
     Assign(Ident(name.state), c.literal(nextState).tree)
 
-  private def mkHandlerCase(num: Int, rhs: List[c.Tree], excState: Option[Int]): CaseDef =
+  private def mkHandlerCase(num: Int, rhs: List[c.Tree], excState: ExceptionState): CaseDef =
     mkHandlerCase(num, Block(rhs, c.literalUnit.tree), excState)
 
   /* Generates `case` clause with wrapping try-catch:
@@ -466,9 +467,9 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
    *       resume$async()
    *   }
    */
-  private def mkHandlerCase(num: Int, rhs: c.Tree, excState: Option[Int]): CaseDef = {
+  private def mkHandlerCase(num: Int, rhs: c.Tree, excState: ExceptionState): CaseDef = {
     val rhsWithTry =
-      if (excState.isEmpty) rhs
+      if (excState.state.isEmpty) rhs
       else Try(rhs,
                List(
                  CaseDef(
@@ -476,7 +477,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
                    EmptyTree,
                    Block(List(
                      Assign(Ident(name.exception), Ident(newTermName("t"))),
-                     mkStateTree(excState.get),
+                     mkStateTree(excState.state.get),
                      mkResumeApply
                    ), c.literalUnit.tree))), EmptyTree
              )
