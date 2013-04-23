@@ -119,44 +119,42 @@ private[async] final case class AnfTransform[C <: Context](c: C) {
 
   private object inline {
     def transformToList(tree: Tree): List[Tree] = trace("inline", tree) {
+      def branchWithAssign(orig: Tree, varDef: ValDef) = orig match {
+        case Block(stats, expr) => Block(stats, Assign(Ident(varDef.name), expr))
+        case _                  => Assign(Ident(varDef.name), orig)
+      }
+
+      def casesWithAssign(cases: List[CaseDef], varDef: ValDef) = cases map {
+        case cd @ CaseDef(pat, guard, orig) =>
+          attachCopy(cd)(CaseDef(pat, guard, branchWithAssign(orig, varDef)))
+      }
+
       val stats :+ expr = anf.transformToList(tree)
       expr match {
+        // if type of if-else/try/match is Unit don't introduce assignment,
+        // but add Unit value to bring it into form expected by async transform
+        case If(_, _, _) | Try(_, _, _) | Match(_, _) if expr.tpe =:= definitions.UnitTpe =>
+          stats :+ expr :+ Literal(Constant(()))
+
         case Apply(fun, args) if isAwait(fun) =>
           val valDef = defineVal(name.await, expr, tree.pos)
           stats :+ valDef :+ Ident(valDef.name)
 
         case If(cond, thenp, elsep) =>
-          // if type of if-else is Unit don't introduce assignment,
-          // but add Unit value to bring it into form expected by async transform
-          if (expr.tpe =:= definitions.UnitTpe) {
-            stats :+ expr :+ Literal(Constant(()))
-          } else {
-            val varDef = defineVar(name.ifRes, expr.tpe, tree.pos)
-            def branchWithAssign(orig: Tree) = orig match {
-              case Block(thenStats, thenExpr) => Block(thenStats, Assign(Ident(varDef.name), thenExpr))
-              case _                          => Assign(Ident(varDef.name), orig)
-            }
-            val ifWithAssign = If(cond, branchWithAssign(thenp), branchWithAssign(elsep))
-            stats :+ varDef :+ ifWithAssign :+ Ident(varDef.name)
-          }
+          val varDef = defineVar(name.ifRes, expr.tpe, tree.pos)
+          val ifWithAssign = If(cond, branchWithAssign(thenp, varDef), branchWithAssign(elsep, varDef))
+          stats :+ varDef :+ ifWithAssign :+ Ident(varDef.name)
+
+        case Try(body, catches, finalizer) =>
+          val varDef = defineVar(name.tryRes, expr.tpe, tree.pos)
+          val tryWithAssign = Try(branchWithAssign(body, varDef), casesWithAssign(catches, varDef), finalizer)
+          stats :+ varDef :+ tryWithAssign :+ Ident(varDef.name)
 
         case Match(scrut, cases) =>
-          // if type of match is Unit don't introduce assignment,
-          // but add Unit value to bring it into form expected by async transform
-          if (expr.tpe =:= definitions.UnitTpe) {
-            stats :+ expr :+ Literal(Constant(()))
-          }
-          else {
-            val varDef = defineVar(name.matchRes, expr.tpe, tree.pos)
-            val casesWithAssign = cases map {
-              case cd@CaseDef(pat, guard, Block(caseStats, caseExpr)) =>
-                attachCopy(cd)(CaseDef(pat, guard, Block(caseStats, Assign(Ident(varDef.name), caseExpr))))
-              case cd@CaseDef(pat, guard, body)                       =>
-                attachCopy(cd)(CaseDef(pat, guard, Assign(Ident(varDef.name), body)))
-            }
-            val matchWithAssign = attachCopy(tree)(Match(scrut, casesWithAssign))
-            stats :+ varDef :+ matchWithAssign :+ Ident(varDef.name)
-          }
+          val varDef = defineVar(name.matchRes, expr.tpe, tree.pos)
+          val matchWithAssign = attachCopy(tree)(Match(scrut, casesWithAssign(cases, varDef)))
+          stats :+ varDef :+ matchWithAssign :+ Ident(varDef.name)
+
         case _                   =>
           stats :+ expr
       }
@@ -222,6 +220,15 @@ private[async] final case class AnfTransform[C <: Context](c: C) {
         case Assign(lhs, rhs) if containsAwait =>
           val stats :+ expr = inline.transformToList(rhs)
           stats :+ attachCopy(tree)(Assign(lhs, expr))
+
+        case Try(body, catches, finalizer) if containsAwait =>
+          val stats :+ expr = inline.transformToList(body)
+          val finBlock =
+            if (!finalizer.isEmpty) {
+              val fstats :+ fexpr = inline.transformToList(finalizer)
+              Block(fstats, fexpr)
+            } else finalizer
+          List(c.typeCheck(attachCopy(tree)(Try(Block(stats, expr), catches, finBlock))))
 
         case If(cond, thenp, elsep) if containsAwait =>
           val condStats :+ condExpr = inline.transformToList(cond)
