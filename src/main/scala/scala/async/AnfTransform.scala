@@ -98,25 +98,6 @@ private[async] final case class AnfTransform[C <: Context](c: C) {
     }
   }
 
-  private object trace {
-    private var indent = -1
-
-    def indentString = "  " * indent
-
-    def apply[T](prefix: String, args: Any)(t: => T): T = {
-      indent += 1
-      def oneLine(s: Any) = s.toString.replaceAll( """\n""", "\\\\n").take(127)
-      try {
-        AsyncUtils.trace(s"${indentString}$prefix(${oneLine(args)})")
-        val result = t
-        AsyncUtils.trace(s"${indentString}= ${oneLine(result)}")
-        result
-      } finally {
-        indent -= 1
-      }
-    }
-  }
-
   private object inline {
     def transformToList(tree: Tree): List[Tree] = trace("inline", tree) {
       val stats :+ expr = anf.transformToList(tree)

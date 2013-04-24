@@ -241,7 +241,7 @@ private[async] final case class TransformUtils[C <: Context](c: C) {
 
     import language.existentials
 
-    override def transform(tree: Tree): Tree = super.transform {
+    override def transform(tree: Tree): Tree = trace("reset", tree) {super.transform {
       def isExternal = tree.symbol != NoSymbol && !internalSyms(tree.symbol)
 
       tree match {
@@ -252,7 +252,7 @@ private[async] final case class TransformUtils[C <: Context](c: C) {
         case (_: Ident | _: This) if isExternal    => tree // #35 Don't reset the symbol of Ident/This bound outside of the async block
         case _                                     => resetTree(tree)
       }
-    }
+    }}
 
     private def resetTypeTree(tpt: TypeTree): Tree = {
       if (tpt.original != null)
@@ -370,5 +370,24 @@ private[async] final case class TransformUtils[C <: Context](c: C) {
         (tree, j) => f(Arg(tree, isByNamess(i, j), argNamess(i, j)))
       }
     }.unzip
+  }
+
+  private[async] object trace {
+    private var indent = -1
+
+    def indentString = "  " * indent
+
+    def apply[T](prefix: String, args: Any)(t: => T): T = {
+      indent += 1
+      def oneLine(s: Any) = s.toString.replaceAll( """\n""", "\\\\n").take(127)
+      try {
+        AsyncUtils.trace(s"${indentString}$prefix(${oneLine(args)})")
+        val result = t
+        AsyncUtils.trace(s"${indentString}= ${oneLine(result)}")
+        result
+      } finally {
+        indent -= 1
+      }
+    }
   }
 }
