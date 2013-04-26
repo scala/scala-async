@@ -78,6 +78,21 @@ trait TryBasedFutureSystem extends FutureSystem {
   trait OpsWithTry extends Ops {
     import c.universe._
 
+    protected def completePromWithTry[A: WeakTypeTag](prom: Expr[Prom[A]], value: Expr[scala.util.Try[A]]): Expr[Unit]
+
+    def completeProm[A: WeakTypeTag](prom: Expr[Prom[A]], value: Expr[A]): Expr[Unit] =
+      completePromWithTry(prom, reify(scala.util.Success(value.splice)))
+
+    def completePromWithExceptionTopLevel[A: WeakTypeTag](prom: Expr[Prom[A]], exception: Expr[Throwable]): Expr[Unit] =
+      completePromWithTry(prom, reify(scala.util.Failure(exception.splice)))
+
+    def completePromWithFailedResult[A: WeakTypeTag](prom: Expr[Prom[A]], resultName: TermName): Expr[Unit] = {
+      val result = c.Expr[scala.util.Try[A]](
+        TypeApply(Select(Ident(resultName), newTermName("asInstanceOf")),
+                  List(TypeTree(weakTypeOf[scala.util.Try[A]]))))
+      completePromWithTry(prom, result)
+    }
+
     /** `methodSym( (_: Foo).bar(null: A, null: B)` will return the symbol of `bar`, after overload resolution. */
     private def methodSym(apply: c.Expr[Any]): Symbol = {
       val tree2: Tree = c.typeCheck(apply.tree)
@@ -136,24 +151,9 @@ object ScalaConcurrentFutureSystem extends TryBasedFutureSystem {
       future.splice.onComplete(fun.splice)(execContext.splice)
     }
 
-    def completeProm[A: WeakTypeTag](prom: Expr[Prom[A]], value: Expr[A]): Expr[Unit] = reify {
-      prom.splice.success(value.splice)
+    protected def completePromWithTry[A: WeakTypeTag](prom: Expr[Prom[A]], value: Expr[scala.util.Try[A]]): Expr[Unit] = reify {
+      prom.splice.complete(value.splice)
       c.literalUnit.splice
-    }
-
-    def completePromWithExceptionTopLevel[A: WeakTypeTag](prom: Expr[Prom[A]], exception: Expr[Throwable]): Expr[Unit] = reify {
-      prom.splice.failure(exception.splice)
-      c.literalUnit.splice
-    }
-
-    def completePromWithFailedResult[A: WeakTypeTag](prom: Expr[Prom[A]], resultName: TermName): Expr[Unit] = {
-      val result = c.Expr[scala.util.Try[A]](
-        TypeApply(Select(Ident(resultName), newTermName("asInstanceOf")),
-                  List(TypeTree(weakTypeOf[scala.util.Try[A]]))))
-      reify {
-        prom.splice.complete(result.splice)
-        c.literalUnit.splice
-      }
     }
 
     def castTo[A: WeakTypeTag](future: Expr[Fut[Any]]): Expr[Fut[A]] = reify {
@@ -199,22 +199,9 @@ object IdentityFutureSystem extends TryBasedFutureSystem {
       c.literalUnit.splice
     }
 
-    def completeProm[A: WeakTypeTag](prom: Expr[Prom[A]], value: Expr[A]): Expr[Unit] = reify {
-      prom.splice.a = value.splice
+    protected def completePromWithTry[A: WeakTypeTag](prom: Expr[Prom[A]], value: Expr[scala.util.Try[A]]): Expr[Unit] = reify {
+      prom.splice.a = value.splice.get
       c.literalUnit.splice
-    }
-
-    def completePromWithExceptionTopLevel[A: WeakTypeTag](prom: Expr[Prom[A]], exception: Expr[Throwable]): Expr[Unit] = reify {
-      throw exception.splice
-    }
-
-    def completePromWithFailedResult[A: WeakTypeTag](prom: Expr[Prom[A]], resultName: TermName): Expr[Unit] = {
-      val result = c.Expr[scala.util.Try[A]](
-        TypeApply(Select(Ident(resultName), newTermName("asInstanceOf")),
-                  List(TypeTree(weakTypeOf[scala.util.Try[A]]))))
-      reify {
-        throw result.splice.asInstanceOf[scala.util.Failure[A]].exception
-      }
     }
 
     def castTo[A: WeakTypeTag](future: Expr[Fut[Any]]): Expr[Fut[A]] = ???
