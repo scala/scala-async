@@ -164,9 +164,6 @@ private[async] final case class TransformUtils[C <: Context](c: C) {
     DefDef(NoMods, nme.CONSTRUCTOR, List(), List(List()), TypeTree(), Block(List(emptySuperCall), c.literalUnit.tree))
   }
 
-  def applied(className: String, types: List[Type]): AppliedTypeTree =
-    AppliedTypeTree(Ident(c.mirror.staticClass(className)), types.map(TypeTree(_)))
-
   object defn {
     def mkList_apply[A](args: List[Expr[A]]): Expr[List[A]] = {
       c.Expr(Apply(Ident(definitions.List_apply), args.map(_.tree)))

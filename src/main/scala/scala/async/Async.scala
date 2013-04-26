@@ -113,7 +113,7 @@ abstract class AsyncBase {
     }
     val resumeFunTree = asyncBlock.resumeFunTree[T]
 
-    val stateMachineType = utils.applied("scala.async.StateMachine", List(futureSystemOps.promType[T], futureSystemOps.execContextType))
+    val stateMachineType = futureSystemOps.stateMachineType[T]
 
     lazy val stateMachine: ClassDef = {
       val body: List[Tree] = {
@@ -135,7 +135,7 @@ abstract class AsyncBase {
         List(utils.emptyConstructor, stateVar, result, execContext) ++ localVarTrees ++ List(resumeFunTree, applyDefDef, apply0DefDef)
       }
       val template = {
-        Template(List(stateMachineType), emptyValDef, body)
+        Template(List(TypeTree(stateMachineType)), emptyValDef, body)
       }
       ClassDef(NoMods, name.stateMachineT, Nil, template)
     }
@@ -150,7 +150,7 @@ abstract class AsyncBase {
         else {
           Block(List[Tree](
             stateMachine,
-            ValDef(NoMods, name.stateMachine, stateMachineType, Apply(Select(New(Ident(name.stateMachineT)), nme.CONSTRUCTOR), Nil)),
+            ValDef(NoMods, name.stateMachine, TypeTree(stateMachineType), Apply(Select(New(Ident(name.stateMachineT)), nme.CONSTRUCTOR), Nil)),
             futureSystemOps.spawn(Apply(selectStateMachine(name.apply), Nil))
           ),
           futureSystemOps.promiseToFuture(c.Expr[futureSystem.Prom[T]](selectStateMachine(name.result))).tree)

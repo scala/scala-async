@@ -37,6 +37,7 @@ trait FutureSystem {
 
     def promType[A: WeakTypeTag]: Type
     def resultType[A: WeakTypeTag]: Type
+    def stateMachineType[A: WeakTypeTag]: Type
     def execContextType: Type
 
     /** Create an empty promise */
@@ -139,6 +140,7 @@ object ScalaConcurrentFutureSystem extends TryBasedFutureSystem {
     })
 
     def promType[A: WeakTypeTag]: Type = c.weakTypeOf[Promise[A]]
+    def stateMachineType[A: WeakTypeTag]: Type = c.weakTypeOf[scala.async.StateMachine[Promise[A], ExecutionContext]]
     def execContextType: Type = c.weakTypeOf[ExecutionContext]
 
     def createProm[A: WeakTypeTag]: Expr[Prom[A]] = reify {
@@ -188,6 +190,7 @@ object IdentityFutureSystem extends TryBasedFutureSystem {
     def execContext: Expr[ExecContext] = c.literalUnit
 
     def promType[A: WeakTypeTag]: Type = c.weakTypeOf[Prom[A]]
+    def stateMachineType[A: WeakTypeTag]: Type = c.weakTypeOf[scala.async.StateMachine[Prom[A], ExecContext]]
     def execContextType: Type = c.weakTypeOf[Unit]
 
     def createProm[A: WeakTypeTag]: Expr[Prom[A]] = reify {
