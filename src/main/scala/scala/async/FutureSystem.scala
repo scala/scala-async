@@ -50,7 +50,13 @@ trait FutureSystem {
                          execContext: Expr[ExecContext]): Expr[Unit]
 
     /** Complete a promise with a value */
-    def completeProm[A](prom: Expr[Prom[A]], value: Expr[scala.util.Try[A]]): Expr[Unit]
+    def completeProm[A: WeakTypeTag](prom: Expr[Prom[A]], value: Expr[A]): Expr[Unit]
+
+    /** Complete a promise with an exception */
+    def completePromWithExceptionTopLevel[A: WeakTypeTag](prom: Expr[Prom[A]], exception: Expr[Throwable]): Expr[Unit]
+
+    /** Complete a promise with a failed result */
+    def completePromWithFailedResult[A: WeakTypeTag](prom: Expr[Prom[A]], resultName: TermName): Expr[Unit]
 
     def spawn(tree: context.Tree): context.Tree =
       future(context.Expr[Unit](tree))(execContext).tree
@@ -99,9 +105,24 @@ object ScalaConcurrentFutureSystem extends FutureSystem {
       future.splice.onComplete(fun.splice)(execContext.splice)
     }
 
-    def completeProm[A](prom: Expr[Prom[A]], value: Expr[scala.util.Try[A]]): Expr[Unit] = reify {
-      prom.splice.complete(value.splice)
+    def completeProm[A: WeakTypeTag](prom: Expr[Prom[A]], value: Expr[A]): Expr[Unit] = reify {
+      prom.splice.success(value.splice)
       context.literalUnit.splice
+    }
+
+    def completePromWithExceptionTopLevel[A: WeakTypeTag](prom: Expr[Prom[A]], exception: Expr[Throwable]): Expr[Unit] = reify {
+      prom.splice.failure(exception.splice)
+      context.literalUnit.splice
+    }
+
+    def completePromWithFailedResult[A: WeakTypeTag](prom: Expr[Prom[A]], resultName: TermName): Expr[Unit] = {
+      val result = c.Expr[scala.util.Try[A]](
+        TypeApply(Select(Ident(resultName), newTermName("asInstanceOf")),
+                  List(TypeTree(weakTypeOf[scala.util.Try[A]]))))
+      reify {
+        prom.splice.complete(result.splice)
+        context.literalUnit.splice
+      }
     }
 
     def castTo[A: WeakTypeTag](future: Expr[Fut[Any]]): Expr[Fut[A]] = reify {
@@ -147,9 +168,22 @@ object IdentityFutureSystem extends FutureSystem {
       context.literalUnit.splice
     }
 
-    def completeProm[A](prom: Expr[Prom[A]], value: Expr[scala.util.Try[A]]): Expr[Unit] = reify {
-      prom.splice.a = value.splice.get
+    def completeProm[A: WeakTypeTag](prom: Expr[Prom[A]], value: Expr[A]): Expr[Unit] = reify {
+      prom.splice.a = value.splice
       context.literalUnit.splice
+    }
+
+    def completePromWithExceptionTopLevel[A: WeakTypeTag](prom: Expr[Prom[A]], exception: Expr[Throwable]): Expr[Unit] = reify {
+      throw exception.splice
+    }
+
+    def completePromWithFailedResult[A: WeakTypeTag](prom: Expr[Prom[A]], resultName: TermName): Expr[Unit] = {
+      val result = c.Expr[scala.util.Try[A]](
+        TypeApply(Select(Ident(resultName), newTermName("asInstanceOf")),
+                  List(TypeTree(weakTypeOf[scala.util.Try[A]]))))
+      reify {
+        throw result.splice.asInstanceOf[scala.util.Failure[A]].exception
+      }
     }
 
     def castTo[A: WeakTypeTag](future: Expr[Fut[Any]]): Expr[Fut[A]] = ???

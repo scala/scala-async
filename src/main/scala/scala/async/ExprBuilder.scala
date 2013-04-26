@@ -89,11 +89,9 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
        */
       val ifIsFailureTree =
         If(Select(Ident(name.tr), Try_isFailure),
-           futureSystemOps.completeProm[T](
+           futureSystemOps.completePromWithFailedResult[T](
              c.Expr[futureSystem.Prom[T]](Ident(name.result)),
-             c.Expr[scala.util.Try[T]](
-               TypeApply(Select(Ident(name.tr), newTermName("asInstanceOf")),
-                         List(TypeTree(weakTypeOf[scala.util.Try[T]]))))).tree,
+             name.tr).tree,
            Block(List(tryGetTree, mkStateTree(nextState)), mkResumeApply)
          )
 
@@ -311,8 +309,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
         val caseForLastState: CaseDef = {
           val lastState = asyncStates.last
           val lastStateBody = c.Expr[T](lastState.body)
-          val rhs = futureSystemOps.completeProm(
-            c.Expr[futureSystem.Prom[T]](Ident(name.result)), reify(scala.util.Success(lastStateBody.splice)))
+          val rhs = futureSystemOps.completeProm(c.Expr[futureSystem.Prom[T]](Ident(name.result)), lastStateBody)
           mkHandlerCase(lastState.state, rhs.tree)
         }
         asyncStates.toList match {
@@ -363,7 +360,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
                 EmptyTree,
                 Block(List({
                   val t = c.Expr[Throwable](Ident(name.tr))
-                  futureSystemOps.completeProm[T](c.Expr[futureSystem.Prom[T]](Ident(name.result)), reify(scala.util.Failure(t.splice))).tree
+                  futureSystemOps.completePromWithExceptionTopLevel[T](c.Expr[futureSystem.Prom[T]](Ident(name.result)), t).tree
                 }), c.literalUnit.tree))), EmptyTree))
     }
   }
