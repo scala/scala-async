@@ -186,9 +186,6 @@ private[async] final case class TransformUtils[C <: Context](c: C) {
       self.splice.get
     }
 
-    val Try_get       = methodSym(reify((null: scala.util.Try[Any]).get))
-    val Try_isFailure = methodSym(reify((null: scala.util.Try[Any]).isFailure))
-
     val TryClass      = c.mirror.staticClass("scala.util.Try")
     val TryAnyType    = appliedType(TryClass.toType, List(definitions.AnyTpe))
     val NonFatalClass = c.mirror.staticModule("scala.util.control.NonFatal")
@@ -200,14 +197,6 @@ private[async] final case class TransformUtils[C <: Context](c: C) {
     }
 
     val Async_await = asyncMember("await")
-  }
-
-  /** `termSym( (_: Foo).bar(null: A, null: B)` will return the symbol of `bar`, after overload resolution. */
-  private def methodSym(apply: c.Expr[Any]): Symbol = {
-    val tree2: Tree = c.typeCheck(apply.tree)
-    tree2.collect {
-      case s: SymTree if s.symbol.isMethod => s.symbol
-    }.headOption.getOrElse(sys.error(s"Unable to find a method symbol in ${apply.tree}"))
   }
 
   /**

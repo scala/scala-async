@@ -76,7 +76,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
       val tryGetTree =
         Assign(
           Ident(awaitable.resultName),
-          TypeApply(Select(Select(Ident(name.tr), Try_get), newTermName("asInstanceOf")), List(TypeTree(awaitable.resultType)))
+          futureSystemOps.resultValue(name.tr, awaitable.resultType)
         )
 
       /* if (tr.isFailure)
@@ -88,7 +88,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
        * }
        */
       val ifIsFailureTree =
-        If(Select(Ident(name.tr), Try_isFailure),
+        If(futureSystemOps.isFailedResult(name.tr).tree,
            futureSystemOps.completePromWithFailedResult[T](
              c.Expr[futureSystem.Prom[T]](Ident(name.result)),
              name.tr).tree,

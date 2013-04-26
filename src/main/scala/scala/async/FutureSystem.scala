@@ -26,9 +26,9 @@ trait FutureSystem {
   type ExecContext
 
   trait Ops {
-    val context: reflect.macros.Context
+    val c: reflect.macros.Context
 
-    import context.universe._
+    import c.universe._
 
     /** Lookup the execution context, typically with an implicit search */
     def execContext: Expr[ExecContext]
@@ -58,16 +58,47 @@ trait FutureSystem {
     /** Complete a promise with a failed result */
     def completePromWithFailedResult[A: WeakTypeTag](prom: Expr[Prom[A]], resultName: TermName): Expr[Unit]
 
-    def spawn(tree: context.Tree): context.Tree =
-      future(context.Expr[Unit](tree))(execContext).tree
+    /** Test if the given result is failed */
+    def isFailedResult(name: TermName): Expr[Boolean]
+
+    /** Result value of a completion */
+    def resultValue(name: TermName, resultType: Type): Tree
+
+    def spawn(tree: Tree): Tree =
+      future(c.Expr[Unit](tree))(execContext).tree
 
     def castTo[A: WeakTypeTag](future: Expr[Fut[Any]]): Expr[Fut[A]]
   }
 
-  def mkOps(c: Context): Ops { val context: c.type }
+  def mkOps(ctx: Context): Ops { val c: ctx.type }
 }
 
-object ScalaConcurrentFutureSystem extends FutureSystem {
+trait TryBasedFutureSystem extends FutureSystem {
+
+  trait OpsWithTry extends Ops {
+    import c.universe._
+
+    /** `methodSym( (_: Foo).bar(null: A, null: B)` will return the symbol of `bar`, after overload resolution. */
+    private def methodSym(apply: c.Expr[Any]): Symbol = {
+      val tree2: Tree = c.typeCheck(apply.tree)
+      tree2.collect {
+        case s: SymTree if s.symbol.isMethod => s.symbol
+      }.headOption.getOrElse(sys.error(s"Unable to find a method symbol in ${apply.tree}"))
+    }
+
+    lazy val Try_isFailure = methodSym(reify((null: scala.util.Try[Any]).isFailure))
+    lazy val Try_get       = methodSym(reify((null: scala.util.Try[Any]).get))
+
+    def isFailedResult(name: TermName): Expr[Boolean] =
+      c.Expr[Boolean](Select(Ident(name), Try_isFailure))
+
+    def resultValue(name: TermName, resultType: Type): Tree =
+      TypeApply(Select(Select(Ident(name), Try_get), newTermName("asInstanceOf")), List(TypeTree(resultType)))
+  }
+
+}
+
+object ScalaConcurrentFutureSystem extends TryBasedFutureSystem {
 
   import scala.concurrent._
 
@@ -75,10 +106,10 @@ object ScalaConcurrentFutureSystem extends FutureSystem {
   type Fut[A] = Future[A]
   type ExecContext = ExecutionContext
 
-  def mkOps(c: Context): Ops {val context: c.type} = new Ops {
-    val context: c.type = c
+  def mkOps(ctx: Context): Ops { val c: ctx.type } = new OpsWithTry {
+    val c: ctx.type = ctx
 
-    import context.universe._
+    import c.universe._
 
     def execContext: Expr[ExecContext] = c.Expr(c.inferImplicitValue(c.weakTypeOf[ExecutionContext]) match {
       case EmptyTree => c.abort(c.macroApplication.pos, "Unable to resolve implicit ExecutionContext")
@@ -107,12 +138,12 @@ object ScalaConcurrentFutureSystem extends FutureSystem {
 
     def completeProm[A: WeakTypeTag](prom: Expr[Prom[A]], value: Expr[A]): Expr[Unit] = reify {
       prom.splice.success(value.splice)
-      context.literalUnit.splice
+      c.literalUnit.splice
     }
 
     def completePromWithExceptionTopLevel[A: WeakTypeTag](prom: Expr[Prom[A]], exception: Expr[Throwable]): Expr[Unit] = reify {
       prom.splice.failure(exception.splice)
-      context.literalUnit.splice
+      c.literalUnit.splice
     }
 
     def completePromWithFailedResult[A: WeakTypeTag](prom: Expr[Prom[A]], resultName: TermName): Expr[Unit] = {
@@ -121,7 +152,7 @@ object ScalaConcurrentFutureSystem extends FutureSystem {
                   List(TypeTree(weakTypeOf[scala.util.Try[A]]))))
       reify {
         prom.splice.complete(result.splice)
-        context.literalUnit.splice
+        c.literalUnit.splice
       }
     }
 
@@ -135,17 +166,17 @@ object ScalaConcurrentFutureSystem extends FutureSystem {
  * A trivial implementation of [[scala.async.FutureSystem]] that performs computations
  * on the current thread. Useful for testing.
  */
-object IdentityFutureSystem extends FutureSystem {
+object IdentityFutureSystem extends TryBasedFutureSystem {
 
   class Prom[A](var a: A)
 
   type Fut[A] = A
   type ExecContext = Unit
 
-  def mkOps(c: Context): Ops {val context: c.type} = new Ops {
-    val context: c.type = c
+  def mkOps(ctx: Context): Ops { val c: ctx.type } = new OpsWithTry {
+    val c: ctx.type = ctx
 
-    import context.universe._
+    import c.universe._
 
     def execContext: Expr[ExecContext] = c.literalUnit
 
@@ -165,12 +196,12 @@ object IdentityFutureSystem extends FutureSystem {
     def onComplete[A, U](future: Expr[Fut[A]], fun: Expr[scala.util.Try[A] => U],
                          execContext: Expr[ExecContext]): Expr[Unit] = reify {
       fun.splice.apply(util.Success(future.splice))
-      context.literalUnit.splice
+      c.literalUnit.splice
     }
 
     def completeProm[A: WeakTypeTag](prom: Expr[Prom[A]], value: Expr[A]): Expr[Unit] = reify {
       prom.splice.a = value.splice
-      context.literalUnit.splice
+      c.literalUnit.splice
     }
 
     def completePromWithExceptionTopLevel[A: WeakTypeTag](prom: Expr[Prom[A]], exception: Expr[Throwable]): Expr[Unit] = reify {
