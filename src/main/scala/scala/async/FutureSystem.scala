@@ -22,6 +22,8 @@ trait FutureSystem {
   type Prom[A]
   /** A (potentially in-progress) computation */
   type Fut[A]
+  /** Result of an asynchronous computation */
+  type Result[A]
   /** An execution context, required to create or register an on completion callback on a Future. */
   type ExecContext
 
@@ -34,6 +36,7 @@ trait FutureSystem {
     def execContext: Expr[ExecContext]
 
     def promType[A: WeakTypeTag]: Type
+    def resultType[A: WeakTypeTag]: Type
     def execContextType: Type
 
     /** Create an empty promise */
@@ -46,7 +49,7 @@ trait FutureSystem {
     def future[A: WeakTypeTag](a: Expr[A])(execContext: Expr[ExecContext]): Expr[Fut[A]]
 
     /** Register an call back to run on completion of the given future */
-    def onComplete[A, U](future: Expr[Fut[A]], fun: Expr[scala.util.Try[A] => U],
+    def onComplete[A, U](future: Expr[Fut[A]], fun: Expr[Result[A] => U],
                          execContext: Expr[ExecContext]): Expr[Unit]
 
     /** Complete a promise with a value */
@@ -75,8 +78,12 @@ trait FutureSystem {
 
 trait TryBasedFutureSystem extends FutureSystem {
 
+  type Result[A] = scala.util.Try[A]
+
   trait OpsWithTry extends Ops {
     import c.universe._
+
+    def resultType[A: WeakTypeTag]: Type = c.weakTypeOf[scala.util.Try[A]]
 
     protected def completePromWithTry[A: WeakTypeTag](prom: Expr[Prom[A]], value: Expr[scala.util.Try[A]]): Expr[Unit]
 

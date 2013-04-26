@@ -108,7 +108,7 @@ abstract class AsyncBase {
 
     val onCompleteHandler = {
       Function(
-        List(ValDef(Modifiers(Flag.PARAM), name.tr, TypeTree(defn.TryAnyType), EmptyTree)),
+        List(ValDef(Modifiers(Flag.PARAM), name.tr, TypeTree(futureSystemOps.resultType[Any]), EmptyTree)),
         asyncBlock.onCompleteHandler)
     }
     val resumeFunTree = asyncBlock.resumeFunTree[T]
@@ -121,14 +121,14 @@ abstract class AsyncBase {
         val result = ValDef(NoMods, name.result, TypeTree(futureSystemOps.promType[T]), futureSystemOps.createProm[T].tree)
         val execContext = ValDef(NoMods, name.execContext, TypeTree(), futureSystemOps.execContext.tree)
         val applyDefDef: DefDef = {
-          val applyVParamss = List(List(ValDef(Modifiers(Flag.PARAM), name.tr, TypeTree(defn.TryAnyType), EmptyTree)))
+          val applyVParamss = List(List(ValDef(Modifiers(Flag.PARAM), name.tr, TypeTree(futureSystemOps.resultType[Any]), EmptyTree)))
           val applyBody = asyncBlock.onCompleteHandler
           DefDef(NoMods, name.apply, Nil, applyVParamss, TypeTree(definitions.UnitTpe), applyBody)
         }
         val apply0DefDef: DefDef = {
           // We extend () => Unit so we can pass this class as the by-name argument to `Future.apply`.
           // See SI-1247 for the the optimization that avoids creatio
-          val applyVParamss = List(List(ValDef(Modifiers(Flag.PARAM), name.tr, TypeTree(defn.TryAnyType), EmptyTree)))
+          val applyVParamss = List(List(ValDef(Modifiers(Flag.PARAM), name.tr, TypeTree(futureSystemOps.resultType[Any]), EmptyTree)))
           val applyBody = asyncBlock.onCompleteHandler
           DefDef(NoMods, name.apply, Nil, Nil, TypeTree(definitions.UnitTpe), Apply(Ident(name.resume), Nil))
         }

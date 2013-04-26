@@ -187,7 +187,6 @@ private[async] final case class TransformUtils[C <: Context](c: C) {
     }
 
     val TryClass      = c.mirror.staticClass("scala.util.Try")
-    val TryAnyType    = appliedType(TryClass.toType, List(definitions.AnyTpe))
     val NonFatalClass = c.mirror.staticModule("scala.util.control.NonFatal")
 
     private def asyncMember(name: String) = {
