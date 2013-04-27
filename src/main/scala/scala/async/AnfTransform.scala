@@ -59,7 +59,7 @@ private[async] final case class AnfTransform[C <: Context](c: C) {
           val origName = defTree.symbol.name
           val sym = defTree.symbol.asInstanceOf[symtab.Symbol]
           val fresh = name.fresh(sym.name.toString)
-          sym.name = defTree.symbol.name match {
+          sym.name = origName match {
             case _: TermName => symtab.newTermName(fresh)
             case _: TypeName => symtab.newTypeName(fresh)
           }
@@ -184,14 +184,15 @@ private[async] final case class AnfTransform[C <: Context](c: C) {
   private object anf {
 
     private[AnfTransform] def transformToList(tree: Tree): List[Tree] = trace("anf", tree) {
-      def containsAwait = tree exists isAwait
-
-      tree match {
-        case Select(qual, sel) if containsAwait =>
+      val containsAwait = tree exists isAwait
+      if (!containsAwait) {
+        List(tree)
+      } else tree match {
+        case Select(qual, sel) =>
           val stats :+ expr = inline.transformToList(qual)
           stats :+ attachCopy(tree)(Select(expr, sel).setSymbol(tree.symbol))
 
-        case Applied(fun, targs, argss) if argss.nonEmpty && containsAwait =>
+        case Applied(fun, targs, argss) if argss.nonEmpty =>
           // we an assume that no await call appears in a by-name argument position,
           // this has already been checked.
           val funStats :+ simpleFun = inline.transformToList(fun)
@@ -210,20 +211,20 @@ private[async] final case class AnfTransform[C <: Context](c: C) {
             val core = if (targs.isEmpty) simpleFun else TypeApply(simpleFun, targs)
             val newApply = argExprss.foldLeft(core)(Apply(_, _).setSymbol(tree.symbol))
           funStats ++ argStatss.flatten.flatten :+ attachCopy(tree)(newApply)
-        case Block(stats, expr) if containsAwait =>
+        case Block(stats, expr) =>
           inline.transformToList(stats :+ expr)
 
-        case ValDef(mods, name, tpt, rhs) if containsAwait =>
+        case ValDef(mods, name, tpt, rhs) =>
           if (rhs exists isAwait) {
             val stats :+ expr = inline.transformToList(rhs)
             stats :+ attachCopy(tree)(ValDef(mods, name, tpt, expr).setSymbol(tree.symbol))
           } else List(tree)
 
-        case Assign(lhs, rhs) if containsAwait =>
+        case Assign(lhs, rhs) =>
           val stats :+ expr = inline.transformToList(rhs)
           stats :+ attachCopy(tree)(Assign(lhs, expr))
 
-        case If(cond, thenp, elsep) if containsAwait =>
+        case If(cond, thenp, elsep) =>
           val condStats :+ condExpr = inline.transformToList(cond)
           val thenBlock = inline.transformToBlock(thenp)
           val elseBlock = inline.transformToBlock(elsep)
@@ -237,7 +238,7 @@ private[async] final case class AnfTransform[C <: Context](c: C) {
           condStats :+
             attachCopy(tree)(If(condExpr, thenBlock, elseBlock)).setType(ifType)
 
-        case Match(scrut, cases) if containsAwait =>
+        case Match(scrut, cases) =>
           val scrutStats :+ scrutExpr = inline.transformToList(scrut)
           val caseDefs = cases map {
             case CaseDef(pat, guard, body) =>
@@ -259,10 +260,10 @@ private[async] final case class AnfTransform[C <: Context](c: C) {
           val typedMatch = attachCopy(tree)(Match(scrutExpr, caseDefs)).setType(tree.tpe)
           scrutStats :+ typedMatch
 
-        case LabelDef(name, params, rhs) if containsAwait =>
+        case LabelDef(name, params, rhs) =>
           List(LabelDef(name, params, Block(inline.transformToList(rhs), Literal(Constant(())))).setSymbol(tree.symbol))
 
-        case TypeApply(fun, targs) if containsAwait =>
+        case TypeApply(fun, targs) =>
           val funStats :+ simpleFun = inline.transformToList(fun)
           funStats :+ attachCopy(tree)(TypeApply(simpleFun, targs).setSymbol(tree.symbol))
 
