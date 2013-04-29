@@ -209,7 +209,7 @@ private[async] final case class AnfTransform[C <: Context](c: C) {
                 }
             }
             val core = if (targs.isEmpty) simpleFun else TypeApply(simpleFun, targs)
-            val newApply = argExprss.foldLeft(core)(Apply(_, _).setSymbol(tree.symbol))
+            val newApply = argExprss.foldLeft(core)(Apply(_, _)).setSymbol(tree.symbol)
           funStats ++ argStatss.flatten.flatten :+ attachCopy(tree)(newApply)
         case Block(stats, expr) =>
           inline.transformToList(stats :+ expr)
