@@ -43,6 +43,8 @@ trait FutureSystem {
     /** Create an empty promise */
     def createProm[A: WeakTypeTag]: Expr[Prom[A]]
 
+    def createPromTree[A: WeakTypeTag](stateMachine: Tree): Tree
+
     /** Extract a future from the given promise. */
     def promiseToFuture[A: WeakTypeTag](prom: Expr[Prom[A]]): Expr[Fut[A]]
 
@@ -68,8 +70,13 @@ trait FutureSystem {
     /** Result value of a completion */
     def resultValue(name: TermName, resultType: Type): Tree
 
-    def spawn(tree: Tree): Tree =
-      future(c.Expr[Unit](tree))(execContext).tree
+    def spawn(tree: Tree): Tree = {
+      val utils = TransformUtils[c.type](c)
+      import utils.{name, defn}
+
+      val applyTree = Apply(Select(tree, name.apply), Nil)
+      future(c.Expr[Unit](applyTree))(execContext).tree
+    }
 
     def castTo[A: WeakTypeTag](future: Expr[Fut[Any]]): Expr[Fut[A]]
   }
@@ -89,10 +96,16 @@ trait TryBasedFutureSystem extends FutureSystem {
     protected def completePromWithTry[A: WeakTypeTag](prom: Expr[Prom[A]], value: Expr[scala.util.Try[A]]): Expr[Unit]
 
     def completeProm[A: WeakTypeTag](prom: Expr[Prom[A]], value: Expr[A]): Expr[Unit] =
-      completePromWithTry(prom, reify(scala.util.Success(value.splice)))
+      completePromWithTry(prom, reify {
+        import scala.util.Success
+        Success(value.splice)
+      })
 
     def completePromWithExceptionTopLevel[A: WeakTypeTag](prom: Expr[Prom[A]], exception: Expr[Throwable]): Expr[Unit] =
-      completePromWithTry(prom, reify(scala.util.Failure(exception.splice)))
+      completePromWithTry(prom, reify {
+        import scala.util.Failure
+        Failure(exception.splice)
+      })
 
     def completePromWithFailedResult[A: WeakTypeTag](prom: Expr[Prom[A]], resultName: TermName): Expr[Unit] = {
       val result = c.Expr[scala.util.Try[A]](
@@ -134,6 +147,8 @@ object ScalaConcurrentFutureSystem extends TryBasedFutureSystem {
 
     import c.universe._
 
+    val utils = TransformUtils[c.type](c)
+
     def execContext: Expr[ExecContext] = c.Expr(c.inferImplicitValue(c.weakTypeOf[ExecutionContext]) match {
       case EmptyTree => c.abort(c.macroApplication.pos, "Unable to resolve implicit ExecutionContext")
       case context => context
@@ -145,6 +160,11 @@ object ScalaConcurrentFutureSystem extends TryBasedFutureSystem {
 
     def createProm[A: WeakTypeTag]: Expr[Prom[A]] = reify {
       Promise[A]()
+    }
+
+    def createPromTree[A: WeakTypeTag](stateMachine: Tree): Tree = {
+      // ignore stateMachine
+      (reify { Promise[A]() }).tree
     }
 
     def promiseToFuture[A: WeakTypeTag](prom: Expr[Prom[A]]) = reify {
@@ -197,6 +217,14 @@ object IdentityFutureSystem extends TryBasedFutureSystem {
       new Prom(null.asInstanceOf[A])
     }
 
+    def createPromTree[A: WeakTypeTag](stateMachine: Tree): Tree = {
+      val utils     = TransformUtils[c.type](c)
+      val asyncTree = Select(Ident(newTermName("scala")), newTermName("async"))
+      val fsTree    = Select(asyncTree, newTermName("IdentityFutureSystem"))
+      Apply(Select(New(AppliedTypeTree(Select(fsTree, newTypeName("Prom")), List(TypeTree(weakTypeOf[A])))), nme.CONSTRUCTOR),
+            List(utils.defaultValue(weakTypeOf[A])))
+    }
+
     def promiseToFuture[A: WeakTypeTag](prom: Expr[Prom[A]]) = reify {
       prom.splice.a
     }
@@ -205,7 +233,7 @@ object IdentityFutureSystem extends TryBasedFutureSystem {
 
     def onComplete[A, U](future: Expr[Fut[A]], fun: Expr[scala.util.Try[A] => U],
                          execContext: Expr[ExecContext]): Expr[Unit] = reify {
-      fun.splice.apply(util.Success(future.splice))
+      fun.splice.apply(scala.util.Success(future.splice))
       c.literalUnit.splice
     }
 

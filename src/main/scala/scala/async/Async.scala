@@ -118,7 +118,8 @@ abstract class AsyncBase {
     lazy val stateMachine: ClassDef = {
       val body: List[Tree] = {
         val stateVar = ValDef(Modifiers(Flag.MUTABLE), name.state, TypeTree(definitions.IntTpe), Literal(Constant(0)))
-        val result = ValDef(NoMods, name.result, TypeTree(futureSystemOps.promType[T]), futureSystemOps.createProm[T].tree)
+        val result =
+          ValDef(NoMods, name.result, TypeTree(futureSystemOps.promType[T]), futureSystemOps.createPromTree[T](Ident(name.stateMachine)))
         val execContext = ValDef(NoMods, name.execContext, TypeTree(), futureSystemOps.execContext.tree)
         val applyDefDef: DefDef = {
           val applyVParamss = List(List(ValDef(Modifiers(Flag.PARAM), name.tr, TypeTree(futureSystemOps.resultType[Any]), EmptyTree)))
@@ -145,16 +146,13 @@ abstract class AsyncBase {
     val code: c.Expr[futureSystem.Fut[T]] = {
       val isSimple = asyncStates.size == 1
       val tree =
-        if (isSimple)
-          Block(Nil, futureSystemOps.spawn(body.tree)) // generate lean code for the simple case of `async { 1 + 1 }`
-        else {
-          Block(List[Tree](
+        Block(
+          List[Tree](
             stateMachine,
             ValDef(NoMods, name.stateMachine, TypeTree(stateMachineType), Apply(Select(New(Ident(name.stateMachineT)), nme.CONSTRUCTOR), Nil)),
-            futureSystemOps.spawn(Apply(selectStateMachine(name.apply), Nil))
+            futureSystemOps.spawn(Ident(name.stateMachine))
           ),
           futureSystemOps.promiseToFuture(c.Expr[futureSystem.Prom[T]](selectStateMachine(name.result))).tree)
-        }
       c.Expr[futureSystem.Fut[T]](tree)
     }
 
