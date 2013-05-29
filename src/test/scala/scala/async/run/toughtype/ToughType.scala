@@ -67,4 +67,18 @@ class ToughTypeSpec {
       await(f(2))
     } mustBe 3
   }
+
+  @Test def existentialBind() {
+    import AsyncId.{await, async}
+    def m7(a: Any) = async {
+      a match {
+        case s: Seq[_] =>
+          val x = s.size
+          var ss = s
+          ss = s
+          await(x)
+      }
+    }
+    m7(Nil) mustBe 0
+  }
 }
