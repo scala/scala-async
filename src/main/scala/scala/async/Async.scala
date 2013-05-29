@@ -15,7 +15,7 @@ object Async extends AsyncBase {
   lazy val futureSystem = ScalaConcurrentFutureSystem
   type FS = ScalaConcurrentFutureSystem.type
 
-  def async[T](body: T) = macro asyncImpl[T]
+  def async[T](body: T): Future[T] = macro asyncImpl[T]
 
   override def asyncImpl[T: c.WeakTypeTag](c: Context)(body: c.Expr[T]): c.Expr[Future[T]] = super.asyncImpl[T](c)(body)
 }
@@ -24,7 +24,7 @@ object AsyncId extends AsyncBase {
   lazy val futureSystem = IdentityFutureSystem
   type FS = IdentityFutureSystem.type
 
-  def async[T](body: T) = macro asyncImpl[T]
+  def async[T](body: T): T = macro asyncImpl[T]
 
   override def asyncImpl[T: c.WeakTypeTag](c: Context)(body: c.Expr[T]): c.Expr[T] = super.asyncImpl[T](c)(body)
 }

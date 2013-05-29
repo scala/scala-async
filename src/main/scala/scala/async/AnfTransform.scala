@@ -98,25 +98,6 @@ private[async] final case class AnfTransform[C <: Context](c: C) {
     }
   }
 
-  private object trace {
-    private var indent = -1
-
-    def indentString = "  " * indent
-
-    def apply[T](prefix: String, args: Any)(t: => T): T = {
-      indent += 1
-      def oneLine(s: Any) = s.toString.replaceAll( """\n""", "\\\\n").take(127)
-      try {
-        AsyncUtils.trace(s"${indentString}$prefix(${oneLine(args)})")
-        val result = t
-        AsyncUtils.trace(s"${indentString}= ${oneLine(result)}")
-        result
-      } finally {
-        indent -= 1
-      }
-    }
-  }
-
   private object inline {
     def transformToList(tree: Tree): List[Tree] = trace("inline", tree) {
       val stats :+ expr = anf.transformToList(tree)
@@ -249,7 +230,8 @@ private[async] final case class AnfTransform[C <: Context](c: C) {
               val (valDefs, mappings) = (pat collect {
                 case b@Bind(name, _) =>
                   val newName = newTermName(utils.name.fresh(name.toTermName + utils.name.bindSuffix))
-                  val vd = ValDef(NoMods, newName, TypeTree(), Ident(b.symbol))
+                  val tpt = bindResTypeTree(b)
+                  val vd = ValDef(NoMods, newName, tpt, Ident(b.symbol))
                   (vd, (b.symbol, newName))
               }).unzip
               val Block(stats1, expr1) = utils.substituteNames(block, mappings.toMap).asInstanceOf[Block]
@@ -270,6 +252,28 @@ private[async] final case class AnfTransform[C <: Context](c: C) {
         case _ =>
           List(tree)
       }
+    }
+  }
+
+  // TODO figure out if represents a bug in scalac, or here, or something in between.
+  //      We get here in case of ` case s: Seq[_] => await(fut)`. See test case
+  //      ToughType.existentialBind
+  private def bindResTypeTree(b: Bind): Tree = {
+    object originalTrans extends Transformer {
+      override def transform(tree: Tree): Tree = tree match {
+        case tt: TypeTree =>
+          val realOrig = tt.original match {
+            case Bind(tpnme.WILDCARD, EmptyTree) => Ident(tpnme.WILDCARD)
+            case t                               => t
+          }
+          super.transform(realOrig)
+        case _            =>
+          super.transform(tree)
+      }
+    }
+    b.body match {
+      case Typed(_, tpt1) => originalTrans.transform(tpt1)
+      case x              => TypeTree()
     }
   }
 }
