@@ -38,7 +38,7 @@ val x: Int = Await.result(combined, 10.seconds)   // 05
 
 Lines 1 defines an asynchronous method: it returns a `Future`.
 
-Line 3 begins an `async` block. During compilation,
+Line 2 begins an `async` block. During compilation,
 the contents of this block will be analyzed to identify
 the `await` calls, and transformed into non-blocking
 code.
@@ -47,7 +47,7 @@ Control flow will immediately pass to line 5, as the
 computation in the `async` block is not executed
 on the caller's thread.
 
-Line 4 begins by triggering `slowCalcFuture`, and then
+Line 3 begins by triggering `slowCalcFuture`, and then
 suspending until it has been calculating. Only after it
 has finished, we trigger it again, and suspend again.
 Finally, we add the results and complete `combined`, which
