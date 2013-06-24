@@ -189,15 +189,11 @@ private[async] final case class TransformUtils[C <: Context](c: C) {
     val Try_get       = methodSym(reify((null: scala.util.Try[Any]).get))
     val Try_isFailure = methodSym(reify((null: scala.util.Try[Any]).isFailure))
 
-    val TryClass      = c.mirror.staticClass("scala.util.Try")
-    val TryAnyType    = appliedType(TryClass.toType, List(definitions.AnyTpe))
+    val TryAnyType    = typeOf[scala.util.Try[Any]]
     val NonFatalClass = c.mirror.staticModule("scala.util.control.NonFatal")
 
-    private def asyncMember(name: String) = {
-      val asyncMod = c.mirror.staticClass("scala.async.AsyncBase")
-      val tpe = asyncMod.asType.toType
-      tpe.member(newTermName(name)).ensuring(_ != NoSymbol)
-    }
+    private def asyncMember(name: String) =
+      typeOf[scala.async.AsyncBase].member(newTermName(name)).ensuring(_ != NoSymbol)
 
     val Async_await = asyncMember("await")
   }
