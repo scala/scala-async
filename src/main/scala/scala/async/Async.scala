@@ -92,7 +92,7 @@ abstract class AsyncBase {
       }.toMap
     }
 
-    val builder = ExprBuilder[c.type, futureSystem.type](c, self.futureSystem, anfTree)
+    val builder = ExprBuilder[c.type, futureSystem.type](c, self.futureSystem, anfTree, utils)
     import builder.futureSystemOps
     val asyncBlock: builder.AsyncBlock = builder.build(anfTree, renameMap)
     import asyncBlock.asyncStates
