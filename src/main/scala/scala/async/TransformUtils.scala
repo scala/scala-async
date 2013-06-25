@@ -22,6 +22,7 @@ private[async] final case class TransformUtils[C <: Context](c: C) {
     val result        = suffixedName("result")
     val resume        = suffixedName("resume")
     val execContext   = suffixedName("execContext")
+    val task          = suffixedName("task")
     val stateMachine  = newTermName(fresh("stateMachine"))
     val stateMachineT = stateMachine.toTypeName
     val apply         = newTermName("apply")

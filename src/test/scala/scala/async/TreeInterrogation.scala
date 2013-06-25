@@ -35,13 +35,13 @@ class TreeInterrogation {
       case f: Function => f
       case t: Template => t
     }
-    functions.size mustBe 1
+    functions.size mustBe 2
 
     val varDefs = tree1.collect {
       case ValDef(mods, name, _, _) if mods.hasFlag(Flag.MUTABLE) => name
     }
-    varDefs.map(_.decoded.trim).toSet mustBe (Set("state$async", "await$1", "await$2"))
-    varDefs.map(_.decoded.trim).toSet mustBe (Set("state$async", "await$1", "await$2"))
+    varDefs.map(_.decoded.trim).toSet mustBe (Set("state$async", "await$1", "await$2", "task$async"))
+    varDefs.map(_.decoded.trim).toSet mustBe (Set("state$async", "await$1", "await$2", "task$async"))
 
     val defDefs = tree1.collect {
       case t: Template =>

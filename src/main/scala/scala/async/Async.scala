@@ -120,6 +120,7 @@ abstract class AsyncBase {
         val stateVar = ValDef(Modifiers(Flag.MUTABLE), name.state, TypeTree(definitions.IntTpe), Literal(Constant(0)))
         val result = ValDef(NoMods, name.result, TypeTree(futureSystemOps.promType[T]), futureSystemOps.createProm[T].tree)
         val execContext = ValDef(NoMods, name.execContext, TypeTree(), futureSystemOps.execContext.tree)
+        val task = ValDef(Modifiers(Flag.MUTABLE), name.task, TypeTree(typeOf[Option[() => Unit]]), EmptyTree)
         val applyDefDef: DefDef = {
           val applyVParamss = List(List(ValDef(Modifiers(Flag.PARAM), name.tr, TypeTree(defn.TryAnyType), EmptyTree)))
           val applyBody = asyncBlock.onCompleteHandler
@@ -132,7 +133,7 @@ abstract class AsyncBase {
           val applyBody = asyncBlock.onCompleteHandler
           DefDef(NoMods, name.apply, Nil, Nil, TypeTree(definitions.UnitTpe), Apply(Ident(name.resume), Nil))
         }
-        List(utils.emptyConstructor, stateVar, result, execContext) ++ localVarTrees ++ List(resumeFunTree, applyDefDef, apply0DefDef)
+        List(utils.emptyConstructor, stateVar, result, execContext, task) ++ localVarTrees ++ List(resumeFunTree, applyDefDef, apply0DefDef)
       }
       val template = {
         Template(List(stateMachineType), emptyValDef, body)
@@ -148,10 +149,20 @@ abstract class AsyncBase {
         if (isSimple)
           Block(Nil, futureSystemOps.spawn(body.tree)) // generate lean code for the simple case of `async { 1 + 1 }`
         else {
+          val stateMachineApply =
+            Apply(selectStateMachine(name.apply), Nil)
+
+          val whileLoop =
+            LabelDef(newTermName("while$1"), List(), If(Select(selectStateMachine(name.task), newTermName("nonEmpty")), Block(List(Block(List(ValDef(Modifiers(), newTermName("task"), TypeTree(), Select(selectStateMachine(name.task), newTermName("get"))), Apply(selectStateMachine(newTermName("task$async_$eq")), List(Ident(newTermName("None"))))), Apply(Select(Ident(newTermName("task")), newTermName("apply")), List()))), Apply(Ident(newTermName("while$1")), List())), Literal(Constant(()))))
+
+          val futureBody = Block(List[Tree](
+            Assign(selectStateMachine(name.task), Apply(Select(Ident(newTermName("Some")), newTermName("apply")), List(Function(List(), stateMachineApply))))
+          ), whileLoop)
+
           Block(List[Tree](
             stateMachine,
             ValDef(NoMods, name.stateMachine, stateMachineType, Apply(Select(New(Ident(name.stateMachineT)), nme.CONSTRUCTOR), Nil)),
-            futureSystemOps.spawn(Apply(selectStateMachine(name.apply), Nil))
+            futureSystemOps.spawn(futureBody)
           ),
           futureSystemOps.promiseToFuture(c.Expr[futureSystem.Prom[T]](selectStateMachine(name.result))).tree)
         }
@@ -182,4 +193,6 @@ abstract class StateMachine[Result, EC] extends (scala.util.Try[Any] => Unit) wi
   def result$async: Result
 
   def execContext$async: EC
+
+  var task$async: Option[() => Unit]
 }
