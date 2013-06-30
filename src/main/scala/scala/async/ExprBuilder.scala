@@ -8,10 +8,10 @@ import scala.collection.mutable.ListBuffer
 import collection.mutable
 import language.existentials
 
-private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c: C, futureSystem: FS, origTree: C#Tree) {
+private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c: C, futureSystem: FS, origTree: C#Tree, preUtils: TransformUtils[C]) {
   builder =>
 
-  val utils = TransformUtils[c.type](c)
+  val utils = preUtils.asInstanceOf[TransformUtils[c.type]]
 
   import c.universe._
   import utils._
@@ -68,7 +68,7 @@ private[async] final case class ExprBuilder[C <: Context, FS <: FutureSystem](c:
 
     override def mkHandlerCaseForState: CaseDef = {
       val callOnComplete = futureSystemOps.onComplete(c.Expr(awaitable.expr),
-        c.Expr(This(tpnme.EMPTY)), c.Expr(Ident(name.execContext))).tree
+        c.Expr(This(tpnme.EMPTY)), c.Expr(Ident(name.execContext)), c.Expr(This(name.stateMachineT))).tree
       mkHandlerCase(state, stats :+ callOnComplete)
     }
 

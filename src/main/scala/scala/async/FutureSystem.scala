@@ -47,7 +47,7 @@ trait FutureSystem {
 
     /** Register an call back to run on completion of the given future */
     def onComplete[A, U](future: Expr[Fut[A]], fun: Expr[scala.util.Try[A] => U],
-                         execContext: Expr[ExecContext]): Expr[Unit]
+                         execContext: Expr[ExecContext], stateMachine: Expr[StateMachine[Prom[A], ExecContext]]): Expr[Unit]
 
     /** Complete a promise with a value */
     def completeProm[A](prom: Expr[Prom[A]], value: Expr[scala.util.Try[A]]): Expr[Unit]
@@ -95,8 +95,63 @@ object ScalaConcurrentFutureSystem extends FutureSystem {
     }
 
     def onComplete[A, U](future: Expr[Fut[A]], fun: Expr[scala.util.Try[A] => U],
-                         execContext: Expr[ExecContext]): Expr[Unit] = reify {
+                         execContext: Expr[ExecContext], stateMachine: Expr[StateMachine[Prom[A], ExecContext]]): Expr[Unit] = reify {
       future.splice.onComplete(fun.splice)(execContext.splice)
+    }
+
+    def completeProm[A](prom: Expr[Prom[A]], value: Expr[scala.util.Try[A]]): Expr[Unit] = reify {
+      prom.splice.complete(value.splice)
+      context.literalUnit.splice
+    }
+
+    def castTo[A: WeakTypeTag](future: Expr[Fut[Any]]): Expr[Fut[A]] = reify {
+      future.splice.asInstanceOf[Fut[A]]
+    }
+  }
+}
+
+/** This future system implements `await` using blocking. Note that this
+ *  future system should only be used for the purpose of debugging.
+ */
+object BlockingFutureSystem extends FutureSystem {
+
+  import scala.concurrent._
+  import scala.concurrent.duration._
+
+  type Prom[A] = Promise[A]
+  type Fut[A] = Future[A]
+  type ExecContext = ExecutionContext
+
+  def mkOps(c: Context): Ops {val context: c.type} = new Ops {
+    val context: c.type = c
+
+    import context.universe._
+
+    def execContext: Expr[ExecContext] = c.Expr(c.inferImplicitValue(c.weakTypeOf[ExecutionContext]) match {
+      case EmptyTree => c.abort(c.macroApplication.pos, "Unable to resolve implicit ExecutionContext")
+      case context => context
+    })
+
+    def promType[A: WeakTypeTag]: Type = c.weakTypeOf[Promise[A]]
+    def execContextType: Type = c.weakTypeOf[ExecutionContext]
+
+    def createProm[A: WeakTypeTag]: Expr[Prom[A]] = reify {
+      Promise[A]()
+    }
+
+    def promiseToFuture[A: WeakTypeTag](prom: Expr[Prom[A]]) = reify {
+      prom.splice.future
+    }
+
+    def future[A: WeakTypeTag](a: Expr[A])(execContext: Expr[ExecContext]) = reify {
+      Future(a.splice)(execContext.splice)
+    }
+
+    def onComplete[A, U](future: Expr[Fut[A]], fun: Expr[scala.util.Try[A] => U],
+                         execContext: Expr[ExecContext], stateMachine: Expr[StateMachine[Prom[A], ExecContext]]): Expr[Unit] = reify {
+      Await.ready(future.splice, Duration.Inf)
+      val tr = future.splice.value.get
+      stateMachine.splice.task$async = Some(() => fun.splice(tr))
     }
 
     def completeProm[A](prom: Expr[Prom[A]], value: Expr[scala.util.Try[A]]): Expr[Unit] = reify {
@@ -142,7 +197,7 @@ object IdentityFutureSystem extends FutureSystem {
     def future[A: WeakTypeTag](t: Expr[A])(execContext: Expr[ExecContext]) = t
 
     def onComplete[A, U](future: Expr[Fut[A]], fun: Expr[scala.util.Try[A] => U],
-                         execContext: Expr[ExecContext]): Expr[Unit] = reify {
+                         execContext: Expr[ExecContext], stateMachine: Expr[StateMachine[Prom[A], ExecContext]]): Expr[Unit] = reify {
       fun.splice.apply(util.Success(future.splice))
       context.literalUnit.splice
     }
