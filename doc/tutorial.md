@@ -16,7 +16,7 @@ imported. (In a future stable release, these members might be moved
 to the `scala.async` package object.) A language import to enable
 macros is not required for users of async/await.
 
-## The async construct
+## The `async` Construct
 
 The `async` construct has the following signature:
 
@@ -31,7 +31,7 @@ compilation fails. (Similar to how `future { ... }` works.)
 
 The body of `async` may contain calls to `await` which is explained next.
 
-## The `await` construct
+## The `await` Construct
 
 Calling `await` inside the body of an `async` block suspends the
 evaluation of the `async` block until a given future is completed
