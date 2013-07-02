@@ -6,6 +6,7 @@ package scala.async
 import scala.language.higherKinds
 
 import scala.reflect.macros.Context
+import scala.reflect.internal.SymbolTable
 
 /**
  * An abstraction over a future system.
@@ -26,12 +27,10 @@ trait FutureSystem {
   type ExecContext
 
   trait Ops {
-    val context: reflect.macros.Context
+    val universe: reflect.internal.SymbolTable
 
-    import context.universe._
-
-    /** Lookup the execution context, typically with an implicit search */
-    def execContext: Expr[ExecContext]
+    import universe._
+    def Expr[T: WeakTypeTag](tree: Tree): Expr[T] = universe.Expr[T](rootMirror, universe.FixedMirrorTreeCreator(rootMirror, tree))
 
     def promType[A: WeakTypeTag]: Type
     def execContextType: Type
@@ -52,14 +51,16 @@ trait FutureSystem {
     /** Complete a promise with a value */
     def completeProm[A](prom: Expr[Prom[A]], value: Expr[scala.util.Try[A]]): Expr[Unit]
 
-    def spawn(tree: context.Tree): context.Tree =
-      future(context.Expr[Unit](tree))(execContext).tree
+    def spawn(tree: Tree, execContext: Tree): Tree =
+      future(Expr[Unit](tree))(Expr[ExecContext](execContext)).tree
 
+    // TODO Why is this needed?
     def castTo[A: WeakTypeTag](future: Expr[Fut[Any]]): Expr[Fut[A]]
   }
 
-  def mkOps(c: Context): Ops { val context: c.type }
+  def mkOps(c: SymbolTable): Ops { val universe: c.type }
 }
+
 
 object ScalaConcurrentFutureSystem extends FutureSystem {
 
@@ -69,18 +70,13 @@ object ScalaConcurrentFutureSystem extends FutureSystem {
   type Fut[A] = Future[A]
   type ExecContext = ExecutionContext
 
-  def mkOps(c: Context): Ops {val context: c.type} = new Ops {
-    val context: c.type = c
+  def mkOps(c: SymbolTable): Ops {val universe: c.type} = new Ops {
+    val universe: c.type = c
 
-    import context.universe._
+    import universe._
 
-    def execContext: Expr[ExecContext] = c.Expr(c.inferImplicitValue(c.weakTypeOf[ExecutionContext]) match {
-      case EmptyTree => c.abort(c.macroApplication.pos, "Unable to resolve implicit ExecutionContext")
-      case context => context
-    })
-
-    def promType[A: WeakTypeTag]: Type = c.weakTypeOf[Promise[A]]
-    def execContextType: Type = c.weakTypeOf[ExecutionContext]
+    def promType[A: WeakTypeTag]: Type = weakTypeOf[Promise[A]]
+    def execContextType: Type = weakTypeOf[ExecutionContext]
 
     def createProm[A: WeakTypeTag]: Expr[Prom[A]] = reify {
       Promise[A]()
@@ -101,7 +97,7 @@ object ScalaConcurrentFutureSystem extends FutureSystem {
 
     def completeProm[A](prom: Expr[Prom[A]], value: Expr[scala.util.Try[A]]): Expr[Unit] = reify {
       prom.splice.complete(value.splice)
-      context.literalUnit.splice
+      Expr[Unit](Literal(Constant(()))).splice
     }
 
     def castTo[A: WeakTypeTag](future: Expr[Fut[Any]]): Expr[Fut[A]] = reify {
@@ -121,15 +117,15 @@ object IdentityFutureSystem extends FutureSystem {
   type Fut[A] = A
   type ExecContext = Unit
 
-  def mkOps(c: Context): Ops {val context: c.type} = new Ops {
-    val context: c.type = c
+  def mkOps(c: SymbolTable): Ops {val universe: c.type} = new Ops {
+    val universe: c.type = c
 
-    import context.universe._
+    import universe._
 
-    def execContext: Expr[ExecContext] = c.literalUnit
+    def execContext: Expr[ExecContext] = Expr[Unit](Literal(Constant(())))
 
-    def promType[A: WeakTypeTag]: Type = c.weakTypeOf[Prom[A]]
-    def execContextType: Type = c.weakTypeOf[Unit]
+    def promType[A: WeakTypeTag]: Type = weakTypeOf[Prom[A]]
+    def execContextType: Type = weakTypeOf[Unit]
 
     def createProm[A: WeakTypeTag]: Expr[Prom[A]] = reify {
       new Prom(null.asInstanceOf[A])
@@ -144,12 +140,12 @@ object IdentityFutureSystem extends FutureSystem {
     def onComplete[A, U](future: Expr[Fut[A]], fun: Expr[scala.util.Try[A] => U],
                          execContext: Expr[ExecContext]): Expr[Unit] = reify {
       fun.splice.apply(util.Success(future.splice))
-      context.literalUnit.splice
+      Expr[Unit](Literal(Constant(()))).splice
     }
 
     def completeProm[A](prom: Expr[Prom[A]], value: Expr[scala.util.Try[A]]): Expr[Unit] = reify {
       prom.splice.a = value.splice.get
-      context.literalUnit.splice
+      Expr[Unit](Literal(Constant(()))).splice
     }
 
     def castTo[A: WeakTypeTag](future: Expr[Fut[Any]]): Expr[Fut[A]] = ???

@@ -238,7 +238,7 @@ class AnfTransformSpec {
     val res = async {
       var i = 0
       def get = {i += 1; i}
-      foo(get)(get)
+      foo(get)(await(get))
     }
     res mustBe "a0 = 1, b0 = 2"
   }

@@ -40,8 +40,8 @@ class TreeInterrogation {
     val varDefs = tree1.collect {
       case ValDef(mods, name, _, _) if mods.hasFlag(Flag.MUTABLE) => name
     }
-    varDefs.map(_.decoded.trim).toSet mustBe (Set("state$async", "await$1", "await$2"))
-    varDefs.map(_.decoded.trim).toSet mustBe (Set("state$async", "await$1", "await$2"))
+    varDefs.map(_.decoded.trim).toSet mustBe (Set("state", "await$1", "await$2"))
+    varDefs.map(_.decoded.trim).toSet mustBe (Set("state", "await$1", "await$2"))
 
     val defDefs = tree1.collect {
       case t: Template =>
@@ -68,7 +68,7 @@ object TreeInterrogation extends App {
 
   withDebug {
     val cm = reflect.runtime.currentMirror
-    val tb = mkToolbox("-cp ${toolboxClasspath} -Xprint:flatten")
+    val tb = mkToolbox("-cp ${toolboxClasspath} -Xprint:typer -uniqid")
     import scala.async.Async._
     val tree = tb.parse(
       """ import _root_.scala.async.AsyncId.{async, await}
