@@ -15,7 +15,7 @@ class TreeInterrogation {
   @Test
   def `a minimal set of vals are lifted to vars`() {
     val cm = reflect.runtime.currentMirror
-    val tb = mkToolbox("-cp target/scala-2.10/classes")
+    val tb = mkToolbox(s"-cp ${toolboxClasspath}")
     val tree = tb.parse(
       """| import _root_.scala.async.AsyncId._
         | async {
@@ -52,7 +52,7 @@ class TreeInterrogation {
               && !dd.symbol.asTerm.isAccessor && !dd.symbol.asTerm.isSetter => dd.name
         }
     }.flatten
-    defDefs.map(_.decoded.trim).toSet mustBe (Set("foo$1", "apply", "resume$async", "<init>"))
+    defDefs.map(_.decoded.trim).toSet mustBe (Set("foo$1", "apply", "resume", "<init>"))
   }
 }
 
@@ -68,7 +68,7 @@ object TreeInterrogation extends App {
 
   withDebug {
     val cm = reflect.runtime.currentMirror
-    val tb = mkToolbox("-cp target/scala-2.10/classes -Xprint:flatten")
+    val tb = mkToolbox("-cp ${toolboxClasspath} -Xprint:flatten")
     import scala.async.Async._
     val tree = tb.parse(
       """ import _root_.scala.async.AsyncId.{async, await}
