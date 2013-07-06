@@ -33,7 +33,7 @@ private[async] trait TransformUtils {
 
     def fresh(name: TermName): TermName = newTermName(fresh(name.toString))
 
-    def fresh(name: String): String = if (name.toString.contains("$")) name else currentUnit.freshTermName("" + name + "$").toString
+    def fresh(name: String): String = currentUnit.freshTermName("" + name + "$").toString
   }
 
   def isAwait(fun: Tree) =
@@ -240,4 +240,12 @@ private[async] trait TransformUtils {
 
   def toMultiMap[A, B](as: Iterable[(A, B)]): Map[A, List[B]] =
     as.toList.groupBy(_._1).mapValues(_.map(_._2).toList).toMap
+
+  // Attributed version of `TreeGen#mkCastPreservingAnnotations`
+  def mkAttributedCastPreservingAnnotations(tree: Tree, tp: Type): Tree = {
+    atPos(tree.pos) {
+      val casted = gen.mkAttributedCast(tree, tp.withoutAnnotations.dealias)
+      Typed(casted, TypeTree(tp)).setType(tp)
+    }
+  }
 }

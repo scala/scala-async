@@ -111,4 +111,17 @@ class MatchSpec {
     }
     result mustBe (3)
   }
+
+  @Test def duplicateBindName() {
+    import AsyncId.{async, await}
+    def m4(m: Any) = async {
+      m match {
+        case buf: String =>
+          await(0)
+        case buf: Double =>
+          await(2)
+      }
+    }
+    m4("") mustBe 0
+  }
 }

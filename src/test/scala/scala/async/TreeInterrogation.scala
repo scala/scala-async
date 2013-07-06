@@ -40,8 +40,7 @@ class TreeInterrogation {
     val varDefs = tree1.collect {
       case ValDef(mods, name, _, _) if mods.hasFlag(Flag.MUTABLE) => name
     }
-    varDefs.map(_.decoded.trim).toSet mustBe (Set("state", "await$1", "await$2"))
-    varDefs.map(_.decoded.trim).toSet mustBe (Set("state", "await$1", "await$2"))
+    varDefs.map(_.decoded.trim).toSet mustBe (Set("state", "await$1$1", "await$2$1"))
 
     val defDefs = tree1.collect {
       case t: Template =>

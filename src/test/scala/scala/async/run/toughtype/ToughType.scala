@@ -105,4 +105,36 @@ class ToughTypeSpec {
       await(foo(new a.B))
     }
   }
+
+  @Test def existentialMatch() {
+    import scala.async.AsyncId.{async, await}
+    trait Container[+A]
+    case class ContainerImpl[A](value: A) extends Container[A]
+    def foo: Container[_] = async {
+      val a: Any = List(1)
+      a match {
+        case buf: Seq[_] =>
+          val foo = await(5)
+          val e0 = buf(0)
+          ContainerImpl(e0)
+      }
+    }
+    foo
+  }
+
+  @Test def existentialIfElse0() {
+    import scala.async.AsyncId.{async, await}
+    trait Container[+A]
+    case class ContainerImpl[A](value: A) extends Container[A]
+    def foo: Container[_] = async {
+      val a: Any = List(1)
+      if (true) {
+        val buf: Seq[_] = List(1)
+        val foo = await(5)
+        val e0 = buf(0)
+        ContainerImpl(e0)
+      } else ???
+    }
+    foo
+  }
 }

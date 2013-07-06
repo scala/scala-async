@@ -79,12 +79,13 @@ private[async] trait AnfTransform {
               stats :+ expr :+ localTyper.typedPos(expr.pos)(Literal(Constant(())))
             } else {
               val varDef = defineVar(name.ifRes, expr.tpe, tree.pos)
-              def branchWithAssign(orig: Tree) = localTyper.typedPos(orig.pos)(
+              def branchWithAssign(orig: Tree) = localTyper.typedPos(orig.pos) {
+                def cast(t: Tree) = mkAttributedCastPreservingAnnotations(t, varDef.symbol.tpe)
                 orig match {
-                  case Block(thenStats, thenExpr) => Block(thenStats, Assign(Ident(varDef.symbol), thenExpr))
-                  case _                          => Assign(Ident(varDef.symbol), orig)
+                  case Block(thenStats, thenExpr) => Block(thenStats, Assign(Ident(varDef.symbol), cast(thenExpr)))
+                  case _                          => Assign(Ident(varDef.symbol), cast(orig))
                 }
-              ).setType(orig.tpe)
+              }.setType(orig.tpe)
               val ifWithAssign = treeCopy.If(tree, cond, branchWithAssign(thenp), branchWithAssign(elsep))
               stats :+ varDef :+ ifWithAssign :+ gen.mkAttributedStableRef(varDef.symbol)
             }
@@ -98,7 +99,7 @@ private[async] trait AnfTransform {
             else {
               val varDef = defineVar(name.matchRes, expr.tpe, tree.pos)
               def typedAssign(lhs: Tree) =
-                localTyper.typedPos(lhs.pos)(Assign(Ident(varDef.symbol), lhs))
+                localTyper.typedPos(lhs.pos)(Assign(Ident(varDef.symbol), mkAttributedCastPreservingAnnotations(lhs, varDef.symbol.tpe)))
               val casesWithAssign = cases map {
                 case cd@CaseDef(pat, guard, body) =>
                   val newBody = body match {
