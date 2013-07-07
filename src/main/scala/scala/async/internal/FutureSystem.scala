@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2012 Typesafe Inc. <http://www.typesafe.com>
  */
-package scala.async
+package scala.async.internal
 
 import scala.language.higherKinds
 
@@ -15,7 +15,7 @@ import scala.reflect.internal.SymbolTable
  * customize the code generation.
  *
  * The API mirrors that of `scala.concurrent.Future`, see the instance
- * [[scala.async.ScalaConcurrentFutureSystem]] for an example of how
+ * [[ScalaConcurrentFutureSystem]] for an example of how
  * to implement this.
  */
 trait FutureSystem {
@@ -61,7 +61,6 @@ trait FutureSystem {
   def mkOps(c: SymbolTable): Ops { val universe: c.type }
 }
 
-
 object ScalaConcurrentFutureSystem extends FutureSystem {
 
   import scala.concurrent._
@@ -103,51 +102,5 @@ object ScalaConcurrentFutureSystem extends FutureSystem {
     def castTo[A: WeakTypeTag](future: Expr[Fut[Any]]): Expr[Fut[A]] = reify {
       future.splice.asInstanceOf[Fut[A]]
     }
-  }
-}
-
-/**
- * A trivial implementation of [[scala.async.FutureSystem]] that performs computations
- * on the current thread. Useful for testing.
- */
-object IdentityFutureSystem extends FutureSystem {
-
-  class Prom[A](var a: A)
-
-  type Fut[A] = A
-  type ExecContext = Unit
-
-  def mkOps(c: SymbolTable): Ops {val universe: c.type} = new Ops {
-    val universe: c.type = c
-
-    import universe._
-
-    def execContext: Expr[ExecContext] = Expr[Unit](Literal(Constant(())))
-
-    def promType[A: WeakTypeTag]: Type = weakTypeOf[Prom[A]]
-    def execContextType: Type = weakTypeOf[Unit]
-
-    def createProm[A: WeakTypeTag]: Expr[Prom[A]] = reify {
-      new Prom(null.asInstanceOf[A])
-    }
-
-    def promiseToFuture[A: WeakTypeTag](prom: Expr[Prom[A]]) = reify {
-      prom.splice.a
-    }
-
-    def future[A: WeakTypeTag](t: Expr[A])(execContext: Expr[ExecContext]) = t
-
-    def onComplete[A, U](future: Expr[Fut[A]], fun: Expr[scala.util.Try[A] => U],
-                         execContext: Expr[ExecContext]): Expr[Unit] = reify {
-      fun.splice.apply(util.Success(future.splice))
-      Expr[Unit](Literal(Constant(()))).splice
-    }
-
-    def completeProm[A](prom: Expr[Prom[A]], value: Expr[scala.util.Try[A]]): Expr[Unit] = reify {
-      prom.splice.a = value.splice.get
-      Expr[Unit](Literal(Constant(()))).splice
-    }
-
-    def castTo[A: WeakTypeTag](future: Expr[Fut[Any]]): Expr[Fut[A]] = ???
   }
 }

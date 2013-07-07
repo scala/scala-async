@@ -1,4 +1,4 @@
-package scala.async
+package scala.async.internal
 
 import scala.tools.nsc.Global
 import scala.tools.nsc.transform.TypingTransformers

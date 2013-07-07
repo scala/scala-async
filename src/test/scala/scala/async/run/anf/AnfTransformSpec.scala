@@ -13,6 +13,7 @@ import scala.async.Async.{async, await}
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.JUnit4
+import scala.async.internal.AsyncId
 
 
 class AnfTestClass {
@@ -114,8 +115,6 @@ class AnfTransformSpec {
 
   @Test
   def `inlining block does not produce duplicate definition`() {
-    import scala.async.AsyncId
-
     AsyncId.async {
       val f = 12
       val x = AsyncId.await(f)
@@ -132,8 +131,6 @@ class AnfTransformSpec {
 
   @Test
   def `inlining block in tail position does not produce duplicate definition`() {
-    import scala.async.AsyncId
-
     AsyncId.async {
       val f = 12
       val x = AsyncId.await(f)
@@ -176,7 +173,7 @@ class AnfTransformSpec {
   @Test
   def nestedAwaitAsBareExpression() {
     import ExecutionContext.Implicits.global
-    import _root_.scala.async.AsyncId.{async, await}
+    import AsyncId.{async, await}
     val result = async {
       await(await("").isEmpty)
     }
@@ -186,7 +183,7 @@ class AnfTransformSpec {
   @Test
   def nestedAwaitInBlock() {
     import ExecutionContext.Implicits.global
-    import _root_.scala.async.AsyncId.{async, await}
+    import AsyncId.{async, await}
     val result = async {
       ()
       await(await("").isEmpty)
@@ -197,7 +194,7 @@ class AnfTransformSpec {
   @Test
   def nestedAwaitInIf() {
     import ExecutionContext.Implicits.global
-    import _root_.scala.async.AsyncId.{async, await}
+    import AsyncId.{async, await}
     val result = async {
       if ("".isEmpty)
         await(await("").isEmpty)
@@ -208,7 +205,7 @@ class AnfTransformSpec {
 
   @Test
   def byNameExpressionsArentLifted() {
-    import _root_.scala.async.AsyncId.{async, await}
+    import AsyncId.{async, await}
     def foo(ignored: => Any, b: Int) = b
     val result = async {
       foo(???, await(1))
@@ -218,7 +215,7 @@ class AnfTransformSpec {
 
   @Test
   def evaluationOrderRespected() {
-    import scala.async.AsyncId.{async, await}
+    import AsyncId.{async, await}
     def foo(a: Int, b: Int) = (a, b)
     val result = async {
       var i = 0
@@ -233,7 +230,7 @@ class AnfTransformSpec {
 
   @Test
   def awaitInNonPrimaryParamSection1() {
-    import _root_.scala.async.AsyncId.{async, await}
+    import AsyncId.{async, await}
     def foo(a0: Int)(b0: Int) = s"a0 = $a0, b0 = $b0"
     val res = async {
       var i = 0
@@ -245,7 +242,7 @@ class AnfTransformSpec {
 
   @Test
   def awaitInNonPrimaryParamSection2() {
-    import _root_.scala.async.AsyncId.{async, await}
+    import AsyncId.{async, await}
     def foo[T](a0: Int)(b0: Int*) = s"a0 = $a0, b0 = ${b0.head}"
     val res = async {
       var i = 0
@@ -257,7 +254,7 @@ class AnfTransformSpec {
 
   @Test
   def awaitInNonPrimaryParamSectionWithLazy1() {
-    import _root_.scala.async.AsyncId.{async, await}
+    import AsyncId.{async, await}
     def foo[T](a: => Int)(b: Int) = b
     val res = async {
       def get = async {0}
@@ -268,7 +265,7 @@ class AnfTransformSpec {
 
   @Test
   def awaitInNonPrimaryParamSectionWithLazy2() {
-    import _root_.scala.async.AsyncId.{async, await}
+    import AsyncId.{async, await}
     def foo[T](a: Int)(b: => Int) = a
     val res = async {
       def get = async {0}
@@ -279,7 +276,7 @@ class AnfTransformSpec {
 
   @Test
   def awaitWithLazy() {
-    import _root_.scala.async.AsyncId.{async, await}
+    import AsyncId.{async, await}
     def foo[T](a: Int, b: => Int) = a
     val res = async {
       def get = async {0}
@@ -290,7 +287,7 @@ class AnfTransformSpec {
 
   @Test
   def awaitOkInReciever() {
-    import scala.async.AsyncId.{async, await}
+    import AsyncId.{async, await}
     class Foo { def bar(a: Int)(b: Int) = a + b }
     async {
       await(async(new Foo)).bar(1)(2)
@@ -299,7 +296,7 @@ class AnfTransformSpec {
 
   @Test
   def namedArgumentsRespectEvaluationOrder() {
-    import scala.async.AsyncId.{async, await}
+    import AsyncId.{async, await}
     def foo(a: Int, b: Int) = (a, b)
     val result = async {
       var i = 0
@@ -314,7 +311,7 @@ class AnfTransformSpec {
 
   @Test
   def namedAndDefaultArgumentsRespectEvaluationOrder() {
-    import scala.async.AsyncId.{async, await}
+    import AsyncId.{async, await}
     var i = 0
     def next() = {
       i += 1;
@@ -332,7 +329,7 @@ class AnfTransformSpec {
 
   @Test
   def repeatedParams1() {
-    import scala.async.AsyncId.{async, await}
+    import AsyncId.{async, await}
     var i = 0
     def foo(a: Int, b: Int*) = b.toList
     def id(i: Int) = i
@@ -343,7 +340,7 @@ class AnfTransformSpec {
 
   @Test
   def repeatedParams2() {
-    import scala.async.AsyncId.{async, await}
+    import AsyncId.{async, await}
     var i = 0
     def foo(a: Int, b: Int*) = b.toList
     def id(i: Int) = i

@@ -13,6 +13,7 @@ import scala.async.Async.{async, await}
 import org.junit.runner.RunWith
 import org.junit.runners.JUnit4
 import org.junit.Test
+import scala.async.internal.AsyncId
 
 
 class TestIfElseClass {

@@ -9,8 +9,9 @@ import scala.language.experimental.macros
 
 import scala.reflect.macros.Context
 import scala.util.continuations._
+import scala.async.internal.{AsyncMacro, AsyncUtils}
 
-trait AsyncBaseWithCPSFallback extends AsyncBase {
+trait AsyncBaseWithCPSFallback extends internal.AsyncBase {
 
   /* Fall-back for `await` using CPS plugin.
    * 

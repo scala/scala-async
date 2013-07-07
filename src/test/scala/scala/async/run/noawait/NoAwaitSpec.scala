@@ -6,6 +6,7 @@ package scala.async
 package run
 package noawait
 
+import scala.async.internal.AsyncId
 import AsyncId._
 import org.junit.Test
 import org.junit.runner.RunWith

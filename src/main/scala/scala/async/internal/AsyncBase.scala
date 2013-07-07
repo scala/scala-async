@@ -2,39 +2,10 @@
  * Copyright (C) 2012 Typesafe Inc. <http://www.typesafe.com>
  */
 
-package scala.async
+package scala.async.internal
 
-import scala.language.experimental.macros
-import scala.reflect.macros.Context
 import scala.reflect.internal.annotations.compileTimeOnly
-import scala.tools.nsc.Global
-import language.reflectiveCalls
-import scala.concurrent.ExecutionContext
-
-object Async extends AsyncBase {
-
-  import scala.concurrent.Future
-
-  lazy val futureSystem = ScalaConcurrentFutureSystem
-  type FS = ScalaConcurrentFutureSystem.type
-
-  def async[T](body: T)(implicit execContext: ExecutionContext): Future[T] = macro asyncImpl[T]
-
-  override def asyncImpl[T: c.WeakTypeTag](c: Context)
-                                          (body: c.Expr[T])
-                                          (execContext: c.Expr[futureSystem.ExecContext]): c.Expr[Future[T]] = {
-    super.asyncImpl[T](c)(body)(execContext)
-  }
-}
-
-object AsyncId extends AsyncBase {
-  lazy val futureSystem = IdentityFutureSystem
-  type FS = IdentityFutureSystem.type
-
-  def async[T](body: T) = macro asyncIdImpl[T]
-
-  def asyncIdImpl[T: c.WeakTypeTag](c: Context)(body: c.Expr[T]): c.Expr[T] = asyncImpl[T](c)(body)(c.literalUnit)
-}
+import scala.reflect.macros.Context
 
 /**
  * A base class for the `async` macro. Subclasses must provide:
@@ -84,11 +55,4 @@ abstract class AsyncBase {
     AsyncUtils.vprintln(s"async state machine transform expands to:\n ${code}")
     c.Expr[futureSystem.Fut[T]](code.asInstanceOf[Tree])
   }
-}
-
-/** Internal class used by the `async` macro; should not be manually extended by client code */
-abstract class StateMachine[Result, EC] extends (scala.util.Try[Any] => Unit) with (() => Unit) {
-  def result: Result
-
-  def execContext: EC
 }

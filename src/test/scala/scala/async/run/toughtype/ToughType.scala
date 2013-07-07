@@ -13,6 +13,7 @@ import scala.async.Async._
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.JUnit4
+import scala.async.internal.AsyncId
 
 
 object ToughTypeObject {
@@ -97,7 +98,7 @@ class ToughTypeSpec {
   }
 
   @Test def singletonTypeIssue17() {
-    import scala.async.AsyncId.{async, await}
+    import AsyncId.{async, await}
     class A { class B }
     async {
       val a = new A
@@ -107,7 +108,7 @@ class ToughTypeSpec {
   }
 
   @Test def existentialMatch() {
-    import scala.async.AsyncId.{async, await}
+    import AsyncId.{async, await}
     trait Container[+A]
     case class ContainerImpl[A](value: A) extends Container[A]
     def foo: Container[_] = async {
@@ -123,7 +124,7 @@ class ToughTypeSpec {
   }
 
   @Test def existentialIfElse0() {
-    import scala.async.AsyncId.{async, await}
+    import AsyncId.{async, await}
     trait Container[+A]
     case class ContainerImpl[A](value: A) extends Container[A]
     def foo: Container[_] = async {

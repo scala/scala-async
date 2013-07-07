@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2012 Typesafe Inc. <http://www.typesafe.com>
  */
-package scala.async
+package scala.async.internal
 
 import scala.reflect.macros.Context
 import reflect.ClassTag
@@ -89,7 +89,7 @@ private[async] trait TransformUtils {
     val Try_isFailure = TryClass.typeSignature.member(newTermName("isFailure")).ensuring(_ != NoSymbol)
     val TryAnyType    = appliedType(TryClass.toType, List(definitions.AnyTpe))
     val NonFatalClass = rootMirror.staticModule("scala.util.control.NonFatal")
-    val AsyncClass    = rootMirror.staticClass("scala.async.AsyncBase")
+    val AsyncClass    = rootMirror.staticClass("scala.async.internal.AsyncBase")
     val Async_await   = AsyncClass.typeSignature.member(newTermName("await")).ensuring(_ != NoSymbol)
   }
 

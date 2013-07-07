@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2012 Typesafe Inc. <http://www.typesafe.com>
  */
-package scala.async
+package scala.async.internal
 
 import scala.reflect.macros.Context
 import scala.collection.mutable.ListBuffer
@@ -9,6 +9,7 @@ import collection.mutable
 import language.existentials
 import scala.reflect.api.Universe
 import scala.reflect.api
+import scala.Some
 
 trait ExprBuilder {
   builder: AsyncMacro =>

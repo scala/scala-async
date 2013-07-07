@@ -1,4 +1,4 @@
-package scala.async
+package scala.async.internal
 
 trait AsyncTransform {
   self: AsyncMacro =>

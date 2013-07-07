@@ -8,12 +8,13 @@ package neg
 import org.junit.runner.RunWith
 import org.junit.runners.JUnit4
 import org.junit.Test
+import scala.async.internal.AsyncId
 
 @RunWith(classOf[JUnit4])
 class LocalClasses0Spec {
   @Test
   def localClassCrashIssue16() {
-    import scala.async.AsyncId.{async, await}
+    import AsyncId.{async, await}
     async {
       class B { def f = 1 }
       await(new B()).f

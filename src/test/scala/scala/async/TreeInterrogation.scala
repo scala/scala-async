@@ -7,6 +7,7 @@ package scala.async
 import org.junit.runner.RunWith
 import org.junit.runners.JUnit4
 import org.junit.Test
+import scala.async.internal.AsyncId
 import AsyncId._
 import tools.reflect.ToolBox
 
@@ -17,7 +18,7 @@ class TreeInterrogation {
     val cm = reflect.runtime.currentMirror
     val tb = mkToolbox(s"-cp ${toolboxClasspath}")
     val tree = tb.parse(
-      """| import _root_.scala.async.AsyncId._
+      """| import _root_.scala.async.internal.AsyncId._
         | async {
         |   val x = await(1)
         |   val y = x * 2
@@ -70,7 +71,7 @@ object TreeInterrogation extends App {
     val tb = mkToolbox("-cp ${toolboxClasspath} -Xprint:typer -uniqid")
     import scala.async.Async._
     val tree = tb.parse(
-      """ import _root_.scala.async.AsyncId.{async, await}
+      """ import _root_.scala.async.internal.AsyncId.{async, await}
         | def foo[T](a0: Int)(b0: Int*) = s"a0 = $a0, b0 = ${b0.head}"
         | val res = async {
         |   var i = 0

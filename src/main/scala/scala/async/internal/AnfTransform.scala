@@ -3,9 +3,10 @@
  * Copyright (C) 2012 Typesafe Inc. <http://www.typesafe.com>
  */
 
-package scala.async
+package scala.async.internal
 
 import scala.tools.nsc.Global
+import scala.Predef._
 
 private[async] trait AnfTransform {
   self: AsyncMacro =>
