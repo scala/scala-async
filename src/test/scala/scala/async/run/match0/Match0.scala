@@ -125,4 +125,25 @@ class MatchSpec {
     }
     m4("") mustBe 0
   }
+
+  @Test def bugCastBoxedUnitToStringMatch() {
+    import scala.async.internal.AsyncId.{async, await}
+    def foo = async {
+      val p2 = await(5)
+      "foo" match {
+        case p3: String =>
+          p2.toString
+      }
+    }
+    foo mustBe "5"
+  }
+
+  @Test def bugCastBoxedUnitToStringIf() {
+    import scala.async.internal.AsyncId.{async, await}
+    def foo = async {
+      val p2 = await(5)
+      if (true) p2.toString else p2.toString
+    }
+    foo mustBe "5"
+  }
 }
