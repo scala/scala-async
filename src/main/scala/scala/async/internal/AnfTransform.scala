@@ -71,7 +71,7 @@ private[async] trait AnfTransform {
         expr match {
           case Apply(fun, args) if isAwait(fun) =>
             val valDef = defineVal(name.await, expr, tree.pos)
-            stats :+ valDef :+ gen.mkAttributedStableRef(valDef.symbol)
+            stats :+ valDef :+ gen.mkAttributedStableRef(valDef.symbol).setType(tree.tpe).setPos(tree.pos)
 
           case If(cond, thenp, elsep) =>
             // if type of if-else is Unit don't introduce assignment,
@@ -88,7 +88,7 @@ private[async] trait AnfTransform {
                 }
               }.setType(orig.tpe)
               val ifWithAssign = treeCopy.If(tree, cond, branchWithAssign(thenp), branchWithAssign(elsep)).setType(definitions.UnitTpe)
-              stats :+ varDef :+ ifWithAssign :+ gen.mkAttributedStableRef(varDef.symbol)
+              stats :+ varDef :+ ifWithAssign :+ gen.mkAttributedStableRef(varDef.symbol).setType(tree.tpe).setPos(tree.pos)
             }
 
           case Match(scrut, cases) =>
@@ -111,7 +111,7 @@ private[async] trait AnfTransform {
               }
               val matchWithAssign = treeCopy.Match(tree, scrut, casesWithAssign).setType(definitions.UnitTpe)
               require(matchWithAssign.tpe != null, matchWithAssign)
-              stats :+ varDef :+ matchWithAssign :+ gen.mkAttributedStableRef(varDef.symbol)
+              stats :+ varDef :+ matchWithAssign :+ gen.mkAttributedStableRef(varDef.symbol).setPos(tree.pos).setType(tree.tpe)
             }
           case _                   =>
             stats :+ expr
@@ -225,7 +225,7 @@ private[async] trait AnfTransform {
                 val block = linearize.transformToBlock(body)
                 val (valDefs, mappings) = (pat collect {
                   case b@Bind(name, _) =>
-                    val vd = defineVal(name.toTermName + AnfTransform.this.name.bindSuffix, gen.mkAttributedStableRef(b.symbol), b.pos)
+                    val vd = defineVal(name.toTermName + AnfTransform.this.name.bindSuffix, gen.mkAttributedStableRef(b.symbol).setPos(b.pos), b.pos)
                     (vd, (b.symbol, vd.symbol))
                 }).unzip
                 val (from, to) = mappings.unzip

@@ -41,7 +41,7 @@ trait AsyncTransform {
         Template(List(stateMachineType), emptyValDef, body)
       }
       val t = ClassDef(NoMods, name.stateMachineT, Nil, template)
-      callSiteTyper.typedPos(macroApplication.pos)(Block(t :: Nil, Literal(Constant(()))))
+      callSiteTyper.typedPos(macroPos)(Block(t :: Nil, Literal(Constant(()))))
       t
     }
 
@@ -56,8 +56,8 @@ trait AsyncTransform {
       val stateMachineSpliced: Tree = spliceMethodBodies(
         liftables(asyncBlock.asyncStates),
         stateMachine,
-        asyncBlock.onCompleteHandler[T],
-        asyncBlock.resumeFunTree[T].rhs
+        atMacroPos(asyncBlock.onCompleteHandler[T]),
+        atMacroPos(asyncBlock.resumeFunTree[T].rhs)
       )
 
       def selectStateMachine(selection: TermName) = Select(Ident(name.stateMachine), selection)
@@ -78,12 +78,11 @@ trait AsyncTransform {
   }
 
   def logDiagnostics(anfTree: Tree, states: Seq[String]) {
-    val pos = macroApplication.pos
     def location = try {
-      pos.source.path
+      macroPos.source.path
     } catch {
       case _: UnsupportedOperationException =>
-        pos.toString
+        macroPos.toString
     }
 
     AsyncUtils.vprintln(s"In file '$location':")
@@ -124,7 +123,9 @@ trait AsyncTransform {
           EmptyTree
         case Ident(name) if liftedSyms(tree.symbol)          =>
           val fieldSym = tree.symbol
-          gen.mkAttributedStableRef(fieldSym.owner.thisType, fieldSym).setType(tree.tpe)
+          atPos(tree.pos) {
+            gen.mkAttributedStableRef(fieldSym.owner.thisType, fieldSym).setType(tree.tpe)
+          }
         case _                                               =>
           super.transform(tree)
       }

@@ -50,9 +50,12 @@ abstract class AsyncBase {
     val code = asyncMacro.asyncTransform[T](
       body.tree.asInstanceOf[asyncMacro.global.Tree],
       execContext.tree.asInstanceOf[asyncMacro.global.Tree],
-      fallbackEnabled)(implicitly[c.WeakTypeTag[T]].asInstanceOf[asyncMacro.global.WeakTypeTag[T]])
+      fallbackEnabled)(implicitly[c.WeakTypeTag[T]].asInstanceOf[asyncMacro.global.WeakTypeTag[T]]).asInstanceOf[Tree]
+
+    for (t <- code)
+      t.pos = t.pos.makeTransparent
 
     AsyncUtils.vprintln(s"async state machine transform expands to:\n ${code}")
-    c.Expr[futureSystem.Fut[T]](code.asInstanceOf[Tree])
+    c.Expr[futureSystem.Fut[T]](code)
   }
 }

@@ -32,6 +32,8 @@ scalacOptions += "-P:continuations:enable"
 
 scalacOptions ++= Seq("-deprecation", "-unchecked", "-Xlint", "-feature")
 
+scalacOptions in Test ++= Seq("-Yrangepos")
+
 description := "An asynchronous programming facility for Scala, in the spirit of C# await/async"
 
 homepage := Some(url("http://github.com/scala/async"))

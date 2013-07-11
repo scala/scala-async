@@ -50,7 +50,7 @@ trait AsyncBaseWithCPSFallback extends internal.AsyncBase {
     val awaitReplacer = new Transformer {
       override def transform(tree: Tree): Tree = tree match {
         case Apply(fun @ TypeApply(_, List(futArgTpt)), args) if fun.symbol == awaitSym =>
-          val typeApp = treeCopy.TypeApply(fun, Ident(awaitFallbackSym), List(TypeTree(futArgTpt.tpe)))
+          val typeApp = treeCopy.TypeApply(fun, atPos(tree.pos)(Ident(awaitFallbackSym)), List(atPos(tree.pos)(TypeTree(futArgTpt.tpe))))
           treeCopy.Apply(tree, typeApp, args.map(arg => c.resetAllAttrs(arg.duplicate)))
         case _ =>
           super.transform(tree)
