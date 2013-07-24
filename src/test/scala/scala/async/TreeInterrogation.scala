@@ -72,13 +72,11 @@ object TreeInterrogation extends App {
     import scala.async.Async._
     val tree = tb.parse(
       """ import _root_.scala.async.internal.AsyncId.{async, await}
-        | def foo[T](a0: Int)(b0: Int*) = s"a0 = $a0, b0 = ${b0.head}"
-        | val res = async {
-        |   var i = 0
-        |   def get = async {i += 1; i}
-        |   foo[Int](await(get))(await(get) :: Nil : _*)
+        | import reflect.runtime.universe._
+        | async {
+        |   implicit def view(a: Int): String = ""
+        |   await(0).length
         | }
-        | res
         | """.stripMargin)
     println(tree)
     val tree1 = tb.typeCheck(tree.duplicate)

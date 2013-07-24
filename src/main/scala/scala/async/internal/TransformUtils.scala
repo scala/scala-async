@@ -111,7 +111,7 @@ private[async] trait TransformUtils {
     args match {
       case args :+ Typed(tree, Ident(tpnme.WILDCARD_STAR)) =>
         val (a, argExprs :+ lastArgExpr) = (args :+ tree).zipWithIndex.map(f.tupled).unzip
-        val exprs = argExprs :+ Typed(lastArgExpr, Ident(tpnme.WILDCARD_STAR)).setPos(lastArgExpr.pos)
+        val exprs = argExprs :+ atPos(lastArgExpr.pos.makeTransparent)(Typed(lastArgExpr, Ident(tpnme.WILDCARD_STAR)))
         (a, exprs)
       case args                                            =>
         args.zipWithIndex.map(f.tupled).unzip

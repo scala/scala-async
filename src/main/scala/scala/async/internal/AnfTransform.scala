@@ -187,15 +187,24 @@ private[async] trait AnfTransform {
                       val valDef = defineVal(argName, expr1, expr1.pos)
                       require(valDef.tpe != null, valDef)
                       val stats1 = stats :+ valDef
-                      //stats1.foreach(changeOwner(_, currentOwner, currentOwner.owner))
-                      (stats1, gen.stabilize(gen.mkAttributedIdent(valDef.symbol)))
+                      (stats1, atPos(tree.pos.makeTransparent)(gen.stabilize(gen.mkAttributedIdent(valDef.symbol))))
                   }
               }
-            val applied = treeInfo.dissectApplied(tree)
-            val core = if (targs.isEmpty) simpleFun else treeCopy.TypeApply(applied.callee, simpleFun, targs)
-            val newApply = argExprss.foldLeft(core)(Apply(_, _)).setSymbol(tree.symbol)
-            val typedNewApply = localTyper.typedPos(tree.pos)(newApply).setType(tree.tpe)
+
+            def copyApplied(tree: Tree, depth: Int): Tree = {
+              tree match {
+                case TypeApply(_, targs) => treeCopy.TypeApply(tree, simpleFun, targs)
+                case _ if depth == 0     => simpleFun
+                case Apply(fun, args)    =>
+                  val newTypedArgs = map2(args.map(_.pos), argExprss(depth - 1))((pos, arg) => localTyper.typedPos(pos)(arg))
+                  treeCopy.Apply(tree, copyApplied(fun, depth - 1), newTypedArgs)
+              }
+            }
+
+            val typedNewApply = copyApplied(tree, treeInfo.dissectApplied(tree).applyDepth)
+
             funStats ++ argStatss.flatten.flatten :+ typedNewApply
+
           case Block(stats, expr)                                    =>
             (stats :+ expr).flatMap(linearize.transformToList)
 

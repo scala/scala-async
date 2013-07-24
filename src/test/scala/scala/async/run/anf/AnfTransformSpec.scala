@@ -377,4 +377,21 @@ class AnfTransformSpec {
       x
     } mustBe 1
   }
+
+  @Test
+  def awaitInImplicitApply() {
+    val tb = mkToolbox(s"-cp ${toolboxClasspath}")
+    val tree = tb.typeCheck(tb.parse {
+      """
+        | import language.implicitConversions
+        | import _root_.scala.async.internal.AsyncId.{async, await}
+        | implicit def view(a: Int): String = ""
+        | async {
+        |   await(0).length
+        | }
+      """.stripMargin
+    })
+    val applyImplicitView = tree.collect { case x if x.getClass.getName.endsWith("ApplyImplicitView") => x }
+    applyImplicitView.map(_.toString) mustBe List("view(a$1)")
+  }
 }
