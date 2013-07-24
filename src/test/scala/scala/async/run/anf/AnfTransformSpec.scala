@@ -366,4 +366,15 @@ class AnfTransformSpec {
       (("msg: " + await(0)): String).toString
     } mustBe "msg: 0"
   }
+
+
+  @Test
+  def awaitInAssign() {
+    import _root_.scala.async.internal.AsyncId.{async, await}
+    async {
+      var x = 0
+      x = await(1)
+      x
+    } mustBe 1
+  }
 }
