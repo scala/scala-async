@@ -23,7 +23,9 @@ object AsyncId extends AsyncBase {
  */
 object IdentityFutureSystem extends FutureSystem {
 
-  class Prom[A](var a: A)
+  class Prom[A] {
+    var a: A = _
+  }
 
   type Fut[A] = A
   type ExecContext = Unit
@@ -39,7 +41,7 @@ object IdentityFutureSystem extends FutureSystem {
     def execContextType: Type = weakTypeOf[Unit]
 
     def createProm[A: WeakTypeTag]: Expr[Prom[A]] = reify {
-      new Prom(null.asInstanceOf[A])
+      new Prom()
     }
 
     def promiseToFuture[A: WeakTypeTag](prom: Expr[Prom[A]]) = reify {

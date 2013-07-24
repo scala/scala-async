@@ -348,4 +348,14 @@ class AnfTransformSpec {
       foo(await(0), List(id(1), id(2), id(3)): _*)
     } mustBe (List(1, 2, 3))
   }
+
+  @Test
+  def awaitInThrow() {
+    import _root_.scala.async.internal.AsyncId.{async, await}
+    intercept[Exception](
+      async {
+        throw new Exception("msg: " + await(0))
+      }
+    ).getMessage mustBe "msg: 0"
+  }
 }

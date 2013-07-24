@@ -164,6 +164,10 @@ private[async] trait AnfTransform {
             val stats :+ expr = linearize.transformToList(qual)
             stats :+ treeCopy.Select(tree, expr, sel)
 
+          case Throw(expr) =>
+            val stats :+ expr1 = linearize.transformToList(expr)
+            stats :+ treeCopy.Throw(tree, expr1)
+
           case treeInfo.Applied(fun, targs, argss) if argss.nonEmpty =>
             // we an assume that no await call appears in a by-name argument position,
             // this has already been checked.
