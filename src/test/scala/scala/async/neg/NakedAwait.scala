@@ -133,6 +133,16 @@ class NakedAwait {
   }
 
   @Test
+  def guard() {
+    expectError("await must not be used under a pattern guard.") {
+      """
+        | import _root_.scala.async.internal.AsyncId._
+        | async { 1 match { case _ if await(true) => } }
+      """.stripMargin
+    }
+  }
+
+  @Test
   def nestedMethod() {
     expectError("await must not be used under a nested method.") {
       """
