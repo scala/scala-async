@@ -198,11 +198,10 @@ trait ExprBuilder {
     var stateBuilder = new AsyncStateBuilder(startState, symLookup)
     var currState    = startState
 
-    /* TODO Fall back to CPS plug-in if tree contains an `await` call. */
     def checkForUnsupportedAwait(tree: Tree) = if (tree exists {
       case Apply(fun, _) if isAwait(fun) => true
       case _                             => false
-    }) abort(tree.pos, "await must not be used in this position") //throw new FallbackToCpsException
+    }) abort(tree.pos, "await must not be used in this position")
 
     def nestedBlockBuilder(nestedTree: Tree, startState: Int, endState: Int) = {
       val (nestedStats, nestedExpr) = statsAndExpr(nestedTree)
