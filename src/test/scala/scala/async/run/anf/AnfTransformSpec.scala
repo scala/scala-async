@@ -379,6 +379,20 @@ class AnfTransformSpec {
   }
 
   @Test
+  def caseBodyMustBeTypedAsUnit() {
+    import _root_.scala.async.internal.AsyncId.{async, await}
+    val Up = 1
+    val Down = 2
+    val sign = async {
+      await(1) match {
+        case Up   => 1.0
+        case Down => -1.0
+      }
+    }
+    sign mustBe 1.0
+  }
+
+  @Test
   def awaitInImplicitApply() {
     val tb = mkToolbox(s"-cp ${toolboxClasspath}")
     val tree = tb.typeCheck(tb.parse {

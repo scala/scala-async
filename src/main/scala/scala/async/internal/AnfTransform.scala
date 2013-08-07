@@ -107,7 +107,7 @@ private[async] trait AnfTransform {
                     case b@Block(caseStats, caseExpr) => treeCopy.Block(b, caseStats, typedAssign(caseExpr))
                     case _                            => typedAssign(body)
                   }
-                  treeCopy.CaseDef(cd, pat, guard, newBody).setType(definitions.UnitTpe)
+                  treeCopy.CaseDef(cd, pat, guard, newBody.setType(definitions.UnitTpe)).setType(definitions.UnitTpe)
               }
               val matchWithAssign = treeCopy.Match(tree, scrut, casesWithAssign).setType(definitions.UnitTpe)
               require(matchWithAssign.tpe != null, matchWithAssign)
