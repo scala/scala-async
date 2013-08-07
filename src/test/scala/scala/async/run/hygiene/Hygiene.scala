@@ -9,11 +9,12 @@ package hygiene
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.JUnit4
+import scala.async.internal.AsyncId
 
 @RunWith(classOf[JUnit4])
 class HygieneSpec {
 
-  import scala.async.AsyncId.{async, await}
+  import AsyncId.{async, await}
 
   @Test
   def `is hygenic`() {

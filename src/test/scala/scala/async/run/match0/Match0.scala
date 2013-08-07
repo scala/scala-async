@@ -13,6 +13,7 @@ import scala.async.Async.{async, await}
 import org.junit.runner.RunWith
 import org.junit.runners.JUnit4
 import org.junit.Test
+import scala.async.internal.AsyncId
 
 
 class TestMatchClass {
@@ -110,5 +111,39 @@ class MatchSpec {
       }
     }
     result mustBe (3)
+  }
+
+  @Test def duplicateBindName() {
+    import AsyncId.{async, await}
+    def m4(m: Any) = async {
+      m match {
+        case buf: String =>
+          await(0)
+        case buf: Double =>
+          await(2)
+      }
+    }
+    m4("") mustBe 0
+  }
+
+  @Test def bugCastBoxedUnitToStringMatch() {
+    import scala.async.internal.AsyncId.{async, await}
+    def foo = async {
+      val p2 = await(5)
+      "foo" match {
+        case p3: String =>
+          p2.toString
+      }
+    }
+    foo mustBe "5"
+  }
+
+  @Test def bugCastBoxedUnitToStringIf() {
+    import scala.async.internal.AsyncId.{async, await}
+    def foo = async {
+      val p2 = await(5)
+      if (true) p2.toString else p2.toString
+    }
+    foo mustBe "5"
   }
 }
