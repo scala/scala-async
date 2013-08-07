@@ -86,7 +86,7 @@ private[async] trait AnfTransform {
                   case Block(thenStats, thenExpr) => Block(thenStats, Assign(Ident(varDef.symbol), cast(thenExpr)))
                   case _                          => Assign(Ident(varDef.symbol), cast(orig))
                 }
-              }.setType(orig.tpe)
+              }
               val ifWithAssign = treeCopy.If(tree, cond, branchWithAssign(thenp), branchWithAssign(elsep)).setType(definitions.UnitTpe)
               stats :+ varDef :+ ifWithAssign :+ gen.mkAttributedStableRef(varDef.symbol).setType(tree.tpe).setPos(tree.pos)
             }
@@ -104,10 +104,10 @@ private[async] trait AnfTransform {
               val casesWithAssign = cases map {
                 case cd@CaseDef(pat, guard, body) =>
                   val newBody = body match {
-                    case b@Block(caseStats, caseExpr) => treeCopy.Block(b, caseStats, typedAssign(caseExpr))
+                    case b@Block(caseStats, caseExpr) => treeCopy.Block(b, caseStats, typedAssign(caseExpr)).setType(definitions.UnitTpe)
                     case _                            => typedAssign(body)
                   }
-                  treeCopy.CaseDef(cd, pat, guard, newBody.setType(definitions.UnitTpe)).setType(definitions.UnitTpe)
+                  treeCopy.CaseDef(cd, pat, guard, newBody).setType(definitions.UnitTpe)
               }
               val matchWithAssign = treeCopy.Match(tree, scrut, casesWithAssign).setType(definitions.UnitTpe)
               require(matchWithAssign.tpe != null, matchWithAssign)
