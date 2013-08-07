@@ -176,11 +176,9 @@ private[async] trait AnfTransform {
             // we an assume that no await call appears in a by-name argument position,
             // this has already been checked.
             val funStats :+ simpleFun = linearize.transformToList(fun)
-            def isAwaitRef(name: Name) = name.toString.startsWith(AnfTransform.this.name.await + "$")
             val (argStatss, argExprss): (List[List[List[Tree]]], List[List[Tree]]) =
               mapArgumentss[List[Tree]](fun, argss) {
                 case Arg(expr, byName, _) if byName /*|| isPure(expr) TODO */ => (Nil, expr)
-                case Arg(expr@Ident(name), _, _) if isAwaitRef(name)          => (Nil, expr) // TODO needed? // not typed, so it eludes the check in `isSafeToInline`
                 case Arg(expr, _, argName)                                    =>
                   linearize.transformToList(expr) match {
                     case stats :+ expr1 =>
