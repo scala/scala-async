@@ -72,7 +72,6 @@ object TreeInterrogation extends App {
     import scala.async.Async._
     val tree = tb.parse(
       """ import _root_.scala.async.internal.AsyncId.{async, await}
-        | import reflect.runtime.universe._
         | async {
         |   implicit def view(a: Int): String = ""
         |   await(0).length

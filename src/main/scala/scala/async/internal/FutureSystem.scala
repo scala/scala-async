@@ -4,8 +4,6 @@
 package scala.async.internal
 
 import scala.language.higherKinds
-
-import scala.reflect.macros.Context
 import scala.reflect.internal.SymbolTable
 
 /**
@@ -54,7 +52,7 @@ trait FutureSystem {
     def spawn(tree: Tree, execContext: Tree): Tree =
       future(Expr[Unit](tree))(Expr[ExecContext](execContext)).tree
 
-    // TODO Why is this needed?
+    // This is only needed in `AsyncBaseWithCPSFallback` and should be removed once CPS fall-back support is dropped.
     def castTo[A: WeakTypeTag](future: Expr[Fut[Any]]): Expr[Fut[A]]
   }
 

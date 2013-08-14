@@ -6,7 +6,7 @@ import scala.tools.nsc.transform.TypingTransformers
 object AsyncMacro {
   def apply(c: reflect.macros.Context, futureSystem0: FutureSystem): AsyncMacro = {
     import language.reflectiveCalls
-    val powerContext = c.asInstanceOf[c.type {val universe: Global; val callsiteTyper: universe.analyzer.Typer}]
+    val powerContext = c.asInstanceOf[c.type { val universe: Global; val callsiteTyper: universe.analyzer.Typer }]
     new AsyncMacro {
       val global: powerContext.universe.type = powerContext.universe
       val callSiteTyper: global.analyzer.Typer = powerContext.callsiteTyper
@@ -26,7 +26,7 @@ private[async] trait AsyncMacro
   val callSiteTyper: global.analyzer.Typer
   val macroApplication: global.Tree
 
-  def macroPos = macroApplication.pos.makeTransparent
+  lazy val macroPos = macroApplication.pos.makeTransparent
   def atMacroPos(t: global.Tree) = global.atPos(macroPos)(t)
 
 }

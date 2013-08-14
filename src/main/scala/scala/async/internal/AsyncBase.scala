@@ -52,6 +52,7 @@ abstract class AsyncBase {
       execContext.tree.asInstanceOf[asyncMacro.global.Tree],
       fallbackEnabled)(implicitly[c.WeakTypeTag[T]].asInstanceOf[asyncMacro.global.WeakTypeTag[T]]).asInstanceOf[Tree]
 
+    // Mark range positions for synthetic code as transparent to allow some wiggle room for overlapping ranges
     for (t <- code)
       t.pos = t.pos.makeTransparent
 
