@@ -9,7 +9,6 @@ import collection.mutable
 import language.existentials
 import scala.reflect.api.Universe
 import scala.reflect.api
-import scala.Some
 
 trait ExprBuilder {
   builder: AsyncMacro =>
@@ -290,7 +289,8 @@ trait ExprBuilder {
   case class SymLookup(stateMachineClass: Symbol, applyTrParam: Symbol) {
     def stateMachineMember(name: TermName): Symbol =
       stateMachineClass.info.member(name)
-    def memberRef(name: TermName) = gen.mkAttributedRef(stateMachineMember(name))
+    def memberRef(name: TermName): Tree =
+      gen.mkAttributedRef(stateMachineMember(name))
   }
 
   def buildAsyncBlock(block: Block, symLookup: SymLookup): AsyncBlock = {
@@ -324,17 +324,17 @@ trait ExprBuilder {
 
       /**
        * def resume(): Unit = {
-       * try {
-       * state match {
-       * case 0 => {
-       * f11 = exprReturningFuture
-       * f11.onComplete(onCompleteHandler)(context)
-       * }
-       * ...
-       * }
-       * } catch {
-       * case NonFatal(t) => result.failure(t)
-       * }
+       *   try {
+       *     state match {
+       *       case 0 => {
+       *         f11 = exprReturningFuture
+       *         f11.onComplete(onCompleteHandler)(context)
+       *       }
+       *       ...
+       *     }
+       *   } catch {
+       *     case NonFatal(t) => result.failure(t)
+       *   }
        * }
        */
       def resumeFunTree[T]: DefDef =
@@ -352,16 +352,17 @@ trait ExprBuilder {
                 }), literalUnit))), EmptyTree))
 
       /**
-       * // assumes tr: Try[Any] is in scope.
-       * //
+       * assumes tr: Try[Any] is in scope.
+       *
        * state match {
-       * case 0 => {
-       * x11 = tr.get.asInstanceOf[Double];
-       * state = 1;
-       * resume()
+       *   case 0 =>
+       *     x11 = tr.get.asInstanceOf[Double]
+       *     state = 1
+       *     resume()
        * }
        */
-      def onCompleteHandler[T: WeakTypeTag]: Tree = Match(symLookup.memberRef(name.state), initStates.flatMap(_.mkOnCompleteHandler[T]).toList)
+      def onCompleteHandler[T: WeakTypeTag]: Tree =
+        Match(symLookup.memberRef(name.state), initStates.flatMap(_.mkOnCompleteHandler[T]).toList)
     }
   }
 

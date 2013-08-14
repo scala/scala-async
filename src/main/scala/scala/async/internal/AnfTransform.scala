@@ -127,12 +127,12 @@ private[async] trait AnfTransform {
     private object trace {
       private var indent = -1
 
-      def indentString = "  " * indent
+      private def indentString = "  " * indent
 
       def apply[T](args: Any)(t: => T): T = {
         def prefix = mode.toString.toLowerCase
         indent += 1
-        def oneLine(s: Any) = s.toString.replaceAll( """\n""", "\\\\n").take(127)
+        def oneLine(s: Any) = s.toString.replaceAll("""\n""", "\\\\n").take(127)
         try {
           AsyncUtils.trace(s"${indentString}$prefix(${oneLine(args)})")
           val result = t
@@ -173,7 +173,7 @@ private[async] trait AnfTransform {
             stats :+ treeCopy.Typed(tree, expr1, tpt)
 
           case treeInfo.Applied(fun, targs, argss) if argss.nonEmpty =>
-            // we an assume that no await call appears in a by-name argument position,
+            // we can assume that no await call appears in a by-name argument position,
             // this has already been checked.
             val funStats :+ simpleFun = linearize.transformToList(fun)
             val (argStatss, argExprss): (List[List[List[Tree]]], List[List[Tree]]) =
@@ -221,14 +221,7 @@ private[async] trait AnfTransform {
             val condStats :+ condExpr = linearize.transformToList(cond)
             val thenBlock = linearize.transformToBlock(thenp)
             val elseBlock = linearize.transformToBlock(elsep)
-            // Typechecking with `condExpr` as the condition fails if the condition
-            // contains an await. `ifTree.setType(tree.tpe)` also fails; it seems
-            // we rely on this call to `typeCheck` descending into the branches.
-            // But, we can get away with typechecking a throwaway `If` tree with the
-            // original scrutinee and the new branches, and setting that type on
-            // the real `If` tree.
-            val iff = treeCopy.If(tree, condExpr, thenBlock, elseBlock)
-            condStats :+ iff
+            condStats :+ treeCopy.If(tree, condExpr, thenBlock, elseBlock)
 
           case Match(scrut, cases) =>
             val scrutStats :+ scrutExpr = linearize.transformToList(scrut)
@@ -248,9 +241,7 @@ private[async] trait AnfTransform {
                 val newBlock = treeCopy.Block(b, valDefs ++ stats1, expr1)
                 treeCopy.CaseDef(tree, pat, guard, newBlock)
             }
-            // Refer to comments the translation of `If` above.
-            val typedMatch = treeCopy.Match(tree, scrutExpr, caseDefs)
-            scrutStats :+ typedMatch
+            scrutStats :+ treeCopy.Match(tree, scrutExpr, caseDefs)
 
           case LabelDef(name, params, rhs) =>
             List(LabelDef(name, params, Block(linearize.transformToList(rhs), Literal(Constant(())))).setSymbol(tree.symbol))
