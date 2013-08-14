@@ -13,6 +13,7 @@ import scala.async.Async.{async, await}
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.JUnit4
+import scala.async.internal.AsyncId
 
 
 class AnfTestClass {
@@ -114,8 +115,6 @@ class AnfTransformSpec {
 
   @Test
   def `inlining block does not produce duplicate definition`() {
-    import scala.async.AsyncId
-
     AsyncId.async {
       val f = 12
       val x = AsyncId.await(f)
@@ -132,8 +131,6 @@ class AnfTransformSpec {
 
   @Test
   def `inlining block in tail position does not produce duplicate definition`() {
-    import scala.async.AsyncId
-
     AsyncId.async {
       val f = 12
       val x = AsyncId.await(f)
@@ -176,7 +173,7 @@ class AnfTransformSpec {
   @Test
   def nestedAwaitAsBareExpression() {
     import ExecutionContext.Implicits.global
-    import _root_.scala.async.AsyncId.{async, await}
+    import AsyncId.{async, await}
     val result = async {
       await(await("").isEmpty)
     }
@@ -186,7 +183,7 @@ class AnfTransformSpec {
   @Test
   def nestedAwaitInBlock() {
     import ExecutionContext.Implicits.global
-    import _root_.scala.async.AsyncId.{async, await}
+    import AsyncId.{async, await}
     val result = async {
       ()
       await(await("").isEmpty)
@@ -197,7 +194,7 @@ class AnfTransformSpec {
   @Test
   def nestedAwaitInIf() {
     import ExecutionContext.Implicits.global
-    import _root_.scala.async.AsyncId.{async, await}
+    import AsyncId.{async, await}
     val result = async {
       if ("".isEmpty)
         await(await("").isEmpty)
@@ -208,7 +205,7 @@ class AnfTransformSpec {
 
   @Test
   def byNameExpressionsArentLifted() {
-    import _root_.scala.async.AsyncId.{async, await}
+    import AsyncId.{async, await}
     def foo(ignored: => Any, b: Int) = b
     val result = async {
       foo(???, await(1))
@@ -218,7 +215,7 @@ class AnfTransformSpec {
 
   @Test
   def evaluationOrderRespected() {
-    import scala.async.AsyncId.{async, await}
+    import AsyncId.{async, await}
     def foo(a: Int, b: Int) = (a, b)
     val result = async {
       var i = 0
@@ -233,19 +230,19 @@ class AnfTransformSpec {
 
   @Test
   def awaitInNonPrimaryParamSection1() {
-    import _root_.scala.async.AsyncId.{async, await}
+    import AsyncId.{async, await}
     def foo(a0: Int)(b0: Int) = s"a0 = $a0, b0 = $b0"
     val res = async {
       var i = 0
       def get = {i += 1; i}
-      foo(get)(get)
+      foo(get)(await(get))
     }
     res mustBe "a0 = 1, b0 = 2"
   }
 
   @Test
   def awaitInNonPrimaryParamSection2() {
-    import _root_.scala.async.AsyncId.{async, await}
+    import AsyncId.{async, await}
     def foo[T](a0: Int)(b0: Int*) = s"a0 = $a0, b0 = ${b0.head}"
     val res = async {
       var i = 0
@@ -257,7 +254,7 @@ class AnfTransformSpec {
 
   @Test
   def awaitInNonPrimaryParamSectionWithLazy1() {
-    import _root_.scala.async.AsyncId.{async, await}
+    import AsyncId.{async, await}
     def foo[T](a: => Int)(b: Int) = b
     val res = async {
       def get = async {0}
@@ -268,7 +265,7 @@ class AnfTransformSpec {
 
   @Test
   def awaitInNonPrimaryParamSectionWithLazy2() {
-    import _root_.scala.async.AsyncId.{async, await}
+    import AsyncId.{async, await}
     def foo[T](a: Int)(b: => Int) = a
     val res = async {
       def get = async {0}
@@ -279,7 +276,7 @@ class AnfTransformSpec {
 
   @Test
   def awaitWithLazy() {
-    import _root_.scala.async.AsyncId.{async, await}
+    import AsyncId.{async, await}
     def foo[T](a: Int, b: => Int) = a
     val res = async {
       def get = async {0}
@@ -290,7 +287,7 @@ class AnfTransformSpec {
 
   @Test
   def awaitOkInReciever() {
-    import scala.async.AsyncId.{async, await}
+    import AsyncId.{async, await}
     class Foo { def bar(a: Int)(b: Int) = a + b }
     async {
       await(async(new Foo)).bar(1)(2)
@@ -299,7 +296,7 @@ class AnfTransformSpec {
 
   @Test
   def namedArgumentsRespectEvaluationOrder() {
-    import scala.async.AsyncId.{async, await}
+    import AsyncId.{async, await}
     def foo(a: Int, b: Int) = (a, b)
     val result = async {
       var i = 0
@@ -314,7 +311,7 @@ class AnfTransformSpec {
 
   @Test
   def namedAndDefaultArgumentsRespectEvaluationOrder() {
-    import scala.async.AsyncId.{async, await}
+    import AsyncId.{async, await}
     var i = 0
     def next() = {
       i += 1;
@@ -332,7 +329,7 @@ class AnfTransformSpec {
 
   @Test
   def repeatedParams1() {
-    import scala.async.AsyncId.{async, await}
+    import AsyncId.{async, await}
     var i = 0
     def foo(a: Int, b: Int*) = b.toList
     def id(i: Int) = i
@@ -343,12 +340,72 @@ class AnfTransformSpec {
 
   @Test
   def repeatedParams2() {
-    import scala.async.AsyncId.{async, await}
+    import AsyncId.{async, await}
     var i = 0
     def foo(a: Int, b: Int*) = b.toList
     def id(i: Int) = i
     async {
       foo(await(0), List(id(1), id(2), id(3)): _*)
     } mustBe (List(1, 2, 3))
+  }
+
+  @Test
+  def awaitInThrow() {
+    import _root_.scala.async.internal.AsyncId.{async, await}
+    intercept[Exception](
+      async {
+        throw new Exception("msg: " + await(0))
+      }
+    ).getMessage mustBe "msg: 0"
+  }
+
+  @Test
+  def awaitInTyped() {
+    import _root_.scala.async.internal.AsyncId.{async, await}
+    async {
+      (("msg: " + await(0)): String).toString
+    } mustBe "msg: 0"
+  }
+
+
+  @Test
+  def awaitInAssign() {
+    import _root_.scala.async.internal.AsyncId.{async, await}
+    async {
+      var x = 0
+      x = await(1)
+      x
+    } mustBe 1
+  }
+
+  @Test
+  def caseBodyMustBeTypedAsUnit() {
+    import _root_.scala.async.internal.AsyncId.{async, await}
+    val Up = 1
+    val Down = 2
+    val sign = async {
+      await(1) match {
+        case Up   => 1.0
+        case Down => -1.0
+      }
+    }
+    sign mustBe 1.0
+  }
+
+  @Test
+  def awaitInImplicitApply() {
+    val tb = mkToolbox(s"-cp ${toolboxClasspath}")
+    val tree = tb.typeCheck(tb.parse {
+      """
+        | import language.implicitConversions
+        | import _root_.scala.async.internal.AsyncId.{async, await}
+        | implicit def view(a: Int): String = ""
+        | async {
+        |   await(0).length
+        | }
+      """.stripMargin
+    })
+    val applyImplicitView = tree.collect { case x if x.getClass.getName.endsWith("ApplyImplicitView") => x }
+    applyImplicitView.map(_.toString) mustBe List("view(a$1)")
   }
 }

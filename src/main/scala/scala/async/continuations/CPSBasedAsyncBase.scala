@@ -15,7 +15,9 @@ import scala.util.continuations._
  */
 trait CPSBasedAsyncBase extends AsyncBaseWithCPSFallback {
 
-  override def asyncImpl[T: c.WeakTypeTag](c: Context)(body: c.Expr[T]): c.Expr[futureSystem.Fut[T]] =
-    super.cpsBasedAsyncImpl[T](c)(body)
-
+  override def asyncImpl[T: c.WeakTypeTag](c: Context)
+                                          (body: c.Expr[T])
+                                          (execContext: c.Expr[futureSystem.ExecContext]): c.Expr[futureSystem.Fut[T]] = {
+    super.cpsBasedAsyncImpl[T](c)(body)(execContext)
+  }
 }

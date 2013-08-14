@@ -7,6 +7,7 @@ package scala.async
 import org.junit.runner.RunWith
 import org.junit.runners.JUnit4
 import org.junit.Test
+import scala.async.internal.AsyncId
 import AsyncId._
 import tools.reflect.ToolBox
 
@@ -15,9 +16,9 @@ class TreeInterrogation {
   @Test
   def `a minimal set of vals are lifted to vars`() {
     val cm = reflect.runtime.currentMirror
-    val tb = mkToolbox("-cp target/scala-2.10/classes")
+    val tb = mkToolbox(s"-cp ${toolboxClasspath}")
     val tree = tb.parse(
-      """| import _root_.scala.async.AsyncId._
+      """| import _root_.scala.async.internal.AsyncId._
         | async {
         |   val x = await(1)
         |   val y = x * 2
@@ -40,8 +41,7 @@ class TreeInterrogation {
     val varDefs = tree1.collect {
       case ValDef(mods, name, _, _) if mods.hasFlag(Flag.MUTABLE) => name
     }
-    varDefs.map(_.decoded.trim).toSet mustBe (Set("state$async", "await$1", "await$2"))
-    varDefs.map(_.decoded.trim).toSet mustBe (Set("state$async", "await$1", "await$2"))
+    varDefs.map(_.decoded.trim).toSet mustBe (Set("state", "await$1$1", "await$2$1"))
 
     val defDefs = tree1.collect {
       case t: Template =>
@@ -52,7 +52,7 @@ class TreeInterrogation {
               && !dd.symbol.asTerm.isAccessor && !dd.symbol.asTerm.isSetter => dd.name
         }
     }.flatten
-    defDefs.map(_.decoded.trim).toSet mustBe (Set("foo$1", "apply", "resume$async", "<init>"))
+    defDefs.map(_.decoded.trim).toSet mustBe (Set("foo$1", "apply", "resume", "<init>"))
   }
 }
 
@@ -68,17 +68,15 @@ object TreeInterrogation extends App {
 
   withDebug {
     val cm = reflect.runtime.currentMirror
-    val tb = mkToolbox("-cp target/scala-2.10/classes -Xprint:flatten")
+    val tb = mkToolbox("-cp ${toolboxClasspath} -Xprint:typer -uniqid")
     import scala.async.Async._
     val tree = tb.parse(
-      """ import _root_.scala.async.AsyncId.{async, await}
-        | def foo[T](a0: Int)(b0: Int*) = s"a0 = $a0, b0 = ${b0.head}"
-        | val res = async {
-        |   var i = 0
-        |   def get = async {i += 1; i}
-        |   foo[Int](await(get))(await(get) :: Nil : _*)
+      """ import _root_.scala.async.internal.AsyncId.{async, await}
+        | import reflect.runtime.universe._
+        | async {
+        |   implicit def view(a: Int): String = ""
+        |   await(0).length
         | }
-        | res
         | """.stripMargin)
     println(tree)
     val tree1 = tb.typeCheck(tree.duplicate)

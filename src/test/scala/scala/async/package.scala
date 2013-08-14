@@ -42,7 +42,22 @@ package object async {
     m.mkToolBox(options = compileOptions)
   }
 
-  def expectError(errorSnippet: String, compileOptions: String = "", baseCompileOptions: String = "-cp target/scala-2.10/classes")(code: String) {
+  def scalaBinaryVersion: String = {
+    val Pattern = """(\d+\.\d+)\..*""".r
+    scala.util.Properties.versionNumberString match {
+      case Pattern(v) => v
+      case _          => ""
+    }
+  }
+
+  def toolboxClasspath = {
+    val f = new java.io.File(s"target/scala-${scalaBinaryVersion}/classes")
+    if (!f.exists) sys.error(s"output directory ${f.getAbsolutePath} does not exist.")
+    f.getAbsolutePath
+  }
+
+  def expectError(errorSnippet: String, compileOptions: String = "",
+                  baseCompileOptions: String = s"-cp ${toolboxClasspath}")(code: String) {
     intercept[ToolBoxError] {
       eval(code, compileOptions + " " + baseCompileOptions)
     }.getMessage mustContain errorSnippet

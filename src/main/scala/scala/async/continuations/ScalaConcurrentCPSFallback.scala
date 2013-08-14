@@ -7,6 +7,7 @@ package continuations
 
 import scala.util.continuations._
 import scala.concurrent.{Future, Promise, ExecutionContext}
+import scala.async.internal.ScalaConcurrentFutureSystem
 
 trait ScalaConcurrentCPSFallback {
   self: AsyncBaseWithCPSFallback =>

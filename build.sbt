@@ -1,4 +1,4 @@
-scalaVersion := "2.10.1"
+scalaVersion := "2.10.2"
 
 organization := "org.typesafe.async" // TODO new org name under scala-lang.
 
@@ -8,8 +8,8 @@ version := "1.0.0-SNAPSHOT"
 
 libraryDependencies <++= (scalaVersion) {
   sv => Seq(
-    "org.scala-lang" % "scala-reflect" % sv,
-    "org.scala-lang" % "scala-compiler" % sv % "test"
+    "org.scala-lang" % "scala-reflect" % sv % "provided",
+    "org.scala-lang" % "scala-compiler" % sv % "provided"
   )
 }
 
@@ -32,6 +32,8 @@ scalacOptions += "-P:continuations:enable"
 
 scalacOptions ++= Seq("-deprecation", "-unchecked", "-Xlint", "-feature")
 
+scalacOptions in Test ++= Seq("-Yrangepos")
+
 description := "An asynchronous programming facility for Scala, in the spirit of C# await/async"
 
 homepage := Some(url("http://github.com/scala/async"))
@@ -39,6 +41,9 @@ homepage := Some(url("http://github.com/scala/async"))
 startYear := Some(2012)
 
 licenses +=("Scala license", url("https://github.com/scala/async/blob/master/LICENSE"))
+
+// Uncomment to disable test compilation.
+// (sources in Test) ~= ((xs: Seq[File]) => xs.filter(f => Seq("TreeInterrogation", "package").exists(f.name.contains)))
 
 pomExtra := (
   <developers>
