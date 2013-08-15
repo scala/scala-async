@@ -11,8 +11,6 @@ import scala.concurrent._
 import scala.concurrent.duration._
 import scala.async.Async._
 import org.junit.Test
-import org.junit.runner.RunWith
-import org.junit.runners.JUnit4
 import scala.async.internal.AsyncId
 
 
@@ -29,7 +27,6 @@ object ToughTypeObject {
   }
 }
 
-@RunWith(classOf[JUnit4])
 class ToughTypeSpec {
 
   @Test def `propogates tough types`() {
