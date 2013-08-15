@@ -1,5 +1,8 @@
 scalaVersion := "2.10.2"
 
+// Uncomment to test with a locally built copy of Scala.
+// scalaHome := Some(file("/code/scala2/build/pack"))
+
 organization := "org.typesafe.async" // TODO new org name under scala-lang.
 
 name := "scala-async"
@@ -23,10 +26,22 @@ parallelExecution in Global := false
 
 autoCompilerPlugins := true
 
-libraryDependencies <<= (scalaVersion, libraryDependencies) {
-  (ver, deps) =>
-    deps :+ compilerPlugin("org.scala-lang.plugins" % "continuations" % ver)
-}
+scalacOptions ++= (scalaHome.value match {
+  case Some(sh) =>
+    // Use continuations plugin from the local scala instance
+    val continuationsJar = sh / "misc" / "scala-devel" / "plugins" / "continuations.jar"
+    ("-Xplugin:" + continuationsJar.getAbsolutePath) :: Nil
+  case None =>
+    Nil
+})
+
+libraryDependencies ++= (scalaHome.value match {
+  case Some(sh) =>
+    Nil
+  case None =>
+    // Use continuations plugin from the published artifact.
+    compilerPlugin("org.scala-lang.plugins" % "continuations" % scalaVersion.value) :: Nil
+})
 
 scalacOptions += "-P:continuations:enable"
 
