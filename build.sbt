@@ -15,7 +15,7 @@ libraryDependencies <++= (scalaVersion) {
 
 libraryDependencies += "junit" % "junit-dep" % "4.10" % "test"
 
-libraryDependencies += "com.novocode" % "junit-interface" % "0.10-M2" % "test"
+libraryDependencies += "com.novocode" % "junit-interface" % "0.10" % "test"
 
 testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v", "-s")
 
