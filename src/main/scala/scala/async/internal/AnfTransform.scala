@@ -119,8 +119,8 @@ private[async] trait AnfTransform {
       }
 
       private def defineVar(prefix: String, tp: Type, pos: Position): ValDef = {
-        val sym = currOwner.newTermSymbol(name.fresh(prefix), pos, MUTABLE | SYNTHETIC).setInfo(tp)
-        ValDef(sym, gen.mkZero(tp)).setType(NoType).setPos(pos)
+        val sym = currOwner.newTermSymbol(name.fresh(prefix), pos, MUTABLE | SYNTHETIC).setInfo(uncheckedBounds(tp))
+        ValDef(sym, gen.mkZero(uncheckedBounds(tp))).setType(NoType).setPos(pos)
       }
     }
 
@@ -145,7 +145,7 @@ private[async] trait AnfTransform {
     }
 
     private def defineVal(prefix: String, lhs: Tree, pos: Position): ValDef = {
-      val sym = currOwner.newTermSymbol(name.fresh(prefix), pos, SYNTHETIC).setInfo(lhs.tpe)
+      val sym = currOwner.newTermSymbol(name.fresh(prefix), pos, SYNTHETIC).setInfo(uncheckedBounds(lhs.tpe))
       changeOwner(lhs, currentOwner, sym)
       ValDef(sym, changeOwner(lhs, currentOwner, sym)).setType(NoType).setPos(pos)
     }

@@ -1,9 +1,9 @@
-scalaVersion := "2.10.2"
+scalaVersion := "2.10.3-RC1"
+
+organization := "org.typesafe.async" // TODO new org name under scala-lang.
 
 // Uncomment to test with a locally built copy of Scala.
 // scalaHome := Some(file("/code/scala2/build/pack"))
-
-organization := "org.typesafe.async" // TODO new org name under scala-lang.
 
 name := "scala-async"
 

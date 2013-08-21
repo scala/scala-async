@@ -10,7 +10,7 @@ import language.{reflectiveCalls, postfixOps}
 import scala.concurrent._
 import scala.concurrent.duration._
 import scala.async.Async._
-import org.junit.Test
+import org.junit.{Assert, Test}
 import scala.async.internal.AsyncId
 
 
@@ -135,4 +135,11 @@ class ToughTypeSpec {
     }
     foo
   }
+}
+
+trait A
+trait B
+
+trait L[A2, B2 <: A2] {
+  def bar(a: Any, b: Any) = 0
 }

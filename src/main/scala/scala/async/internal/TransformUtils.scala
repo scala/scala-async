@@ -244,8 +244,19 @@ private[async] trait TransformUtils {
   // Attributed version of `TreeGen#mkCastPreservingAnnotations`
   def mkAttributedCastPreservingAnnotations(tree: Tree, tp: Type): Tree = {
     atPos(tree.pos) {
-      val casted = gen.mkAttributedCast(tree, tp.withoutAnnotations.dealias)
+      val casted = gen.mkAttributedCast(tree, uncheckedBounds(tp.withoutAnnotations).dealias)
       Typed(casted, TypeTree(tp)).setType(tp)
     }
   }
+
+  // =====================================
+  // Copy/Pasted from Scala 2.10.3. See SI-7694.
+  private lazy val UncheckedBoundsClass = {
+    global.rootMirror.getClassIfDefined("scala.reflect.internal.annotations.uncheckedBounds")
+  }
+  final def uncheckedBounds(tp: Type): Type = {
+    if (tp.typeArgs.isEmpty || UncheckedBoundsClass == NoSymbol) tp
+    else tp.withAnnotation(AnnotationInfo marker UncheckedBoundsClass.tpe)
+  }
+  // =====================================
 }
