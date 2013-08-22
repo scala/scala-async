@@ -11,8 +11,6 @@ import scala.concurrent.{Future, ExecutionContext, future, Await}
 import scala.concurrent.duration._
 import scala.async.Async.{async, await}
 import org.junit.Test
-import org.junit.runner.RunWith
-import org.junit.runners.JUnit4
 
 
 class Test1Class {
@@ -32,7 +30,6 @@ class Test1Class {
   }
 }
 
-@RunWith(classOf[JUnit4])
 class Block1Spec {
 
   @Test def `support a simple await`() {

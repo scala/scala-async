@@ -4,14 +4,11 @@
 
 package scala.async
 
-import org.junit.runner.RunWith
-import org.junit.runners.JUnit4
 import org.junit.Test
 import scala.async.internal.AsyncId
 import AsyncId._
 import tools.reflect.ToolBox
 
-@RunWith(classOf[JUnit4])
 class TreeInterrogation {
   @Test
   def `a minimal set of vals are lifted to vars`() {

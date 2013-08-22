@@ -6,7 +6,12 @@ trait AsyncTransform {
   import global._
 
   def asyncTransform[T](body: Tree, execContext: Tree, cpsFallbackEnabled: Boolean)
-                       (implicit resultType: WeakTypeTag[T]): Tree = {
+                       (resultType: WeakTypeTag[T]): Tree = {
+
+    // We annotate the type of the whole expression as `T @uncheckedBounds` so as not to introduce
+    // warnings about non-conformant LUBs. See SI-7694
+    // This implicit propatages the annotated type in the type tag.
+    implicit val uncheckedBoundsResultTag: WeakTypeTag[T] = WeakTypeTag[T](rootMirror, FixedMirrorTypeCreator(rootMirror, uncheckedBounds(resultType.tpe)))
 
     reportUnsupportedAwaits(body, report = !cpsFallbackEnabled)
 
@@ -22,12 +27,12 @@ trait AsyncTransform {
       DefDef(NoMods, name.apply, Nil, applyVParamss, TypeTree(definitions.UnitTpe), Literal(Constant(())))
     }
 
-    val stateMachineType = applied("scala.async.StateMachine", List(futureSystemOps.promType[T], futureSystemOps.execContextType))
+    val stateMachineType = applied("scala.async.StateMachine", List(futureSystemOps.promType[T](uncheckedBoundsResultTag), futureSystemOps.execContextType))
 
     val stateMachine: ClassDef = {
       val body: List[Tree] = {
         val stateVar = ValDef(Modifiers(Flag.MUTABLE | Flag.PRIVATE | Flag.LOCAL), name.state, TypeTree(definitions.IntTpe), Literal(Constant(0)))
-        val result = ValDef(NoMods, name.result, TypeTree(futureSystemOps.promType[T]), futureSystemOps.createProm[T].tree)
+        val result = ValDef(NoMods, name.result, TypeTree(futureSystemOps.promType[T](uncheckedBoundsResultTag)), futureSystemOps.createProm[T](uncheckedBoundsResultTag).tree)
         val execContextValDef = ValDef(NoMods, name.execContext, TypeTree(), execContext)
 
         val apply0DefDef: DefDef = {

@@ -5,11 +5,8 @@
 package scala.async
 package neg
 
-import org.junit.runner.RunWith
-import org.junit.runners.JUnit4
 import org.junit.Test
 
-@RunWith(classOf[JUnit4])
 class NakedAwait {
   @Test
   def `await only allowed in async neg`() {

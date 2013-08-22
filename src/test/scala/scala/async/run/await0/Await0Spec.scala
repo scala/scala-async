@@ -15,8 +15,6 @@ import language.{reflectiveCalls, postfixOps}
 import scala.concurrent.{Future, ExecutionContext, future, Await}
 import scala.concurrent.duration._
 import scala.async.Async.{async, await}
-import org.junit.runner.RunWith
-import org.junit.runners.JUnit4
 import org.junit.Test
 
 class Await0Class {
@@ -63,7 +61,6 @@ class Await0Class {
   }
 }
 
-@RunWith(classOf[JUnit4])
 class Await0Spec {
 
   @Test
