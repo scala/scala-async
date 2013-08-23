@@ -10,8 +10,6 @@ import language.{reflectiveCalls, postfixOps}
 import scala.concurrent.{Future, ExecutionContext, future, Await}
 import scala.concurrent.duration._
 import scala.async.Async.{async, await}
-import org.junit.runner.RunWith
-import org.junit.runners.JUnit4
 import org.junit.Test
 
 
@@ -37,7 +35,6 @@ class TestIfElse2Class {
   }
 }
 
-@RunWith(classOf[JUnit4])
 class IfElse2Spec {
 
   @Test

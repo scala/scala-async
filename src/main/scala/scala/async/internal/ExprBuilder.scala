@@ -283,7 +283,7 @@ trait ExprBuilder {
 
     def onCompleteHandler[T: WeakTypeTag]: Tree
 
-    def resumeFunTree[T]: DefDef
+    def resumeFunTree[T: WeakTypeTag]: DefDef
   }
 
   case class SymLookup(stateMachineClass: Symbol, applyTrParam: Symbol) {
@@ -303,12 +303,12 @@ trait ExprBuilder {
     new AsyncBlock {
       def asyncStates = blockBuilder.asyncStates.toList
 
-      def mkCombinedHandlerCases[T]: List[CaseDef] = {
+      def mkCombinedHandlerCases[T: WeakTypeTag]: List[CaseDef] = {
         val caseForLastState: CaseDef = {
           val lastState = asyncStates.last
           val lastStateBody = Expr[T](lastState.body)
           val rhs = futureSystemOps.completeProm(
-            Expr[futureSystem.Prom[T]](symLookup.memberRef(name.result)), reify(scala.util.Success(lastStateBody.splice)))
+            Expr[futureSystem.Prom[T]](symLookup.memberRef(name.result)), reify(scala.util.Success[T](lastStateBody.splice)))
           mkHandlerCase(lastState.state, rhs.tree)
         }
         asyncStates.toList match {
@@ -337,7 +337,7 @@ trait ExprBuilder {
        *   }
        * }
        */
-      def resumeFunTree[T]: DefDef =
+      def resumeFunTree[T: WeakTypeTag]: DefDef =
         DefDef(Modifiers(), name.resume, Nil, List(Nil), Ident(definitions.UnitClass),
           Try(
             Match(symLookup.memberRef(name.state), mkCombinedHandlerCases[T]),

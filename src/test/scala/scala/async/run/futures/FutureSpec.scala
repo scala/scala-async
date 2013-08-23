@@ -18,10 +18,7 @@ import scala.util.{Try,Success,Failure}
 import scala.async.Async.{async, await}
 
 import org.junit.Test
-import org.junit.runner.RunWith
-import org.junit.runners.JUnit4
 
-@RunWith(classOf[JUnit4])
 class FutureSpec {
 
   /* some utils */

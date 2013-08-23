@@ -11,11 +11,8 @@ import scala.concurrent.duration._
 import scala.async.continuations.CPSBasedAsync._
 import scala.util.continuations._
 
-import org.junit.runner.RunWith
-import org.junit.runners.JUnit4
 import org.junit.Test
 
-@RunWith(classOf[JUnit4])
 class CPSSpec {
 
   import ExecutionContext.Implicits.global

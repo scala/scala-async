@@ -14,10 +14,7 @@ import scala.concurrent.duration._
 import scala.reflect.ClassTag
 
 import org.junit.Test
-import org.junit.runner.RunWith
-import org.junit.runners.JUnit4
 
-@RunWith(classOf[JUnit4])
 class ExceptionsSpec {
 
   @Test

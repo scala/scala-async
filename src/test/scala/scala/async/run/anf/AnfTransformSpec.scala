@@ -11,8 +11,6 @@ import scala.concurrent.{Future, ExecutionContext, future, Await}
 import scala.concurrent.duration._
 import scala.async.Async.{async, await}
 import org.junit.Test
-import org.junit.runner.RunWith
-import org.junit.runners.JUnit4
 import scala.async.internal.AsyncId
 
 
@@ -70,7 +68,6 @@ object State {
   @volatile var result: Int = 0
 }
 
-@RunWith(classOf[JUnit4])
 class AnfTransformSpec {
 
   @Test

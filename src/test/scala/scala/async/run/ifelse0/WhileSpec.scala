@@ -6,12 +6,9 @@ package scala.async
 package run
 package ifelse0
 
-import org.junit.runner.RunWith
-import org.junit.runners.JUnit4
 import org.junit.Test
 import scala.async.internal.AsyncId
 
-@RunWith(classOf[JUnit4])
 class WhileSpec {
 
   @Test

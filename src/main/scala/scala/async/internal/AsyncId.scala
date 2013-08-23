@@ -41,7 +41,7 @@ object IdentityFutureSystem extends FutureSystem {
     def execContextType: Type = weakTypeOf[Unit]
 
     def createProm[A: WeakTypeTag]: Expr[Prom[A]] = reify {
-      new Prom()
+      new Prom[A]()
     }
 
     def promiseToFuture[A: WeakTypeTag](prom: Expr[Prom[A]]) = reify {
