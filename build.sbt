@@ -1,9 +1,10 @@
 scalaVersion := "2.10.3-RC1"
 
-organization := "org.typesafe.async" // TODO new org name under scala-lang.
-
 // Uncomment to test with a locally built copy of Scala.
 // scalaHome := Some(file("/code/scala2/build/pack"))
+
+
+organization := "org.scala-lang.modules.async" // TODO new org name under scala-lang.
 
 name := "scala-async"
 
@@ -45,9 +46,25 @@ libraryDependencies ++= (scalaHome.value match {
 
 scalacOptions += "-P:continuations:enable"
 
-scalacOptions ++= Seq("-deprecation", "-unchecked", "-Xlint", "-feature")
+scalacOptions in compile ++= Seq("-optimize", "-deprecation", "-unchecked", "-Xlint", "-feature")
 
 scalacOptions in Test ++= Seq("-Yrangepos")
+
+// Generate $name.properties to store our version as well as the scala version used to build
+resourceGenerators in Compile <+= Def.task {
+  val props = new java.util.Properties
+  props.put("version.number", version.value)
+  props.put("scala.version.number", scalaVersion.value)
+  props.put("scala.binary.version.number", scalaBinaryVersion.value)
+  val file = (resourceManaged in Compile).value / s"${name.value}.properties"
+  IO.write(props, null, file)
+  Seq(file)
+}
+
+mappings in (Compile, packageBin) += {
+   (baseDirectory.value / s"${name.value}.properties") -> s"${name.value}.properties"
+}
+
 
 description := "An asynchronous programming facility for Scala, in the spirit of C# await/async"
 
@@ -59,6 +76,22 @@ licenses +=("Scala license", url("https://github.com/scala/async/blob/master/LIC
 
 // Uncomment to disable test compilation.
 // (sources in Test) ~= ((xs: Seq[File]) => xs.filter(f => Seq("TreeInterrogation", "package").exists(f.name.contains)))
+
+// maven publishing
+publishTo := {
+  val nexus = "https://oss.sonatype.org/"
+  val repo = if (version.value.trim.endsWith("SNAPSHOT"))
+    "snapshots" at nexus + "content/repositories/snapshots"
+  else
+    "releases" at nexus + "service/local/staging/deploy/maven2"
+  Some(repo)
+}
+
+publishMavenStyle := true
+
+publishArtifact in Test := false
+
+pomIncludeRepository := { _ => false }
 
 pomExtra := (
   <developers>
