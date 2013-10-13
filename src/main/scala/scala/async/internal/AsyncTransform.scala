@@ -29,6 +29,7 @@ trait AsyncTransform {
 
     val stateMachineType = applied("scala.async.StateMachine", List(futureSystemOps.promType[T](uncheckedBoundsResultTag), futureSystemOps.execContextType))
 
+    // Create `ClassDef` of state machine with empty method bodies for `resume` and `apply`.
     val stateMachine: ClassDef = {
       val body: List[Tree] = {
         val stateVar = ValDef(Modifiers(Flag.MUTABLE | Flag.PRIVATE | Flag.LOCAL), name.state, TypeTree(definitions.IntTpe), Literal(Constant(0)))
@@ -42,24 +43,44 @@ trait AsyncTransform {
         }
         List(emptyConstructor, stateVar, result, execContextValDef) ++ List(resumeFunTreeDummyBody, applyDefDefDummyBody, apply0DefDef)
       }
-      val template = {
-        Template(List(stateMachineType), emptyValDef, body)
-      }
+
+      val template = Template(List(stateMachineType), emptyValDef, body)
+
       val t = ClassDef(NoMods, name.stateMachineT, Nil, template)
       callSiteTyper.typedPos(macroPos)(Block(t :: Nil, Literal(Constant(()))))
       t
     }
 
+    val stateMachineClass = stateMachine.symbol
     val asyncBlock: AsyncBlock = {
-      val symLookup = new SymLookup(stateMachine.symbol, applyDefDefDummyBody.vparamss.head.head.symbol)
+      val symLookup = new SymLookup(stateMachineClass, applyDefDefDummyBody.vparamss.head.head.symbol)
       buildAsyncBlock(anfTree, symLookup)
     }
 
     logDiagnostics(anfTree, asyncBlock.asyncStates.map(_.toString))
 
+    val liftedFields: List[Tree] = liftables(asyncBlock.asyncStates)
+
+    // live variables analysis
+    // the result map indicates in which states a given field should be nulled out
+    val assignsOf = fieldsToNullOut(asyncBlock.asyncStates, liftedFields)
+
+    for ((state, flds) <- assignsOf) {
+      val asyncState = asyncBlock.asyncStates.find(_.state == state).get
+      val assigns = flds.map { fld =>
+        val fieldSym = fld.symbol
+        Assign(
+          gen.mkAttributedStableRef(fieldSym.owner.thisType, fieldSym),
+          gen.mkZero(fieldSym.info)
+        )
+      }.toList
+      // prepend those assigns
+      asyncState.stats = assigns ++ asyncState.stats
+    }
+
     def startStateMachine: Tree = {
       val stateMachineSpliced: Tree = spliceMethodBodies(
-        liftables(asyncBlock.asyncStates),
+        liftedFields,
         stateMachine,
         atMacroPos(asyncBlock.onCompleteHandler[T]),
         atMacroPos(asyncBlock.resumeFunTree[T].rhs)
@@ -96,9 +117,16 @@ trait AsyncTransform {
     states foreach (s => AsyncUtils.vprintln(s))
   }
 
-  def spliceMethodBodies(liftables: List[Tree], tree: Tree, applyBody: Tree,
-                         resumeBody: Tree): Tree = {
-
+  /**
+   *  Build final `ClassDef` tree of state machine class.
+   *
+   *  @param  liftables  trees of definitions that are lifted to fields of the state machine class
+   *  @param  tree       `ClassDef` tree of the state machine class
+   *  @param  applyBody  tree of onComplete handler (`apply` method)
+   *  @param  resumeBody RHS of definition tree of `resume` method
+   *  @return            transformed `ClassDef` tree of the state machine class
+   */
+  def spliceMethodBodies(liftables: List[Tree], tree: ClassDef, applyBody: Tree, resumeBody: Tree): Tree = {
     val liftedSyms = liftables.map(_.symbol).toSet
     val stateMachineClass = tree.symbol
     liftedSyms.foreach {
@@ -112,7 +140,7 @@ trait AsyncTransform {
     // Replace the ValDefs in the splicee with Assigns to the corresponding lifted
     // fields. Similarly, replace references to them with references to the field.
     //
-    // This transform will be only be run on the RHS of `def foo`.
+    // This transform will only be run on the RHS of `def foo`.
     class UseFields extends MacroTypingTransformer {
       override def transform(tree: Tree): Tree = tree match {
         case _ if currentOwner == stateMachineClass          =>
@@ -150,6 +178,7 @@ trait AsyncTransform {
     }
     val treeSubst = tree
 
+    /* Fixes up DefDef: use lifted fields in `body` */
     def fixup(dd: DefDef, body: Tree, ctx: analyzer.Context): Tree = {
       val spliceeAnfFixedOwnerSyms = body
       val useField = new UseFields()
@@ -171,6 +200,7 @@ trait AsyncTransform {
         (ctx: analyzer.Context) =>
           val typedTree = fixup(dd, changeOwner(applyBody, callSiteTyper.context.owner, dd.symbol), ctx)
           typedTree
+
       case dd@DefDef(_, name.resume, _, _, _, _) if dd.symbol.owner == stateMachineClass =>
         (ctx: analyzer.Context) =>
           val changed = changeOwner(resumeBody, callSiteTyper.context.owner, dd.symbol)

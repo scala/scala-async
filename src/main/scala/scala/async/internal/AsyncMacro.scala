@@ -20,7 +20,7 @@ object AsyncMacro {
 private[async] trait AsyncMacro
   extends TypingTransformers
   with AnfTransform with TransformUtils with Lifter
-  with ExprBuilder with AsyncTransform with AsyncAnalysis {
+  with ExprBuilder with AsyncTransform with AsyncAnalysis with LiveVariables {
 
   val global: Global
   val callSiteTyper: global.analyzer.Typer
