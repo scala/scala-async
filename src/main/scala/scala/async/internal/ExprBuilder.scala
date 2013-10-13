@@ -295,6 +295,13 @@ trait ExprBuilder {
       gen.mkAttributedRef(stateMachineMember(name))
   }
 
+  /**
+   * Uses `AsyncBlockBuilder` to create an instance of `AsyncBlock`.
+   *
+   * @param  block      a `Block` tree in ANF
+   * @param  symLookup  helper for looking up members of the state machine class
+   * @return            an `AsyncBlock`
+   */
   def buildAsyncBlock(block: Block, symLookup: SymLookup): AsyncBlock = {
     val Block(stats, expr) = block
     val startState = stateAssigner.nextState()
@@ -325,19 +332,23 @@ trait ExprBuilder {
       val initStates = asyncStates.init
 
       /**
-       * def resume(): Unit = {
-       *   try {
-       *     state match {
-       *       case 0 => {
-       *         f11 = exprReturningFuture
-       *         f11.onComplete(onCompleteHandler)(context)
+       * Builds the definition of the `resume` method.
+       *
+       * The resulting tree has the following shape:
+       *
+       *     def resume(): Unit = {
+       *       try {
+       *         state match {
+       *           case 0 => {
+       *             f11 = exprReturningFuture
+       *             f11.onComplete(onCompleteHandler)(context)
+       *           }
+       *           ...
+       *         }
+       *       } catch {
+       *         case NonFatal(t) => result.failure(t)
        *       }
-       *       ...
        *     }
-       *   } catch {
-       *     case NonFatal(t) => result.failure(t)
-       *   }
-       * }
        */
       def resumeFunTree[T: WeakTypeTag]: DefDef =
         DefDef(Modifiers(), name.resume, Nil, List(Nil), Ident(definitions.UnitClass),
@@ -353,14 +364,16 @@ trait ExprBuilder {
                 })), EmptyTree))
 
       /**
-       * assumes tr: Try[Any] is in scope.
+       * Builds a `match` expression used as an onComplete handler.
        *
-       * state match {
-       *   case 0 =>
-       *     x11 = tr.get.asInstanceOf[Double]
-       *     state = 1
-       *     resume()
-       * }
+       * Assumes `tr: Try[Any]` is in scope. The resulting tree has the following shape:
+       *
+       *     state match {
+       *       case 0 =>
+       *         x11 = tr.get.asInstanceOf[Double]
+       *         state = 1
+       *         resume()
+       *     }
        */
       def onCompleteHandler[T: WeakTypeTag]: Tree =
         Match(symLookup.memberRef(name.state), initStates.flatMap(_.mkOnCompleteHandler[T]).toList)
@@ -374,7 +387,8 @@ trait ExprBuilder {
 
   case class Awaitable(expr: Tree, resultName: Symbol, resultType: Type, resultValDef: ValDef)
 
-  private def mkResumeApply(symLookup: SymLookup) = Apply(symLookup.memberRef(name.resume), Nil)
+  private def mkResumeApply(symLookup: SymLookup) =
+    Apply(symLookup.memberRef(name.resume), Nil)
 
   private def mkStateTree(nextState: Int, symLookup: SymLookup): Tree =
     Assign(symLookup.memberRef(name.state), Literal(Constant(nextState)))
