@@ -42,7 +42,7 @@ trait ExprBuilder {
     }
   }
 
-  /** A sequence of statements the concludes with a unconditional transition to `nextState` */
+  /** A sequence of statements that concludes with a unconditional transition to `nextState` */
   final class SimpleAsyncState(val stats: List[Tree], val state: Int, nextState: Int, symLookup: SymLookup)
     extends AsyncState {
 
@@ -65,7 +65,7 @@ trait ExprBuilder {
   }
 
   /** A sequence of statements that concludes with an `await` call. The `onComplete`
-    * handler will unconditionally transition to `nestState`.``
+    * handler will unconditionally transition to `nextState`.
     */
   final class AsyncStateWithAwait(val stats: List[Tree], val state: Int, nextState: Int,
                                   val awaitable: Awaitable, symLookup: SymLookup)
@@ -110,7 +110,7 @@ trait ExprBuilder {
   }
 
   /*
-   * Builder for a single state of an async method.
+   * Builder for a single state of an async expression.
    */
   final class AsyncStateBuilder(state: Int, private val symLookup: SymLookup) {
     /* Statements preceding an await call. */
@@ -123,9 +123,10 @@ trait ExprBuilder {
       def addStat() = stats += stat
       stat match {
         case Apply(fun, Nil) =>
+          // labelDefStates belongs to the current ExprBuilder
           labelDefStates get fun.symbol match {
-            case Some(nextState) => nextJumpState = Some(nextState)
-            case None            => addStat()
+            case opt @ Some(nextState) => nextJumpState = opt // re-use object
+            case None                  => addStat()
           }
         case _               => addStat()
       }
@@ -258,7 +259,7 @@ trait ExprBuilder {
         currState = afterMatchState
         stateBuilder = new AsyncStateBuilder(currState, symLookup)
 
-      case ld@LabelDef(name, params, rhs) if rhs exists isAwait =>
+      case ld @ LabelDef(name, params, rhs) if rhs exists isAwait =>
         val startLabelState = nextState()
         val afterLabelState = nextState()
         asyncStates += stateBuilder.resultWithLabel(startLabelState, symLookup)
@@ -268,7 +269,8 @@ trait ExprBuilder {
 
         currState = afterLabelState
         stateBuilder = new AsyncStateBuilder(currState, symLookup)
-      case _                                                    =>
+
+      case _ =>
         checkForUnsupportedAwait(stat)
         stateBuilder += stat
     }

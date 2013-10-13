@@ -10,12 +10,12 @@ trait AsyncTransform {
 
     // We annotate the type of the whole expression as `T @uncheckedBounds` so as not to introduce
     // warnings about non-conformant LUBs. See SI-7694
-    // This implicit propatages the annotated type in the type tag.
+    // This implicit propagates the annotated type in the type tag.
     implicit val uncheckedBoundsResultTag: WeakTypeTag[T] = WeakTypeTag[T](rootMirror, FixedMirrorTypeCreator(rootMirror, uncheckedBounds(resultType.tpe)))
 
     reportUnsupportedAwaits(body, report = !cpsFallbackEnabled)
 
-     // Transform to A-normal form:
+    // Transform to A-normal form:
     //  - no await calls in qualifiers or arguments,
     //  - if/match only used in statement position.
     val anfTree: Block = anfTransform(body)

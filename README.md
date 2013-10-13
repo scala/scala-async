@@ -136,7 +136,7 @@ difficult to understand.
  - Logging of the transform can be enabled with `scalac -Dscala.async.debug=true`.
  - Tracing of the ANF transform: `scalac -Dscala.async.trace=true`
  - Debug the macro expansion by checking out the project and executing the application
-   [`TreeInterrogation`](https://github.com/scala/async/blob/master/src/test/scala/scala/async/TreeInterrogation.scala#L59)
+   [`scala.async.TreeInterrogation`](https://github.com/scala/async/blob/master/src/test/scala/scala/async/TreeInterrogation.scala#L59)
 
 ## Limitations
  - See the [neg](https://github.com/scala/async/tree/master/src/test/scala/scala/async/neg) test cases for
