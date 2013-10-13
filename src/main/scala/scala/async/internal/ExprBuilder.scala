@@ -346,12 +346,11 @@ trait ExprBuilder {
             List(
               CaseDef(
                 Bind(name.t, Ident(nme.WILDCARD)),
-                Apply(Ident(defn.NonFatalClass), List(Ident(name.t))),
-                Block(List({
+                Apply(Ident(defn.NonFatalClass), List(Ident(name.t))), {
                   val t = Expr[Throwable](Ident(name.t))
                   futureSystemOps.completeProm[T](
                     Expr[futureSystem.Prom[T]](symLookup.memberRef(name.result)), reify(scala.util.Failure(t.splice))).tree
-                }), literalUnit))), EmptyTree))
+                })), EmptyTree))
 
       /**
        * assumes tr: Try[Any] is in scope.
