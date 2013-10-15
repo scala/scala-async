@@ -62,4 +62,18 @@ class WhileSpec {
     }
     result mustBe (100)
   }
+
+  @Test
+  def whileExpr() {
+    import AsyncId._
+
+    val result = async {
+      var cond = true
+      while (cond) {
+        cond = false
+        await { 22 }
+      }
+    }
+    result mustBe ()
+  }
 }

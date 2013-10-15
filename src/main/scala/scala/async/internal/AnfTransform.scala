@@ -68,6 +68,8 @@ private[async] trait AnfTransform {
 
       def _transformToList(tree: Tree): List[Tree] = trace(tree) {
         val stats :+ expr = anf.transformToList(tree)
+        def statsExprUnit =
+          stats :+ expr :+ localTyper.typedPos(expr.pos)(Literal(Constant(())))
         expr match {
           case Apply(fun, args) if isAwait(fun) =>
             val valDef = defineVal(name.await, expr, tree.pos)
@@ -77,7 +79,7 @@ private[async] trait AnfTransform {
             // if type of if-else is Unit don't introduce assignment,
             // but add Unit value to bring it into form expected by async transform
             if (expr.tpe =:= definitions.UnitTpe) {
-              stats :+ expr :+ localTyper.typedPos(expr.pos)(Literal(Constant(())))
+              statsExprUnit
             } else {
               val varDef = defineVar(name.ifRes, expr.tpe, tree.pos)
               def branchWithAssign(orig: Tree) = localTyper.typedPos(orig.pos) {
@@ -90,12 +92,14 @@ private[async] trait AnfTransform {
               val ifWithAssign = treeCopy.If(tree, cond, branchWithAssign(thenp), branchWithAssign(elsep)).setType(definitions.UnitTpe)
               stats :+ varDef :+ ifWithAssign :+ gen.mkAttributedStableRef(varDef.symbol).setType(tree.tpe).setPos(tree.pos)
             }
+          case LabelDef(name, params, rhs) =>
+            statsExprUnit
 
           case Match(scrut, cases) =>
             // if type of match is Unit don't introduce assignment,
             // but add Unit value to bring it into form expected by async transform
             if (expr.tpe =:= definitions.UnitTpe) {
-              stats :+ expr :+ localTyper.typedPos(expr.pos)(Literal(Constant(())))
+              statsExprUnit
             }
             else {
               val varDef = defineVar(name.matchRes, expr.tpe, tree.pos)
