@@ -66,15 +66,11 @@ trait AsyncTransform {
     val assignsOf = fieldsToNullOut(asyncBlock.asyncStates, liftedFields)
 
     for ((state, flds) <- assignsOf) {
-      val asyncState = asyncBlock.asyncStates.find(_.state == state).get
       val assigns = flds.map { fld =>
         val fieldSym = fld.symbol
-        Assign(
-          gen.mkAttributedStableRef(fieldSym.owner.thisType, fieldSym),
-          gen.mkZero(fieldSym.info)
-        )
-      }.toList
-      // prepend those assigns
+        Assign(gen.mkAttributedStableRef(fieldSym.owner.thisType, fieldSym), gen.mkZero(fieldSym.info))
+      }
+      val asyncState = asyncBlock.asyncStates.find(_.state == state).get
       asyncState.stats = assigns ++ asyncState.stats
     }
 
