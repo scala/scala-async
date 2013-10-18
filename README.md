@@ -3,7 +3,7 @@
 ## Quick start
 
  - Add `scala-async.jar` to your classpath
- - Use Scala 2.10.0
+ - Use Scala 2.10.2
 
 ```scala
 import ExecutionContext.Implicits.global
