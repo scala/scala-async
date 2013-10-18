@@ -42,7 +42,7 @@ trait ExprBuilder {
     }
   }
 
-  /** A sequence of statements the concludes with a unconditional transition to `nextState` */
+  /** A sequence of statements that concludes with a unconditional transition to `nextState` */
   final class SimpleAsyncState(val stats: List[Tree], val state: Int, nextState: Int, symLookup: SymLookup)
     extends AsyncState {
 
@@ -65,7 +65,7 @@ trait ExprBuilder {
   }
 
   /** A sequence of statements that concludes with an `await` call. The `onComplete`
-    * handler will unconditionally transition to `nestState`.``
+    * handler will unconditionally transition to `nextState`.
     */
   final class AsyncStateWithAwait(val stats: List[Tree], val state: Int, nextState: Int,
                                   val awaitable: Awaitable, symLookup: SymLookup)
@@ -110,7 +110,7 @@ trait ExprBuilder {
   }
 
   /*
-   * Builder for a single state of an async method.
+   * Builder for a single state of an async expression.
    */
   final class AsyncStateBuilder(state: Int, private val symLookup: SymLookup) {
     /* Statements preceding an await call. */
@@ -123,9 +123,10 @@ trait ExprBuilder {
       def addStat() = stats += stat
       stat match {
         case Apply(fun, Nil) =>
+          // labelDefStates belongs to the current ExprBuilder
           labelDefStates get fun.symbol match {
-            case Some(nextState) => nextJumpState = Some(nextState)
-            case None            => addStat()
+            case opt @ Some(nextState) => nextJumpState = opt // re-use object
+            case None                  => addStat()
           }
         case _               => addStat()
       }
@@ -258,7 +259,7 @@ trait ExprBuilder {
         currState = afterMatchState
         stateBuilder = new AsyncStateBuilder(currState, symLookup)
 
-      case ld@LabelDef(name, params, rhs) if rhs exists isAwait =>
+      case ld @ LabelDef(name, params, rhs) if rhs exists isAwait =>
         val startLabelState = nextState()
         val afterLabelState = nextState()
         asyncStates += stateBuilder.resultWithLabel(startLabelState, symLookup)
@@ -268,7 +269,8 @@ trait ExprBuilder {
 
         currState = afterLabelState
         stateBuilder = new AsyncStateBuilder(currState, symLookup)
-      case _                                                    =>
+
+      case _ =>
         checkForUnsupportedAwait(stat)
         stateBuilder += stat
     }
@@ -293,6 +295,13 @@ trait ExprBuilder {
       gen.mkAttributedRef(stateMachineMember(name))
   }
 
+  /**
+   * Uses `AsyncBlockBuilder` to create an instance of `AsyncBlock`.
+   *
+   * @param  block      a `Block` tree in ANF
+   * @param  symLookup  helper for looking up members of the state machine class
+   * @return            an `AsyncBlock`
+   */
   def buildAsyncBlock(block: Block, symLookup: SymLookup): AsyncBlock = {
     val Block(stats, expr) = block
     val startState = stateAssigner.nextState()
@@ -323,19 +332,23 @@ trait ExprBuilder {
       val initStates = asyncStates.init
 
       /**
-       * def resume(): Unit = {
-       *   try {
-       *     state match {
-       *       case 0 => {
-       *         f11 = exprReturningFuture
-       *         f11.onComplete(onCompleteHandler)(context)
+       * Builds the definition of the `resume` method.
+       *
+       * The resulting tree has the following shape:
+       *
+       *     def resume(): Unit = {
+       *       try {
+       *         state match {
+       *           case 0 => {
+       *             f11 = exprReturningFuture
+       *             f11.onComplete(onCompleteHandler)(context)
+       *           }
+       *           ...
+       *         }
+       *       } catch {
+       *         case NonFatal(t) => result.failure(t)
        *       }
-       *       ...
        *     }
-       *   } catch {
-       *     case NonFatal(t) => result.failure(t)
-       *   }
-       * }
        */
       def resumeFunTree[T: WeakTypeTag]: DefDef =
         DefDef(Modifiers(), name.resume, Nil, List(Nil), Ident(definitions.UnitClass),
@@ -344,22 +357,23 @@ trait ExprBuilder {
             List(
               CaseDef(
                 Bind(name.t, Ident(nme.WILDCARD)),
-                Apply(Ident(defn.NonFatalClass), List(Ident(name.t))),
-                Block(List({
+                Apply(Ident(defn.NonFatalClass), List(Ident(name.t))), {
                   val t = Expr[Throwable](Ident(name.t))
                   futureSystemOps.completeProm[T](
                     Expr[futureSystem.Prom[T]](symLookup.memberRef(name.result)), reify(scala.util.Failure(t.splice))).tree
-                }), literalUnit))), EmptyTree))
+                })), EmptyTree))
 
       /**
-       * assumes tr: Try[Any] is in scope.
+       * Builds a `match` expression used as an onComplete handler.
        *
-       * state match {
-       *   case 0 =>
-       *     x11 = tr.get.asInstanceOf[Double]
-       *     state = 1
-       *     resume()
-       * }
+       * Assumes `tr: Try[Any]` is in scope. The resulting tree has the following shape:
+       *
+       *     state match {
+       *       case 0 =>
+       *         x11 = tr.get.asInstanceOf[Double]
+       *         state = 1
+       *         resume()
+       *     }
        */
       def onCompleteHandler[T: WeakTypeTag]: Tree =
         Match(symLookup.memberRef(name.state), initStates.flatMap(_.mkOnCompleteHandler[T]).toList)
@@ -373,7 +387,8 @@ trait ExprBuilder {
 
   case class Awaitable(expr: Tree, resultName: Symbol, resultType: Type, resultValDef: ValDef)
 
-  private def mkResumeApply(symLookup: SymLookup) = Apply(symLookup.memberRef(name.resume), Nil)
+  private def mkResumeApply(symLookup: SymLookup) =
+    Apply(symLookup.memberRef(name.resume), Nil)
 
   private def mkStateTree(nextState: Int, symLookup: SymLookup): Tree =
     Assign(symLookup.memberRef(name.state), Literal(Constant(nextState)))
