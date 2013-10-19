@@ -5,6 +5,8 @@ trait AsyncTransform {
 
   import global._
 
+  val asyncBase: AsyncBase
+
   def asyncTransform[T](body: Tree, execContext: Tree, cpsFallbackEnabled: Boolean)
                        (resultType: WeakTypeTag[T]): Tree = {
 
@@ -68,7 +70,13 @@ trait AsyncTransform {
     for ((state, flds) <- assignsOf) {
       val assigns = flds.map { fld =>
         val fieldSym = fld.symbol
-        Assign(gen.mkAttributedStableRef(fieldSym.owner.thisType, fieldSym), gen.mkZero(fieldSym.info))
+        val zero     = gen.mkZero(fieldSym.info)
+        Block(
+          List(
+            asyncBase.nullOut(global)(Expr[String](Literal(Constant(fieldSym.name.toString))), Expr[Any](zero)).tree
+          ),
+          Assign(gen.mkAttributedStableRef(fieldSym.owner.thisType, fieldSym), zero)
+        )
       }
       val asyncState = asyncBlock.asyncStates.find(_.state == state).get
       asyncState.stats = assigns ++ asyncState.stats
