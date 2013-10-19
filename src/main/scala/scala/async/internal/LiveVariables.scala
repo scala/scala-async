@@ -49,10 +49,11 @@ trait LiveVariables {
 
     // determine which fields should be live also at the end (will not be nulled out)
     val noNull: Set[Symbol] = liftedSyms.filter { sym =>
-      liftables.exists { tree =>
+      sym.tpe.typeSymbol.isPrimitiveValueClass || liftables.exists { tree =>
         !liftedSyms.contains(tree.symbol) && tree.exists(_.symbol == sym)
       }
     }
+    AsyncUtils.vprintln(s"fields never zero-ed out: ${noNull.mkString(", ")}")
 
     /**
      *  Traverse statements of an `AsyncState`, collect `Ident`-s refering to lifted fields.
