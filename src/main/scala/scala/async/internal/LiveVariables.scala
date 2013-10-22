@@ -9,6 +9,11 @@ trait LiveVariables {
   /**
    *  Returns for a given state a list of fields (as trees) that should be nulled out
    *  upon resuming that state (at the beginning of `resume`).
+   *
+   *  @param   asyncStates the states of an `async` block
+   *  @param   liftables   the lifted fields
+   *  @return  a map mapping a state to the fields that should be nulled out
+   *           upon resuming that state
    */
   def fieldsToNullOut(asyncStates: List[AsyncState], liftables: List[Tree]): Map[Int, List[Tree]] = {
     // live variables analysis:
@@ -38,7 +43,9 @@ trait LiveVariables {
    *  (possible through loops), the corresponding field should be nulled out (at the beginning of
    *  `resume`).
    *
-   *  @return  a map which indicates for a given field (the key) the states in which it should be nulled out
+   *  @param   asyncStates the states of an `async` block
+   *  @param   liftables   the lifted fields
+   *  @return              a map which indicates for a given field (the key) the states in which it should be nulled out
    */
   def liveVars(asyncStates: List[AsyncState], liftables: List[Tree]): Map[Tree, Set[Int]] = {
     val liftedSyms: Set[Symbol] = // include only vars
