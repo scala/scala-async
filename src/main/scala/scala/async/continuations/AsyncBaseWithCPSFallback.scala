@@ -92,7 +92,7 @@ trait AsyncBaseWithCPSFallback extends internal.AsyncBase {
                                           (execContext: c.Expr[futureSystem.ExecContext]): c.Expr[futureSystem.Fut[T]] = {
     AsyncUtils.vprintln("AsyncBaseWithCPSFallback.asyncImpl")
 
-    val asyncMacro = AsyncMacro(c, futureSystem)
+    val asyncMacro = AsyncMacro(c, this)
 
     if (!asyncMacro.reportUnsupportedAwaits(body.tree.asInstanceOf[asyncMacro.global.Tree], report = fallbackEnabled))
       super.asyncImpl[T](c)(body)(execContext)   // no unsupported awaits

@@ -6,6 +6,7 @@ package scala.async.internal
 
 import scala.reflect.internal.annotations.compileTimeOnly
 import scala.reflect.macros.Context
+import scala.reflect.api.Universe
 
 /**
  * A base class for the `async` macro. Subclasses must provide:
@@ -45,7 +46,7 @@ abstract class AsyncBase {
                                  (execContext: c.Expr[futureSystem.ExecContext]): c.Expr[futureSystem.Fut[T]] = {
     import c.universe._
 
-    val asyncMacro = AsyncMacro(c, futureSystem)
+    val asyncMacro = AsyncMacro(c, self)
 
     val code = asyncMacro.asyncTransform[T](
       body.tree.asInstanceOf[asyncMacro.global.Tree],
@@ -59,4 +60,7 @@ abstract class AsyncBase {
     AsyncUtils.vprintln(s"async state machine transform expands to:\n ${code}")
     c.Expr[futureSystem.Fut[T]](code)
   }
+
+  protected[async] def nullOut(u: Universe)(name: u.Expr[String], v: u.Expr[Any]): u.Expr[Unit] =
+    u.reify { () }
 }

@@ -25,11 +25,13 @@ trait ExprBuilder {
   trait AsyncState {
     def state: Int
 
+    def nextStates: List[Int]
+
     def mkHandlerCaseForState: CaseDef
 
     def mkOnCompleteHandler[T: WeakTypeTag]: Option[CaseDef] = None
 
-    def stats: List[Tree]
+    var stats: List[Tree]
 
     final def allStats: List[Tree] = this match {
       case a: AsyncStateWithAwait => stats :+ a.awaitable.resultValDef
@@ -43,8 +45,11 @@ trait ExprBuilder {
   }
 
   /** A sequence of statements that concludes with a unconditional transition to `nextState` */
-  final class SimpleAsyncState(val stats: List[Tree], val state: Int, nextState: Int, symLookup: SymLookup)
+  final class SimpleAsyncState(var stats: List[Tree], val state: Int, nextState: Int, symLookup: SymLookup)
     extends AsyncState {
+
+    def nextStates: List[Int] =
+      List(nextState)
 
     def mkHandlerCaseForState: CaseDef =
       mkHandlerCase(state, stats :+ mkStateTree(nextState, symLookup) :+ mkResumeApply(symLookup))
@@ -56,20 +61,23 @@ trait ExprBuilder {
   /** A sequence of statements with a conditional transition to the next state, which will represent
     * a branch of an `if` or a `match`.
     */
-  final class AsyncStateWithoutAwait(val stats: List[Tree], val state: Int) extends AsyncState {
+  final class AsyncStateWithoutAwait(var stats: List[Tree], val state: Int, val nextStates: List[Int]) extends AsyncState {
     override def mkHandlerCaseForState: CaseDef =
       mkHandlerCase(state, stats)
 
     override val toString: String =
-      s"AsyncStateWithoutAwait #$state"
+      s"AsyncStateWithoutAwait #$state, nextStates = $nextStates"
   }
 
   /** A sequence of statements that concludes with an `await` call. The `onComplete`
     * handler will unconditionally transition to `nextState`.
     */
-  final class AsyncStateWithAwait(val stats: List[Tree], val state: Int, nextState: Int,
+  final class AsyncStateWithAwait(var stats: List[Tree], val state: Int, nextState: Int,
                                   val awaitable: Awaitable, symLookup: SymLookup)
     extends AsyncState {
+
+    def nextStates: List[Int] =
+      List(nextState)
 
     override def mkHandlerCaseForState: CaseDef = {
       val callOnComplete = futureSystemOps.onComplete(Expr(awaitable.expr),
@@ -147,7 +155,7 @@ trait ExprBuilder {
     def resultWithIf(condTree: Tree, thenState: Int, elseState: Int): AsyncState = {
       def mkBranch(state: Int) = Block(mkStateTree(state, symLookup) :: Nil, mkResumeApply(symLookup))
       this += If(condTree, mkBranch(thenState), mkBranch(elseState))
-      new AsyncStateWithoutAwait(stats.toList, state)
+      new AsyncStateWithoutAwait(stats.toList, state, List(thenState, elseState))
     }
 
     /**
@@ -169,12 +177,12 @@ trait ExprBuilder {
       }
       // 2. insert changed match tree at the end of the current state
       this += Match(scrutTree, newCases)
-      new AsyncStateWithoutAwait(stats.toList, state)
+      new AsyncStateWithoutAwait(stats.toList, state, caseStates)
     }
 
     def resultWithLabel(startLabelState: Int, symLookup: SymLookup): AsyncState = {
       this += Block(mkStateTree(startLabelState, symLookup) :: Nil, mkResumeApply(symLookup))
-      new AsyncStateWithoutAwait(stats.toList, state)
+      new AsyncStateWithoutAwait(stats.toList, state, List(startLabelState))
     }
 
     override def toString: String = {

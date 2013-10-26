@@ -6,6 +6,7 @@ package scala.async.internal
 
 import language.experimental.macros
 import scala.reflect.macros.Context
+import scala.reflect.api.Universe
 import scala.reflect.internal.SymbolTable
 
 object AsyncId extends AsyncBase {
@@ -15,6 +16,23 @@ object AsyncId extends AsyncBase {
   def async[T](body: T) = macro asyncIdImpl[T]
 
   def asyncIdImpl[T: c.WeakTypeTag](c: Context)(body: c.Expr[T]): c.Expr[T] = asyncImpl[T](c)(body)(c.literalUnit)
+}
+
+object AsyncTestLV extends AsyncBase {
+  lazy val futureSystem = IdentityFutureSystem
+  type FS = IdentityFutureSystem.type
+
+  def async[T](body: T) = macro asyncIdImpl[T]
+
+  def asyncIdImpl[T: c.WeakTypeTag](c: Context)(body: c.Expr[T]): c.Expr[T] = asyncImpl[T](c)(body)(c.literalUnit)
+
+  var log: List[(String, Any)] = List()
+
+  def apply(name: String, v: Any): Unit =
+    log ::= (name -> v)
+
+  protected[async] override def nullOut(u: Universe)(name: u.Expr[String], v: u.Expr[Any]): u.Expr[Unit] =
+    u.reify { scala.async.internal.AsyncTestLV(name.splice, v.splice) }
 }
 
 /**
