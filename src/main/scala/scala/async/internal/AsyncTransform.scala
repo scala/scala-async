@@ -29,8 +29,6 @@ trait AsyncTransform {
       DefDef(NoMods, name.apply, Nil, applyVParamss, TypeTree(definitions.UnitTpe), Literal(Constant(())))
     }
 
-    val stateMachineType = applied("scala.async.StateMachine", List(futureSystemOps.promType[T](uncheckedBoundsResultTag), futureSystemOps.execContextType))
-
     // Create `ClassDef` of state machine with empty method bodies for `resume` and `apply`.
     val stateMachine: ClassDef = {
       val body: List[Tree] = {
@@ -43,10 +41,15 @@ trait AsyncTransform {
           // See SI-1247 for the the optimization that avoids creatio
           DefDef(NoMods, name.apply, Nil, Nil, TypeTree(definitions.UnitTpe), Apply(Ident(name.resume), Nil))
         }
-        List(emptyConstructor, stateVar, result, execContextValDef) ++ List(resumeFunTreeDummyBody, applyDefDefDummyBody, apply0DefDef)
+        val extraValDef: ValDef = {
+          // We extend () => Unit so we can pass this class as the by-name argument to `Future.apply`.
+          // See SI-1247 for the the optimization that avoids creatio
+          ValDef(NoMods, newTermName("extra"), TypeTree(definitions.UnitTpe), Literal(Constant(())))
+        }
+        List(emptyConstructor, stateVar, result, execContextValDef) ++ List(resumeFunTreeDummyBody, applyDefDefDummyBody, apply0DefDef, extraValDef)
       }
 
-      val template = Template(List(stateMachineType), emptyValDef, body)
+      val template = Template(List(typeOf[(scala.util.Try[Any] => Unit)], typeOf[() => Unit]).map(TypeTree(_)), emptyValDef, body)
 
       val t = ClassDef(NoMods, name.stateMachineT, Nil, template)
       callSiteTyper.typedPos(macroPos)(Block(t :: Nil, Literal(Constant(()))))
@@ -93,7 +96,7 @@ trait AsyncTransform {
 
       Block(List[Tree](
         stateMachineSpliced,
-        ValDef(NoMods, name.stateMachine, stateMachineType, Apply(Select(New(Ident(stateMachine.symbol)), nme.CONSTRUCTOR), Nil)),
+        ValDef(NoMods, name.stateMachine, TypeTree(), Apply(Select(New(Ident(stateMachine.symbol)), nme.CONSTRUCTOR), Nil)),
         futureSystemOps.spawn(Apply(selectStateMachine(name.apply), Nil), selectStateMachine(name.execContext))
       ),
       futureSystemOps.promiseToFuture(Expr[futureSystem.Prom[T]](selectStateMachine(name.result))).tree)
