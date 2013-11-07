@@ -13,7 +13,13 @@ http://www.scala-lang.org/sites/default/files/contributor_agreement.pdf
 Before submitting a pull-request, please make sure you have followed the guidelines
 outlined in our [Pull Request Policy](https://github.com/scala/scala/wiki/Pull-Request-Policy).
 
-### Generated Code examples
+## Troubleshooting
+ - Logging of the transform can be enabled with `scalac -Dscala.async.debug=true`.
+ - Tracing of the ANF transform: `scalac -Dscala.async.trace=true`
+ - Debug the macro expansion by checking out the project and executing the application
+   [`scala.async.TreeInterrogation`](https://github.com/scala/async/blob/master/src/test/scala/scala/async/TreeInterrogation.scala#L59)
+
+## Generated Code examples
 
 ```scala
 val future = async {                                     
