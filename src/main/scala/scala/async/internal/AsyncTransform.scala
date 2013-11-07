@@ -15,7 +15,7 @@ trait AsyncTransform {
     // This implicit propagates the annotated type in the type tag.
     implicit val uncheckedBoundsResultTag: WeakTypeTag[T] = WeakTypeTag[T](rootMirror, FixedMirrorTypeCreator(rootMirror, uncheckedBounds(resultType.tpe)))
 
-    reportUnsupportedAwaits(body, report = !cpsFallbackEnabled)
+    reportUnsupportedAwaits(body)
 
     // Transform to A-normal form:
     //  - no await calls in qualifiers or arguments,

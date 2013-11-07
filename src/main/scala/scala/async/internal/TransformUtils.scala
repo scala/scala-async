@@ -89,8 +89,7 @@ private[async] trait TransformUtils {
     val Try_isFailure = TryClass.typeSignature.member(newTermName("isFailure")).ensuring(_ != NoSymbol)
     val TryAnyType    = appliedType(TryClass.toType, List(definitions.AnyTpe))
     val NonFatalClass = rootMirror.staticModule("scala.util.control.NonFatal")
-    val AsyncClass    = rootMirror.staticClass("scala.async.internal.AsyncBase")
-    val Async_await   = AsyncClass.typeSignature.member(newTermName("await")).ensuring(_ != NoSymbol)
+    val Async_await   = asyncBase.awaitMethod(global)(macroApplication.symbol).ensuring(_ != NoSymbol)
   }
 
   def isSafeToInline(tree: Tree) = {
