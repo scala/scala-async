@@ -12,7 +12,10 @@ version := "0.9.0-SNAPSHOT"
 
 libraryDependencies <++= (scalaVersion) {
   sv => Seq(
-    "org.scala-lang" % "scala-reflect" % sv % "provided",
+    // TODO we should make this provided after we rely on @compileTimeOnly in scla-library in 2.11.-
+    //      but if we do that now, and a user doesn't have this on the classpath, they can get the
+    //      dreaded MissingRequirementErrors when unpickling types from scala.async.Async
+    "org.scala-lang" % "scala-reflect" % sv,
     "org.scala-lang" % "scala-compiler" % sv % "provided"
   )
 }
