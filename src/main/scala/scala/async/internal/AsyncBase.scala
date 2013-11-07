@@ -39,8 +39,6 @@ abstract class AsyncBase {
   @compileTimeOnly("`await` must be enclosed in an `async` block")
   def await[T](awaitable: futureSystem.Fut[T]): T = ???
 
-  protected[async] def fallbackEnabled = false
-
   def asyncImpl[T: c.WeakTypeTag](c: Context)
                                  (body: c.Expr[T])
                                  (execContext: c.Expr[futureSystem.ExecContext]): c.Expr[futureSystem.Fut[T]] = {
@@ -50,8 +48,8 @@ abstract class AsyncBase {
 
     val code = asyncMacro.asyncTransform[T](
       body.tree.asInstanceOf[asyncMacro.global.Tree],
-      execContext.tree.asInstanceOf[asyncMacro.global.Tree],
-      fallbackEnabled)(implicitly[c.WeakTypeTag[T]].asInstanceOf[asyncMacro.global.WeakTypeTag[T]]).asInstanceOf[Tree]
+      execContext.tree.asInstanceOf[asyncMacro.global.Tree]
+      )(implicitly[c.WeakTypeTag[T]].asInstanceOf[asyncMacro.global.WeakTypeTag[T]]).asInstanceOf[Tree]
 
     // Mark range positions for synthetic code as transparent to allow some wiggle room for overlapping ranges
     for (t <- code)

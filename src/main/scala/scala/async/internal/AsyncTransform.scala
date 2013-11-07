@@ -7,7 +7,7 @@ trait AsyncTransform {
 
   val asyncBase: AsyncBase
 
-  def asyncTransform[T](body: Tree, execContext: Tree, cpsFallbackEnabled: Boolean)
+  def asyncTransform[T](body: Tree, execContext: Tree)
                        (resultType: WeakTypeTag[T]): Tree = {
 
     // We annotate the type of the whole expression as `T @uncheckedBounds` so as not to introduce
