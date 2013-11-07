@@ -4,11 +4,11 @@ scalaVersion := "2.10.3"
 // scalaHome := Some(file("/code/scala2/build/pack"))
 
 
-organization := "org.scala-lang.modules.async" // TODO new org name under scala-lang.
+organization := "org.scala-lang.modules.scala-async"
 
 name := "scala-async"
 
-version := "1.0.0-SNAPSHOT"
+version := "0.9.0-SNAPSHOT"
 
 libraryDependencies <++= (scalaVersion) {
   sv => Seq(
@@ -66,7 +66,7 @@ mappings in (Compile, packageBin) += {
 }
 
 
-description := "An asynchronous programming facility for Scala, in the spirit of C# await/async"
+description := "An asynchronous programming facility for Scala that offers a direct API for working with Futures."
 
 homepage := Some(url("http://github.com/scala/async"))
 
@@ -113,3 +113,21 @@ pomExtra := (
       <connection>scm:git:git@github.com:scala/async.git</connection>
     </scm>
   )
+
+osgiSettings
+
+val osgiVersion = version(_.replace('-', '.'))
+
+OsgiKeys.bundleSymbolicName := s"${organization.value}.${name.value}"
+
+OsgiKeys.bundleVersion := osgiVersion.value
+
+OsgiKeys.exportPackage := Seq(s"scala.async.*;version=${version.value}")
+
+// Sources should also have a nice MANIFEST file
+packageOptions in packageSrc := Seq(Package.ManifestAttributes(
+                      ("Bundle-SymbolicName", s"${organization.value}.${name.value}.source"),
+                      ("Bundle-Name", s"${name.value} sources"),
+                      ("Bundle-Version", osgiVersion.value),
+                      ("Eclipse-SourceBundle", s"""${organization.value}.${name.value};version="${osgiVersion.value}";roots:="."""")
+                  ))
