@@ -203,7 +203,21 @@ private[async] trait AnfTransform {
               }
             }
 
-            val typedNewApply = copyApplied(tree, treeInfo.dissectApplied(tree).applyDepth)
+
+            /** The depth of the nested applies: e.g. Apply(Apply(Apply(_, _), _), _)
+              *  has depth 3.  Continues through type applications (without counting them.)
+             */
+            def applyDepth: Int = {
+              def loop(tree: Tree): Int = tree match {
+                case Apply(fn, _)           => 1 + loop(fn)
+                case TypeApply(fn, _)       => loop(fn)
+                case AppliedTypeTree(fn, _) => loop(fn)
+                case _                      => 0
+              }
+              loop(tree)
+            }
+
+            val typedNewApply = copyApplied(tree, applyDepth)
 
             funStats ++ argStatss.flatten.flatten :+ typedNewApply
 
