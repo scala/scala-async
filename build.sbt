@@ -4,7 +4,7 @@ scalaVersion := "2.10.3"
 // scalaHome := Some(file("/code/scala2/build/pack"))
 
 
-organization := "org.scala-lang.modules.scala-async"
+organization := "org.scala-lang.modules"
 
 name := "scala-async"
 
