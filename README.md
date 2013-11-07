@@ -222,7 +222,7 @@ After async transform:
 
 ```scala
  {
-  class stateMachine$7 extends StateMachine[scala.concurrent.Promise[Int], scala.concurrent.ExecutionContext] {
+  class stateMachine$7 extends ... {
     def <init>() = {
       super.<init>();
       ()

@@ -78,7 +78,5 @@ object IdentityFutureSystem extends FutureSystem {
       prom.splice.a = value.splice.get
       Expr[Unit](Literal(Constant(()))).splice
     }
-
-    def castTo[A: WeakTypeTag](future: Expr[Fut[Any]]): Expr[Fut[A]] = ???
   }
 }

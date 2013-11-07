@@ -28,27 +28,6 @@ testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v", "-s")
 
 parallelExecution in Global := false
 
-autoCompilerPlugins := true
-
-scalacOptions ++= (scalaHome.value match {
-  case Some(sh) =>
-    // Use continuations plugin from the local scala instance
-    val continuationsJar = sh / "misc" / "scala-devel" / "plugins" / "continuations.jar"
-    ("-Xplugin:" + continuationsJar.getAbsolutePath) :: Nil
-  case None =>
-    Nil
-})
-
-libraryDependencies ++= (scalaHome.value match {
-  case Some(sh) =>
-    Nil
-  case None =>
-    // Use continuations plugin from the published artifact.
-    compilerPlugin("org.scala-lang.plugins" % "continuations" % scalaVersion.value) :: Nil
-})
-
-scalacOptions += "-P:continuations:enable"
-
 scalacOptions in compile ++= Seq("-optimize", "-deprecation", "-unchecked", "-Xlint", "-feature")
 
 scalacOptions in Test ++= Seq("-Yrangepos")

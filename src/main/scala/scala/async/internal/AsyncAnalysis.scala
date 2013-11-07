@@ -18,13 +18,13 @@ trait AsyncAnalysis {
    *
    * Must be called on the original tree, not on the ANF transformed tree.
    */
-  def reportUnsupportedAwaits(tree: Tree, report: Boolean): Boolean = {
-    val analyzer = new UnsupportedAwaitAnalyzer(report)
+  def reportUnsupportedAwaits(tree: Tree): Unit = {
+    val analyzer = new UnsupportedAwaitAnalyzer
     analyzer.traverse(tree)
     analyzer.hasUnsupportedAwaits
   }
 
-  private class UnsupportedAwaitAnalyzer(report: Boolean) extends AsyncTraverser {
+  private class UnsupportedAwaitAnalyzer extends AsyncTraverser {
     var hasUnsupportedAwaits = false
 
     override def nestedClass(classDef: ClassDef) {
@@ -87,8 +87,7 @@ trait AsyncAnalysis {
 
     private def reportError(pos: Position, msg: String) {
       hasUnsupportedAwaits = true
-      if (report)
-        abort(pos, msg)
+      abort(pos, msg)
     }
   }
 }

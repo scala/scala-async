@@ -51,9 +51,6 @@ trait FutureSystem {
 
     def spawn(tree: Tree, execContext: Tree): Tree =
       future(Expr[Unit](tree))(Expr[ExecContext](execContext)).tree
-
-    // This is only needed in `AsyncBaseWithCPSFallback` and should be removed once CPS fall-back support is dropped.
-    def castTo[A: WeakTypeTag](future: Expr[Fut[Any]]): Expr[Fut[A]]
   }
 
   def mkOps(c: SymbolTable): Ops { val universe: c.type }
@@ -95,10 +92,6 @@ object ScalaConcurrentFutureSystem extends FutureSystem {
     def completeProm[A](prom: Expr[Prom[A]], value: Expr[scala.util.Try[A]]): Expr[Unit] = reify {
       prom.splice.complete(value.splice)
       Expr[Unit](Literal(Constant(()))).splice
-    }
-
-    def castTo[A: WeakTypeTag](future: Expr[Fut[Any]]): Expr[Fut[A]] = reify {
-      future.splice.asInstanceOf[Fut[A]]
     }
   }
 }

@@ -61,6 +61,11 @@ abstract class AsyncBase {
     c.Expr[futureSystem.Fut[T]](code)
   }
 
+  protected[async] def awaitMethod(u: Universe)(asyncMacroSymbol: u.Symbol): u.Symbol = {
+    import u._
+    asyncMacroSymbol.owner.typeSignature.member(newTermName("await"))
+  }  
+  
   protected[async] def nullOut(u: Universe)(name: u.Expr[String], v: u.Expr[Any]): u.Expr[Unit] =
     u.reify { () }
 }
