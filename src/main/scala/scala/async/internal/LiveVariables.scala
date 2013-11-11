@@ -68,19 +68,53 @@ trait LiveVariables {
      *  @param  as  a state of an `async` expression
      *  @return     a set of lifted fields that are used within state `as`
      */
-    def fieldsUsedIn(as: AsyncState): Set[Symbol] = {
-      class FindUseTraverser extends Traverser {
+    def fieldsUsedIn(as: AsyncState): ReferencedFields = {
+      class FindUseTraverser extends AsyncTraverser {
         var usedFields = Set[Symbol]()
-        override def traverse(tree: Tree) = tree match {
-          case Ident(_) if liftedSyms(tree.symbol) =>
-            usedFields += tree.symbol
-          case _ =>
-            super.traverse(tree)
+        var capturedFields = Set[Symbol]()
+        private def capturing[A](body: => A): A = {
+          val saved = capturing
+          try {
+            capturing = true
+            body
+          } finally capturing = saved
         }
+        private def capturingCheck(tree: Tree) = capturing(tree foreach check)
+        private var capturing: Boolean = false
+        private def check(tree: Tree) {
+          tree match {
+            case Ident(_) if liftedSyms(tree.symbol) =>
+              if (capturing)
+                capturedFields += tree.symbol
+              else
+                usedFields += tree.symbol
+            case _ =>
+          }
+        }
+        override def traverse(tree: Tree) = {
+          check(tree)
+          super.traverse(tree)
+        }
+
+        override def nestedClass(classDef: ClassDef): Unit = capturingCheck(classDef)
+
+        override def nestedModule(module: ModuleDef): Unit = capturingCheck(module)
+
+        override def nestedMethod(defdef: DefDef): Unit = capturingCheck(defdef)
+
+        override def byNameArgument(arg: Tree): Unit = capturingCheck(arg)
+
+        override def function(function: Function): Unit = capturingCheck(function)
+
+        override def patMatFunction(tree: Match): Unit = capturingCheck(tree)
       }
+
       val findUses = new FindUseTraverser
       findUses.traverse(Block(as.stats: _*))
-      findUses.usedFields
+      ReferencedFields(findUses.usedFields, findUses.capturedFields)
+    }
+    case class ReferencedFields(used: Set[Symbol], captured: Set[Symbol]) {
+      override def toString = s"used: ${used.mkString(",")}\ncaptured: ${captured.mkString(",")}"
     }
 
     /* Build the control-flow graph.
@@ -104,7 +138,7 @@ trait LiveVariables {
     val finalState = asyncStates.find(as => !asyncStates.exists(other => isPred(as.state, other.state))).get
 
     for (as <- asyncStates)
-      AsyncUtils.vprintln(s"fields used in state #${as.state}: ${fieldsUsedIn(as).mkString(", ")}")
+      AsyncUtils.vprintln(s"fields used in state #${as.state}: ${fieldsUsedIn(as)}")
 
     /* Backwards data-flow analysis. Computes live variables information at entry and exit
      * of each async state.
@@ -130,13 +164,16 @@ trait LiveVariables {
     var currStates = List(finalState)    // start at final state
     var pred       = List[AsyncState]()  // current predecessor states
     var hasChanged = true                // if something has changed we need to continue iterating
+    var captured: Set[Symbol] = Set()
 
     while (hasChanged) {
       hasChanged = false
 
       for (cs <- currStates) {
         val LVentryOld = LVentry(cs.state)
-        val LVentryNew = LVexit(cs.state) ++ fieldsUsedIn(cs)
+        val referenced = fieldsUsedIn(cs)
+        captured ++= referenced.captured
+        val LVentryNew = LVexit(cs.state) ++ referenced.used
         if (!LVentryNew.sameElements(LVentryOld)) {
           LVentry = LVentry + (cs.state -> LVentryNew)
           hasChanged = true
@@ -164,6 +201,9 @@ trait LiveVariables {
 
     def lastUsagesOf(field: Tree, at: AsyncState, avoid: Set[AsyncState]): Set[Int] =
       if (avoid(at)) Set()
+      else if (captured(field.symbol)) {
+        Set()
+      }
       else LVentry get at.state match {
         case Some(fields) if fields.exists(_ == field.symbol) =>
           Set(at.state)

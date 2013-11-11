@@ -19,6 +19,7 @@ case class MCell[T](var v: T)
 
 
 class LiveVariablesSpec {
+  AsyncTestLV.clear()
 
   @Test
   def `zero out fields of reference type`() {
@@ -35,7 +36,7 @@ class LiveVariablesSpec {
       // a == Cell(1)
       val b: Cell[Int] = await(m1(a))  // await$2$1
       // b == Cell(2)
-      assert(AsyncTestLV.log.exists(_ == ("await$1$1" -> Cell(1))))
+      assert(AsyncTestLV.log.exists(_ == ("await$1$1" -> Cell(1))), AsyncTestLV.log)
       val res = await(m2(b))           // await$3$1
       assert(AsyncTestLV.log.exists(_ == ("await$2$1" -> Cell(2))))
       res
@@ -141,12 +142,125 @@ class LiveVariablesSpec {
 
       val b = await(m1(a, y.v))        // await$15$1
       // state #8
-      assert(AsyncTestLV.log.exists(_ == ("a$1" -> MCell(10))))
+      assert(AsyncTestLV.log.exists(_ == ("a$1" -> MCell(10))), AsyncTestLV.log)
       assert(AsyncTestLV.log.exists(_ == ("y$1" -> MCell(11))))
       b
     }
 
-    assert(m3() == 21)
+    assert(m3() == 21, m3())
   }
 
+  @Test
+  def `don't zero captured fields captured lambda`() {
+    val f = async {
+      val x = "x"
+      val y = "y"
+      await(0)
+      y.reverse
+      val f = () => assert(x != null)
+      await(0)
+      f
+    }
+    AsyncTestLV.assertNotNulledOut("x")
+    AsyncTestLV.assertNulledOut("y")
+    f()
+  }
+
+  @Test
+  def `don't zero captured fields captured by-name`() {
+    def func0[A](a: => A): () => A =  () => a
+    val f = async {
+      val x = "x"
+      val y = "y"
+      await(0)
+      y.reverse
+      val f = func0(assert(x != null))
+      await(0)
+      f
+    }
+    AsyncTestLV.assertNotNulledOut("x")
+    AsyncTestLV.assertNulledOut("y")
+    f()
+  }
+
+  @Test
+  def `don't zero captured fields nested class`() {
+    def func0[A](a: => A): () => A = () => a
+    val f = async {
+      val x = "x"
+      val y = "y"
+      await(0)
+      y.reverse
+      val f = new Function0[Unit] {
+        def apply = assert(x != null)
+      }
+      await(0)
+      f
+    }
+    AsyncTestLV.assertNotNulledOut("x")
+    AsyncTestLV.assertNulledOut("y")
+    f()
+  }
+
+  @Test
+  def `don't zero captured fields nested object`() {
+    def func0[A](a: => A): () => A = () => a
+    val f = async {
+      val x = "x"
+      val y = "y"
+      await(0)
+      y.reverse
+      object f extends Function0[Unit] {
+        def apply = assert(x != null)
+      }
+      await(0)
+      f
+    }
+    AsyncTestLV.assertNotNulledOut("x")
+    AsyncTestLV.assertNulledOut("y")
+    f()
+  }
+
+  @Test
+  def `don't zero captured fields nested def`() {
+    val f = async {
+      val x = "x"
+      val y = "y"
+      await(0)
+      y.reverse
+      def xx = x
+      val f = xx _
+      await(0)
+      f
+    }
+    AsyncTestLV.assertNotNulledOut("x")
+    AsyncTestLV.assertNulledOut("y")
+    f()
+  }
+
+  @Test
+  def `capture bug`() {
+    sealed trait Base
+    case class B1() extends Base
+    case class B2() extends Base
+    val outer = List[(Base, Int)]((B1(), 8))
+
+    def getMore(b: Base) = 4
+
+    def baz = async {
+      outer.head match {
+        case (a @ B1(), r) => {
+          val ents = await(getMore(a))
+
+          { () =>
+            println(a)
+            assert(a ne null)
+          }
+        }
+        case (b @ B2(), x) =>
+          () => ???
+      }
+    }
+    baz()
+  }
 }
