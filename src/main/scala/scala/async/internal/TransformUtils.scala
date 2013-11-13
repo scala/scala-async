@@ -166,7 +166,7 @@ private[async] trait TransformUtils {
     def nestedModule(module: ModuleDef) {
     }
 
-    def nestedMethod(module: DefDef) {
+    def nestedMethod(defdef: DefDef) {
     }
 
     def byNameArgument(arg: Tree) {

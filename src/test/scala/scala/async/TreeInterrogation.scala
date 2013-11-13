@@ -66,13 +66,43 @@ object TreeInterrogation extends App {
   withDebug {
     val cm = reflect.runtime.currentMirror
     val tb = mkToolbox("-cp ${toolboxClasspath} -Xprint:typer -uniqid")
-    import scala.async.Async._
+    import scala.async.internal.AsyncTestLV._
     val tree = tb.parse(
-      """ import _root_.scala.async.internal.AsyncId.{async, await}
+      """
+        | import scala.async.internal.AsyncTestLV._
+        | import scala.async.internal.AsyncTestLV
+        |
+        | case class MCell[T](var v: T)
+        | val f = async { MCell(1) }
+        |
+        | def m1(x: MCell[Int], y: Int): Int =
+        |   async { x.v + y }
+        | case class Cell[T](v: T)
+        |
         | async {
-        |   implicit def view(a: Int): String = ""
-        |   await(0).length
+        |   // state #1
+        |   val a: MCell[Int] = await(f)     // await$13$1
+        |   // state #2
+        |   var y = MCell(0)
+        |
+        |   while (a.v < 10) {
+        |     // state #4
+        |     a.v = a.v + 1
+        |     y = MCell(await(a).v + 1)      // await$14$1
+        |     // state #7
+        |   }
+        |
+        |   // state #3
+        |   assert(AsyncTestLV.log.exists(entry => entry._1 == "await$14$1"))
+        |
+        |   val b = await(m1(a, y.v))        // await$15$1
+        |   // state #8
+        |   assert(AsyncTestLV.log.exists(_ == ("a$1" -> MCell(10))))
+        |   assert(AsyncTestLV.log.exists(_ == ("y$1" -> MCell(11))))
+        |   b
         | }
+        |
+        |
         | """.stripMargin)
     println(tree)
     val tree1 = tb.typeCheck(tree.duplicate)
