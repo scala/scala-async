@@ -51,6 +51,9 @@ trait FutureSystem {
 
     def spawn(tree: Tree, execContext: Tree): Tree =
       future(Expr[Unit](tree))(Expr[ExecContext](execContext)).tree
+
+    /** A hook for custom macros to transform the tree post-ANF transform */
+    def postAnfTransform(tree: Block): Block = tree
   }
 
   def mkOps(c: SymbolTable): Ops { val universe: c.type }

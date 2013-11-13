@@ -20,7 +20,9 @@ trait AsyncTransform {
     // Transform to A-normal form:
     //  - no await calls in qualifiers or arguments,
     //  - if/match only used in statement position.
-    val anfTree: Block = anfTransform(body)
+    val anfTree0: Block = anfTransform(body)
+
+    val anfTree = futureSystemOps.postAnfTransform(anfTree0)
 
     val resumeFunTreeDummyBody = DefDef(Modifiers(), name.resume, Nil, List(Nil), Ident(definitions.UnitClass), Literal(Constant(())))
 
