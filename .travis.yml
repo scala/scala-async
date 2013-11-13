@@ -1,0 +1,13 @@
+language: scala
+script: 
+  - sbt ++$TRAVIS_SCALA_VERSION clean test publishLocal
+scala:
+  - 2.10.3
+  - 2.11.0-M6
+jdk:
+  - oraclejdk6
+  - openjdk7
+notifications:
+  email:
+    - jason.zaugg@typesafe.com
+    - philipp.haller@typesafe.com
