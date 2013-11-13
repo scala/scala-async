@@ -1,5 +1,8 @@
 # Scala Async Project
 
+[![Build Status](https://secure.travis-ci.org/scala/async.png)](http://travis-ci.org/scala/async)
+
+
 ## Quick start
 
 Add a dependency:
