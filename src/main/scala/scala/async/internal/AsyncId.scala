@@ -50,6 +50,7 @@ object IdentityFutureSystem extends FutureSystem {
 
   type Fut[A] = A
   type ExecContext = Unit
+  type Tryy[A] = scala.util.Try[A]
 
   def mkOps(c: SymbolTable): Ops {val universe: c.type} = new Ops {
     val universe: c.type = c
@@ -59,6 +60,7 @@ object IdentityFutureSystem extends FutureSystem {
     def execContext: Expr[ExecContext] = Expr[Unit](Literal(Constant(())))
 
     def promType[A: WeakTypeTag]: Type = weakTypeOf[Prom[A]]
+    def tryType[A: WeakTypeTag]: Type = weakTypeOf[scala.util.Try[A]]
     def execContextType: Type = weakTypeOf[Unit]
 
     def createProm[A: WeakTypeTag]: Expr[Prom[A]] = reify {
@@ -71,15 +73,29 @@ object IdentityFutureSystem extends FutureSystem {
 
     def future[A: WeakTypeTag](t: Expr[A])(execContext: Expr[ExecContext]) = t
 
-    def onComplete[A, U](future: Expr[Fut[A]], fun: Expr[scala.util.Try[A] => U],
+    def onComplete[A, U](future: Expr[Fut[A]], fun: Expr[Tryy[A] => U],
                          execContext: Expr[ExecContext]): Expr[Unit] = reify {
       fun.splice.apply(util.Success(future.splice))
       Expr[Unit](Literal(Constant(()))).splice
     }
 
-    def completeProm[A](prom: Expr[Prom[A]], value: Expr[scala.util.Try[A]]): Expr[Unit] = reify {
+    def completeProm[A](prom: Expr[Prom[A]], value: Expr[Tryy[A]]): Expr[Unit] = reify {
       prom.splice.a = value.splice.get
       Expr[Unit](Literal(Constant(()))).splice
+    }
+
+    def tryyIsFailure[A](tryy: Expr[Tryy[A]]): Expr[Boolean] = reify {
+      tryy.splice.isFailure
+    }
+
+    def tryyGet[A](tryy: Expr[Tryy[A]]): Expr[A] = reify {
+      tryy.splice.get
+    }
+    def tryySuccess[A: WeakTypeTag](a: Expr[A]): Expr[Tryy[A]] = reify {
+      scala.util.Success[A](a.splice)
+    }
+    def tryyFailure[A: WeakTypeTag](a: Expr[Throwable]): Expr[Tryy[A]] = reify {
+      scala.util.Failure[A](a.splice)
     }
   }
 }

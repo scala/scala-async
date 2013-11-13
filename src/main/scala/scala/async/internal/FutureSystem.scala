@@ -23,6 +23,8 @@ trait FutureSystem {
   type Fut[A]
   /** An execution context, required to create or register an on completion callback on a Future. */
   type ExecContext
+  /** Any data type isomorphic to scala.util.Try. */
+  type Tryy[T]
 
   trait Ops {
     val universe: reflect.internal.SymbolTable
@@ -31,6 +33,7 @@ trait FutureSystem {
     def Expr[T: WeakTypeTag](tree: Tree): Expr[T] = universe.Expr[T](rootMirror, universe.FixedMirrorTreeCreator(rootMirror, tree))
 
     def promType[A: WeakTypeTag]: Type
+    def tryType[A: WeakTypeTag]: Type
     def execContextType: Type
 
     /** Create an empty promise */
@@ -43,14 +46,20 @@ trait FutureSystem {
     def future[A: WeakTypeTag](a: Expr[A])(execContext: Expr[ExecContext]): Expr[Fut[A]]
 
     /** Register an call back to run on completion of the given future */
-    def onComplete[A, U](future: Expr[Fut[A]], fun: Expr[scala.util.Try[A] => U],
+    def onComplete[A, U](future: Expr[Fut[A]], fun: Expr[Tryy[A] => U],
                          execContext: Expr[ExecContext]): Expr[Unit]
 
     /** Complete a promise with a value */
-    def completeProm[A](prom: Expr[Prom[A]], value: Expr[scala.util.Try[A]]): Expr[Unit]
+    def completeProm[A](prom: Expr[Prom[A]], value: Expr[Tryy[A]]): Expr[Unit]
 
     def spawn(tree: Tree, execContext: Tree): Tree =
       future(Expr[Unit](tree))(Expr[ExecContext](execContext)).tree
+
+    def tryyIsFailure[A](tryy: Expr[Tryy[A]]): Expr[Boolean]
+
+    def tryyGet[A](tryy: Expr[Tryy[A]]): Expr[A]
+    def tryySuccess[A: WeakTypeTag](a: Expr[A]): Expr[Tryy[A]]
+    def tryyFailure[A: WeakTypeTag](a: Expr[Throwable]): Expr[Tryy[A]]
 
     /** A hook for custom macros to transform the tree post-ANF transform */
     def postAnfTransform(tree: Block): Block = tree
@@ -66,6 +75,7 @@ object ScalaConcurrentFutureSystem extends FutureSystem {
   type Prom[A] = Promise[A]
   type Fut[A] = Future[A]
   type ExecContext = ExecutionContext
+  type Tryy[A] = scala.util.Try[A]
 
   def mkOps(c: SymbolTable): Ops {val universe: c.type} = new Ops {
     val universe: c.type = c
@@ -73,6 +83,7 @@ object ScalaConcurrentFutureSystem extends FutureSystem {
     import universe._
 
     def promType[A: WeakTypeTag]: Type = weakTypeOf[Promise[A]]
+    def tryType[A: WeakTypeTag]: Type = weakTypeOf[scala.util.Try[A]]
     def execContextType: Type = weakTypeOf[ExecutionContext]
 
     def createProm[A: WeakTypeTag]: Expr[Prom[A]] = reify {
@@ -95,6 +106,20 @@ object ScalaConcurrentFutureSystem extends FutureSystem {
     def completeProm[A](prom: Expr[Prom[A]], value: Expr[scala.util.Try[A]]): Expr[Unit] = reify {
       prom.splice.complete(value.splice)
       Expr[Unit](Literal(Constant(()))).splice
+    }
+
+    def tryyIsFailure[A](tryy: Expr[scala.util.Try[A]]): Expr[Boolean] = reify {
+      tryy.splice.isFailure
+    }
+
+    def tryyGet[A](tryy: Expr[Tryy[A]]): Expr[A] = reify {
+      tryy.splice.get
+    }
+    def tryySuccess[A: WeakTypeTag](a: Expr[A]): Expr[Tryy[A]] = reify {
+      scala.util.Success[A](a.splice)
+    }
+    def tryyFailure[A: WeakTypeTag](a: Expr[Throwable]): Expr[Tryy[A]] = reify {
+      scala.util.Failure[A](a.splice)
     }
   }
 }
