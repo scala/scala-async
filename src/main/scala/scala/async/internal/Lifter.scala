@@ -105,45 +105,52 @@ trait Lifter {
     }
 
     val lifted = liftableSyms.map(symToTree).toList.map {
-      case vd@ValDef(_, _, tpt, rhs)                          =>
-        import reflect.internal.Flags._
-        val sym = vd.symbol
-        sym.setFlag(MUTABLE | STABLE | PRIVATE | LOCAL)
-        sym.name = name.fresh(sym.name.toTermName)
-        sym.modifyInfo(_.deconst)
-        ValDef(vd.symbol, gen.mkZero(vd.symbol.info)).setPos(vd.pos)
-      case dd@DefDef(mods, name, tparams, vparamss, tpt, rhs) =>
-        import reflect.internal.Flags._
-        val sym = dd.symbol
-        sym.name = this.name.fresh(sym.name.toTermName)
-        sym.setFlag(PRIVATE | LOCAL)
-        DefDef(dd.symbol, rhs).setPos(dd.pos)
-      case cd@ClassDef(_, _, _, impl)                         =>
-        import reflect.internal.Flags._
-        val sym = cd.symbol
-        sym.name = newTypeName(name.fresh(sym.name.toString).toString)
-        companionship.companionOf(cd.symbol) match {
-          case NoSymbol =>
-          case moduleSymbol =>
-            moduleSymbol.name = sym.name.toTermName
-            moduleSymbol.moduleClass.name = moduleSymbol.name.toTypeName
-        }
-        ClassDef(cd.symbol, impl).setPos(cd.pos)
-      case md@ModuleDef(_, _, impl)                           =>
-        import reflect.internal.Flags._
-        val sym = md.symbol
-        companionship.companionOf(md.symbol) match {
-          case NoSymbol =>
+      t =>
+        val treeLifted = t match {
+          case vd@ValDef(_, _, tpt, rhs)                    =>
+            import reflect.internal.Flags._
+            val sym = vd.symbol
+            sym.setFlag(MUTABLE | STABLE | PRIVATE | LOCAL)
             sym.name = name.fresh(sym.name.toTermName)
-            sym.moduleClass.name = sym.name.toTypeName
-          case classSymbol => // will be renamed by `case ClassDef` above.
+            sym.modifyInfo(_.deconst)
+            val zeroRhs = atPos(t.pos)(gen.mkZero(vd.symbol.info))
+            treeCopy.ValDef(vd, Modifiers(sym.flags), sym.name, TypeTree(sym.tpe).setPos(t.pos), zeroRhs)
+          case dd@DefDef(_, _, tparams, vparamss, tpt, rhs) =>
+            import reflect.internal.Flags._
+            val sym = dd.symbol
+            sym.name = this.name.fresh(sym.name.toTermName)
+            sym.setFlag(PRIVATE | LOCAL)
+            // Was `DefDef(sym, rhs)`, but this ran afoul of `ToughTypeSpec.nestedMethodWithInconsistencyTreeAndInfoParamSymbols`
+            // due to the handling of type parameter skolems in `thisMethodType` in `Namers`
+            treeCopy.DefDef(dd, Modifiers(sym.flags), sym.name, tparams, vparamss, tpt, rhs)
+          case cd@ClassDef(_, _, tparams, impl)             =>
+            import reflect.internal.Flags._
+            val sym = cd.symbol
+            sym.name = newTypeName(name.fresh(sym.name.toString).toString)
+            companionship.companionOf(cd.symbol) match {
+              case NoSymbol     =>
+              case moduleSymbol =>
+                moduleSymbol.name = sym.name.toTermName
+                moduleSymbol.moduleClass.name = moduleSymbol.name.toTypeName
+            }
+            treeCopy.ClassDef(cd, Modifiers(sym.flags), sym.name, tparams, impl)
+          case md@ModuleDef(_, _, impl)                     =>
+            import reflect.internal.Flags._
+            val sym = md.symbol
+            companionship.companionOf(md.symbol) match {
+              case NoSymbol    =>
+                sym.name = name.fresh(sym.name.toTermName)
+                sym.moduleClass.name = sym.name.toTypeName
+              case classSymbol => // will be renamed by `case ClassDef` above.
+            }
+            treeCopy.ModuleDef(md, Modifiers(sym.flags), sym.name, impl)
+          case td@TypeDef(_, _, tparams, rhs)               =>
+            import reflect.internal.Flags._
+            val sym = td.symbol
+            sym.name = newTypeName(name.fresh(sym.name.toString).toString)
+            treeCopy.TypeDef(td, Modifiers(sym.flags), sym.name, tparams, rhs)
         }
-        ModuleDef(md.symbol, impl).setPos(md.pos)
-      case td@TypeDef(_, _, _, rhs)                           =>
-        import reflect.internal.Flags._
-        val sym = td.symbol
-        sym.name = newTypeName(name.fresh(sym.name.toString).toString)
-        TypeDef(td.symbol, rhs).setPos(td.pos)
+        atPos(t.pos)(treeLifted)
     }
     lifted
   }

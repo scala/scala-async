@@ -135,9 +135,59 @@ class ToughTypeSpec {
     }
     foo
   }
+
+  // This test was failing when lifting `def r` with:
+  // symbol value m#10864 does not exist in r$1
+  //
+  // We generated:
+  //
+  //   private[this] def r$1#5727[A#5728 >: Nothing#157 <: Any#156](m#5731: Foo#2349[A#5728]): Unit#208 = Bippy#2352.this.bar#5532({
+  //     m#5730;
+  //     ()
+  //   });
+  //
+  // Notice the incorrect reference to `m`.
+  //
+  // We compensated in `Lifter` by copying `ValDef` parameter symbols directly across.
+  //
+  // Turns out the behaviour stems from `thisMethodType` in `Namers`, which treats type parameter skolem symbols.
+  @Test def nestedMethodWithInconsistencyTreeAndInfoParamSymbols() {
+    import language.{reflectiveCalls, postfixOps}
+    import scala.concurrent.{Future, ExecutionContext, future, Await}
+    import scala.concurrent.duration._
+    import scala.async.Async.{async, await}
+    import scala.async.internal.AsyncId
+
+    class Foo[A]
+
+    object Bippy {
+
+      import ExecutionContext.Implicits.global
+
+      def bar(f: => Unit): Unit = f
+
+      def quux: Future[String] = ???
+
+      def foo = async {
+        def r[A](m: Foo[A])(n: A) = {
+          bar {
+            locally(m)
+            locally(n)
+            identity[A] _
+          }
+        }
+
+        await(quux)
+
+        r(new Foo[String])("")
+      }
+    }
+    Bippy
+  }
 }
 
 trait A
+
 trait B
 
 trait L[A2, B2 <: A2] {
