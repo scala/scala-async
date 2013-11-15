@@ -2,6 +2,7 @@ package scala.async.internal
 
 trait Lifter {
   self: AsyncMacro =>
+  import scala.reflect.internal.Flags._
   import global._
 
   /**
@@ -106,26 +107,21 @@ trait Lifter {
 
     val lifted = liftableSyms.map(symToTree).toList.map {
       t =>
+        val sym = t.symbol
         val treeLifted = t match {
           case vd@ValDef(_, _, tpt, rhs)                    =>
-            import reflect.internal.Flags._
-            val sym = vd.symbol
             sym.setFlag(MUTABLE | STABLE | PRIVATE | LOCAL)
             sym.name = name.fresh(sym.name.toTermName)
             sym.modifyInfo(_.deconst)
             val zeroRhs = atPos(t.pos)(gen.mkZero(vd.symbol.info))
             treeCopy.ValDef(vd, Modifiers(sym.flags), sym.name, TypeTree(sym.tpe).setPos(t.pos), zeroRhs)
           case dd@DefDef(_, _, tparams, vparamss, tpt, rhs) =>
-            import reflect.internal.Flags._
-            val sym = dd.symbol
             sym.name = this.name.fresh(sym.name.toTermName)
             sym.setFlag(PRIVATE | LOCAL)
             // Was `DefDef(sym, rhs)`, but this ran afoul of `ToughTypeSpec.nestedMethodWithInconsistencyTreeAndInfoParamSymbols`
             // due to the handling of type parameter skolems in `thisMethodType` in `Namers`
             treeCopy.DefDef(dd, Modifiers(sym.flags), sym.name, tparams, vparamss, tpt, rhs)
           case cd@ClassDef(_, _, tparams, impl)             =>
-            import reflect.internal.Flags._
-            val sym = cd.symbol
             sym.name = newTypeName(name.fresh(sym.name.toString).toString)
             companionship.companionOf(cd.symbol) match {
               case NoSymbol     =>
@@ -135,8 +131,6 @@ trait Lifter {
             }
             treeCopy.ClassDef(cd, Modifiers(sym.flags), sym.name, tparams, impl)
           case md@ModuleDef(_, _, impl)                     =>
-            import reflect.internal.Flags._
-            val sym = md.symbol
             companionship.companionOf(md.symbol) match {
               case NoSymbol    =>
                 sym.name = name.fresh(sym.name.toTermName)
@@ -145,8 +139,6 @@ trait Lifter {
             }
             treeCopy.ModuleDef(md, Modifiers(sym.flags), sym.name, impl)
           case td@TypeDef(_, _, tparams, rhs)               =>
-            import reflect.internal.Flags._
-            val sym = td.symbol
             sym.name = newTypeName(name.fresh(sym.name.toString).toString)
             treeCopy.TypeDef(td, Modifiers(sym.flags), sym.name, tparams, rhs)
         }
