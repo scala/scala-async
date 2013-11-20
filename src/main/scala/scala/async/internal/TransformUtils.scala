@@ -203,6 +203,7 @@ private[async] trait TransformUtils {
 
   abstract class MacroTypingTransformer extends TypingTransformer(callSiteTyper.context.unit) {
     currentOwner = callSiteTyper.context.owner
+    curTree = EmptyTree
 
     def currOwner: Symbol = currentOwner
 
