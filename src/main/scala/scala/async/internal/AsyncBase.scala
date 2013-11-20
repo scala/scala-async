@@ -45,7 +45,7 @@ abstract class AsyncBase {
     import c.universe._
     val asyncMacro = AsyncMacro(c, self)
 
-    val isPresentationCompiler = c.universe.getClass.toString.contains("ScalaPresentationCompiler")
+    val isPresentationCompiler = asyncMacro.global.forInteractive
 
     val code = asyncMacro.asyncTransform[T](
       body.tree.asInstanceOf[asyncMacro.global.Tree],
