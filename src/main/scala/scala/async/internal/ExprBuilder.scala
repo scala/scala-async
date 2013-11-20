@@ -89,7 +89,7 @@ trait ExprBuilder {
       val tryGetTree =
         Assign(
           Ident(awaitable.resultName),
-          TypeApply(Select(Select(Ident(symLookup.applyTrParam), Try_get), newTermName("asInstanceOf")), List(TypeTree(awaitable.resultType)))
+          TypeApply(Select(futureSystemOps.tryyGet[T](Expr[futureSystem.Tryy[T]](Ident(symLookup.applyTrParam))).tree, newTermName("asInstanceOf")), List(TypeTree(awaitable.resultType)))
         )
 
       /* if (tr.isFailure)
@@ -101,12 +101,12 @@ trait ExprBuilder {
        * }
        */
       val ifIsFailureTree =
-        If(Select(Ident(symLookup.applyTrParam), Try_isFailure),
+        If(futureSystemOps.tryyIsFailure(Expr[futureSystem.Tryy[T]](Ident(symLookup.applyTrParam))).tree,
            futureSystemOps.completeProm[T](
              Expr[futureSystem.Prom[T]](symLookup.memberRef(name.result)),
-             Expr[scala.util.Try[T]](
+             Expr[futureSystem.Tryy[T]](
                TypeApply(Select(Ident(symLookup.applyTrParam), newTermName("asInstanceOf")),
-                         List(TypeTree(weakTypeOf[scala.util.Try[T]]))))).tree,
+                         List(TypeTree(futureSystemOps.tryType[T]))))).tree,
            Block(List(tryGetTree, mkStateTree(nextState, symLookup)), mkResumeApply(symLookup))
          )
 
@@ -325,7 +325,7 @@ trait ExprBuilder {
           val lastState = asyncStates.last
           val lastStateBody = Expr[T](lastState.body)
           val rhs = futureSystemOps.completeProm(
-            Expr[futureSystem.Prom[T]](symLookup.memberRef(name.result)), reify(scala.util.Success[T](lastStateBody.splice)))
+            Expr[futureSystem.Prom[T]](symLookup.memberRef(name.result)), futureSystemOps.tryySuccess[T](lastStateBody))
           mkHandlerCase(lastState.state, rhs.tree)
         }
         asyncStates.toList match {
@@ -368,7 +368,7 @@ trait ExprBuilder {
                 Apply(Ident(defn.NonFatalClass), List(Ident(name.t))), {
                   val t = Expr[Throwable](Ident(name.t))
                   futureSystemOps.completeProm[T](
-                    Expr[futureSystem.Prom[T]](symLookup.memberRef(name.result)), reify(scala.util.Failure(t.splice))).tree
+                    Expr[futureSystem.Prom[T]](symLookup.memberRef(name.result)), futureSystemOps.tryyFailure[T](t)).tree
                 })), EmptyTree))
 
       /**
