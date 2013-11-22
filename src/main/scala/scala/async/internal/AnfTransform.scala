@@ -162,7 +162,14 @@ private[async] trait AnfTransform {
       def _transformToList(tree: Tree): List[Tree] = trace(tree) {
         val containsAwait = tree exists isAwait
         if (!containsAwait) {
-          List(tree)
+          tree match {
+            case Block(stats, expr) =>
+              // avoids nested block in `while(await(false)) ...`.
+              // TODO I think `containsAwait` really should return true if the code contains a label jump to an enclosing
+              // while/doWhile and there is an await *anywhere* inside that construct.
+              stats :+ expr
+            case _ => List(tree)
+          }
         } else tree match {
           case Select(qual, sel) =>
             val stats :+ expr = linearize.transformToList(qual)

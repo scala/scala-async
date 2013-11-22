@@ -96,6 +96,19 @@ private[async] trait TransformUtils {
     treeInfo.isExprSafeToInline(tree)
   }
 
+  // `while(await(x))` ... or `do { await(x); ... } while(...)` contain an `If` that loops;
+  // we must break that `If` into states so that it convert the label jump into a state machine
+  // transition
+  final def containsForiegnLabelJump(t: Tree): Boolean = {
+    val labelDefs = t.collect {
+      case ld: LabelDef => ld.symbol
+    }.toSet
+    t.exists {
+      case rt: RefTree => !(labelDefs contains rt.symbol)
+      case _ => false
+    }
+  }
+
   /** Map a list of arguments to:
     * - A list of argument Trees
     * - A list of auxillary results.

@@ -127,7 +127,11 @@ trait ExprBuilder {
     private var nextJumpState: Option[Int] = None
 
     def +=(stat: Tree): this.type = {
-      assert(nextJumpState.isEmpty, s"statement appeared after a label jump: $stat")
+      stat match {
+        case Literal(Constant(())) => // This case occurs in do/while
+        case _ =>
+          assert(nextJumpState.isEmpty, s"statement appeared after a label jump: $stat")
+      }
       def addStat() = stats += stat
       stat match {
         case Apply(fun, Nil) =>
@@ -228,7 +232,7 @@ trait ExprBuilder {
         currState = afterAwaitState
         stateBuilder = new AsyncStateBuilder(currState, symLookup)
 
-      case If(cond, thenp, elsep) if stat exists isAwait =>
+      case If(cond, thenp, elsep) if (stat exists isAwait) || containsForiegnLabelJump(stat) =>
         checkForUnsupportedAwait(cond)
 
         val thenStartState = nextState()

@@ -76,4 +76,44 @@ class WhileSpec {
     }
     result mustBe ()
   }
+
+  @Test def doWhile() {
+    import AsyncId._
+    val result = async {
+      var b = 0
+      var x = ""
+      await(do {
+        x += "1"
+        x += await("2")
+        x += "3"
+        b += await(1)
+      } while (b < 2))
+      await(x)
+    }
+    result mustBe "123123"
+  }
+
+  @Test def whileAwaitCondition() {
+    import AsyncId._
+    val result = async {
+      var b = true
+      while(await(b)) {
+        b = false
+      }
+      await(b)
+    }
+    result mustBe false
+  }
+
+  @Test def doWhileAwaitCondition() {
+    import AsyncId._
+    val result = async {
+      var b = true
+      do {
+        b = false
+      } while(await(b))
+      b
+    }
+    result mustBe false
+  }
 }
