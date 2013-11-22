@@ -37,15 +37,14 @@ private[async] trait AsyncMacro
     // Eat it too     : (domain specific errors like "unsupported use of await"
     //
     // TODO roll this idea back into scala/scala
-    def suppress(globalOrAnalzer: Any) = {
-      type Suppress = { def suppressMacroExpansion(a: Object): Object }
-      globalOrAnalzer.asInstanceOf[Suppress].suppressMacroExpansion(macroApplication)
-    }
+
+    import global.Tree
+    type Suppress = { def suppressMacroExpansion(a: Tree): Tree }
     try {
-      suppress(global) // 2.10.x
+      global.asInstanceOf[Suppress].suppressMacroExpansion(macroApplication)
     } catch {
       case _: NoSuchMethodException =>
-        suppress(global.analyzer) // 2.11
+        global.analyzer.asInstanceOf[Suppress].suppressMacroExpansion(macroApplication)
     }
   }
 
