@@ -11,7 +11,7 @@ import scala.reflect.internal.annotations.compileTimeOnly
 /**
  * Async blocks provide a direct means to work with [[scala.concurrent.Future]].
  *
- * For example, to use an API to that fetches as web page to fetch
+ * For example, to use an API that fetches a web page to fetch
  * two pages and add their lengths:
  *
  * {{{
@@ -45,7 +45,7 @@ object Async {
   def async[T](body: T)(implicit execContext: ExecutionContext): Future[T] = macro internal.ScalaConcurrentAsync.asyncImpl[T]
 
   /**
-   * Non-blocking await the on result of `awaitable`. This may only be used directly within an enclosing `await` block.
+   * Non-blocking await the on result of `awaitable`. This may only be used directly within an enclosing `async` block.
    *
    * Internally, this will register the remainder of the code in enclosing `async` block as a callback
    * in the `onComplete` handler of `awaitable`, and will *not* block a thread.
