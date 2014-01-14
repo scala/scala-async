@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2012-2014 Typesafe Inc. <http://www.typesafe.com>
  */
 package scala.async.internal
 
