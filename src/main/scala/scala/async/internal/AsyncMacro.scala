@@ -36,7 +36,7 @@ private[async] trait AsyncMacro
     // Have your cake : Scala IDE sees original trees and hyperlinking, etc within async blocks "Just Works"
     // Eat it too     : (domain specific errors like "unsupported use of await"
     //
-    // TODO roll this idea back into scala/scala
+    // TODO remove this once we unsupport 2.10.x, scalac 2.11 does this automatically.
 
     import global.Tree
     type Suppress = { def suppressMacroExpansion(a: Tree): Tree }
