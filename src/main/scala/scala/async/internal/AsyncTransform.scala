@@ -51,7 +51,8 @@ trait AsyncTransform {
         List(emptyConstructor, stateVar, result, execContextValDef) ++ List(resumeFunTreeDummyBody, applyDefDefDummyBody, apply0DefDef, extraValDef)
       }
 
-      val template = Template(List(typeOf[(scala.util.Try[Any] => Unit)], typeOf[() => Unit]).map(TypeTree(_)), emptyValDef, body)
+      val tryToUnit = appliedType(definitions.FunctionClass(1), futureSystemOps.tryType[Any], typeOf[Unit])
+      val template = Template(List(tryToUnit, typeOf[() => Unit]).map(TypeTree(_)), emptyValDef, body)
 
       val t = ClassDef(NoMods, name.stateMachineT, Nil, template)
       callSiteTyper.typedPos(macroPos)(Block(t :: Nil, Literal(Constant(()))))

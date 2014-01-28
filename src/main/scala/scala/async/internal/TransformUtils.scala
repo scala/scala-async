@@ -84,10 +84,6 @@ private[async] trait TransformUtils {
       self.splice.get
     }
 
-    val TryClass      = rootMirror.staticClass("scala.util.Try")
-    val Try_get       = TryClass.typeSignature.member(newTermName("get")).ensuring(_ != NoSymbol)
-    val Try_isFailure = TryClass.typeSignature.member(newTermName("isFailure")).ensuring(_ != NoSymbol)
-    val TryAnyType    = appliedType(TryClass.toType, List(definitions.AnyTpe))
     val NonFatalClass = rootMirror.staticModule("scala.util.control.NonFatal")
     val Async_await   = asyncBase.awaitMethod(global)(macroApplication.symbol).ensuring(_ != NoSymbol)
   }
