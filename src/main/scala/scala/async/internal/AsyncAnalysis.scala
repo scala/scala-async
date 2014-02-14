@@ -21,7 +21,7 @@ trait AsyncAnalysis {
   def reportUnsupportedAwaits(tree: Tree): Unit = {
     val analyzer = new UnsupportedAwaitAnalyzer
     analyzer.traverse(tree)
-    analyzer.hasUnsupportedAwaits
+    // analyzer.hasUnsupportedAwaits // XB: not used?!
   }
 
   private class UnsupportedAwaitAnalyzer extends AsyncTraverser {
