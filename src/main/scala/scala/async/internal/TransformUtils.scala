@@ -206,15 +206,6 @@ private[async] trait TransformUtils {
     }
   }
 
-  abstract class MacroTypingTransformer extends TypingTransformer(callSiteTyper.context.unit) {
-    currentOwner = enclosingOwner
-    curTree = EmptyTree
-
-    def currOwner: Symbol = currentOwner
-
-    localTyper = global.analyzer.newTyper(callSiteTyper.context.make(unit = callSiteTyper.context.unit))
-  }
-
   def transformAt(tree: Tree)(f: PartialFunction[Tree, (TypingTransformApi => Tree)]) = {
     typingTransform(tree)((tree, api) => {
       if (f.isDefinedAt(tree)) f(tree)(api)

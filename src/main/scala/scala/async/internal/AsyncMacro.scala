@@ -10,7 +10,6 @@ object AsyncMacro {
     new AsyncMacro { self =>
       val c: scala.reflect.macros.Context { val universe: global.type } = c0.asInstanceOf[scala.reflect.macros.Context { val universe: global.type }]
       val global: powerContext.universe.type   = powerContext.universe
-      val callSiteTyper: global.analyzer.Typer = powerContext.callsiteTyper
       val macroApplication: global.Tree        = c0.macroApplication.asInstanceOf[global.Tree]
       // This member is required by `AsyncTransform`:
       val asyncBase: AsyncBase                 = base
@@ -22,13 +21,11 @@ object AsyncMacro {
 }
 
 private[async] trait AsyncMacro
-  extends TypingTransformers
-  with AnfTransform with TransformUtils with Lifter
+  extends AnfTransform with TransformUtils with Lifter
   with ExprBuilder with AsyncTransform with AsyncAnalysis with LiveVariables {
 
   val c: scala.reflect.macros.Context { val universe: global.type }
   val global: Global
-  val callSiteTyper: global.analyzer.Typer
   val macroApplication: global.Tree
 
   lazy val macroPos = macroApplication.pos.makeTransparent
