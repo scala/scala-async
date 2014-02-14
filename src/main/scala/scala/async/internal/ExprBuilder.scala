@@ -13,7 +13,7 @@ import scala.reflect.api
 trait ExprBuilder {
   builder: AsyncMacro =>
 
-  import global._
+  import c.universe._
   import defn._
 
   val futureSystem: FutureSystem
