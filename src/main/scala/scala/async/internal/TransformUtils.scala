@@ -82,7 +82,7 @@ private[async] trait TransformUtils {
     }
 
     val NonFatalClass = rootMirror.staticModule("scala.util.control.NonFatal")
-    val Async_await   = asyncBase.awaitMethod(global)(macroApplication.symbol).ensuring(_ != NoSymbol)
+    val Async_await   = asyncBase.awaitMethod(c.universe)(macroApplication.symbol).ensuring(_ != NoSymbol)
   }
 
   def isSafeToInline(tree: Tree) = {
@@ -256,7 +256,8 @@ private[async] trait TransformUtils {
   // =====================================
   // Copy/Pasted from Scala 2.10.3. See SI-7694.
   private lazy val UncheckedBoundsClass = {
-    global.rootMirror.getClassIfDefined("scala.reflect.internal.annotations.uncheckedBounds")
+    try c.mirror.staticClass("scala.reflect.internal.annotations.uncheckedBounds")
+    catch { case _: ScalaReflectionException => NoSymbol }
   }
   final def uncheckedBounds(tp: Type): Type = {
     if (tp.typeArgs.isEmpty || UncheckedBoundsClass == NoSymbol) tp
