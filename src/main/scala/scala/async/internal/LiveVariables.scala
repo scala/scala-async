@@ -1,10 +1,9 @@
 package scala.async.internal
 
-import reflect.internal.Flags._
-
 trait LiveVariables {
   self: AsyncMacro =>
-  import global._
+  import c.universe._
+  import Flag._
 
   /**
    *  Returns for a given state a list of fields (as trees) that should be nulled out
