@@ -2,8 +2,8 @@ package scala.async.internal
 
 trait Lifter {
   self: AsyncMacro =>
-  import scala.reflect.internal.Flags._
-  import global._
+  import c.universe._
+  import Flag._
 
   /**
    * Identify which DefTrees are used (including transitively) which are declared
