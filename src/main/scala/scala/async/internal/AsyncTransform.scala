@@ -3,7 +3,9 @@ package scala.async.internal
 trait AsyncTransform {
   self: AsyncMacro =>
 
-  import c.universe._
+  import c.universe.{gen => _, _}
+  import c.internal._
+  import decorators._
 
   val asyncBase: AsyncBase
 
@@ -158,7 +160,7 @@ trait AsyncTransform {
           atOwner(currentOwner) {
             val fieldSym = tree.symbol
             val set = Assign(gen.mkAttributedStableRef(fieldSym.owner.thisType, fieldSym), transform(rhs))
-            changeOwner(set, tree.symbol, currentOwner)
+            set.changeOwner(tree.symbol, currentOwner)
             localTyper.typedPos(tree.pos)(set)
           }
         case _: DefTree if liftedSyms(tree.symbol)           =>
@@ -181,10 +183,7 @@ trait AsyncTransform {
         useField.atOwner(stateMachineClass)(useField.transform(x))
     }
 
-    tree.children.foreach {
-      t =>
-        new ChangeOwnerAndModuleClassTraverser(callSiteTyper.context.owner, tree.symbol).traverse(t)
-    }
+    tree.children.foreach(_.changeOwner(enclosingOwner, tree.symbol))
     val treeSubst = tree
 
     /* Fixes up DefDef: use lifted fields in `body` */
@@ -207,12 +206,12 @@ trait AsyncTransform {
     val result = transformAt(result0) {
       case dd@DefDef(_, name.apply, _, List(List(_)), _, _) if dd.symbol.owner == stateMachineClass =>
         (ctx: analyzer.Context) =>
-          val typedTree = fixup(dd, changeOwner(applyBody, callSiteTyper.context.owner, dd.symbol), ctx)
+          val typedTree = fixup(dd, applyBody.changeOwner(enclosingOwner, dd.symbol), ctx)
           typedTree
 
       case dd@DefDef(_, name.resume, _, _, _, _) if dd.symbol.owner == stateMachineClass =>
         (ctx: analyzer.Context) =>
-          val changed = changeOwner(resumeBody, callSiteTyper.context.owner, dd.symbol)
+          val changed = resumeBody.changeOwner(enclosingOwner, dd.symbol)
           val res = fixup(dd, changed, ctx)
           res
     }

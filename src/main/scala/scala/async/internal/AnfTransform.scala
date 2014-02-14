@@ -152,8 +152,8 @@ private[async] trait AnfTransform {
 
     private def defineVal(prefix: String, lhs: Tree, pos: Position): ValDef = {
       val sym = currOwner.newTermSymbol(name.fresh(prefix), pos, SYNTHETIC).setInfo(uncheckedBounds(lhs.tpe))
-      changeOwner(lhs, currentOwner, sym)
-      ValDef(sym, changeOwner(lhs, currentOwner, sym)).setType(NoType).setPos(pos)
+      lhs.changeOwner(currentOwner, sym)
+      ValDef(sym, lhs.changeOwner(currentOwner, sym)).setType(NoType).setPos(pos)
     }
 
     private object anf {
@@ -236,7 +236,7 @@ private[async] trait AnfTransform {
           case ValDef(mods, name, tpt, rhs) =>
             if (rhs exists isAwait) {
               val stats :+ expr = atOwner(currOwner.owner)(linearize.transformToList(rhs))
-              stats.foreach(changeOwner(_, currOwner, currOwner.owner))
+              stats.foreach(_.changeOwner(currOwner, currOwner.owner))
               stats :+ treeCopy.ValDef(tree, mods, name, tpt, expr)
             } else List(tree)
 

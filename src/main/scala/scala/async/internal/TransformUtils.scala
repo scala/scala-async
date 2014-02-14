@@ -206,7 +206,7 @@ private[async] trait TransformUtils {
   }
 
   abstract class MacroTypingTransformer extends TypingTransformer(callSiteTyper.context.unit) {
-    currentOwner = callSiteTyper.context.owner
+    currentOwner = enclosingOwner
     curTree = EmptyTree
 
     def currOwner: Symbol = currentOwner
@@ -223,23 +223,6 @@ private[async] trait TransformUtils {
       }
     }
     trans.transform(tree)
-  }
-
-  def changeOwner(tree: Tree, oldOwner: Symbol, newOwner: Symbol): tree.type = {
-    new ChangeOwnerAndModuleClassTraverser(oldOwner, newOwner).traverse(tree)
-    tree
-  }
-
-  class ChangeOwnerAndModuleClassTraverser(oldowner: Symbol, newowner: Symbol)
-    extends ChangeOwnerTraverser(oldowner, newowner) {
-
-    override def traverse(tree: Tree) {
-      tree match {
-        case _: DefTree => change(tree.symbol.moduleClass)
-        case _          =>
-      }
-      super.traverse(tree)
-    }
   }
 
   def toMultiMap[A, B](as: Iterable[(A, B)]): Map[A, List[B]] =
