@@ -30,9 +30,9 @@ private[async] trait TransformUtils {
     val tr            = newTermName("tr")
     val t             = newTermName("throwable")
 
-    def fresh(name: TermName): TermName = newTermName(fresh(name.toString))
+    def fresh(name: TermName): TermName = c.freshName(name)
 
-    def fresh(name: String): String = currentUnit.freshTermName("" + name + "$").toString
+    def fresh(name: String): String = c.freshName(name)
   }
 
   def isAwait(fun: Tree) =
