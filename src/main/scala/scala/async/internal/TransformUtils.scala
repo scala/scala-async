@@ -5,7 +5,6 @@ package scala.async.internal
 
 import scala.reflect.macros.Context
 import reflect.ClassTag
-import scala.reflect.macros.runtime.AbortMacroException
 
 /**
  * Utilities used in both `ExprBuilder` and `AnfTransform`.
@@ -207,8 +206,6 @@ private[async] trait TransformUtils {
       }
     }
   }
-
-  def abort(pos: Position, msg: String) = throw new AbortMacroException(pos, msg)
 
   abstract class MacroTypingTransformer extends TypingTransformer(callSiteTyper.context.unit) {
     currentOwner = callSiteTyper.context.owner

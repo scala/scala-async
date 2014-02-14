@@ -59,10 +59,10 @@ trait AsyncAnalysis {
           reportUnsupportedAwait(tree, "try/catch")
           super.traverse(tree)
         case Return(_)                                        =>
-          abort(tree.pos, "return is illegal within a async block")
+          c.abort(tree.pos, "return is illegal within a async block")
         case ValDef(mods, _, _, _) if mods.hasFlag(Flag.LAZY) =>
           // TODO lift this restriction
-          abort(tree.pos, "lazy vals are illegal within an async block")
+          c.abort(tree.pos, "lazy vals are illegal within an async block")
         case CaseDef(_, guard, _) if guard exists isAwait     =>
           // TODO lift this restriction
           reportUnsupportedAwait(tree, "pattern guard")
@@ -87,7 +87,7 @@ trait AsyncAnalysis {
 
     private def reportError(pos: Position, msg: String) {
       hasUnsupportedAwaits = true
-      abort(pos, msg)
+      c.abort(pos, msg)
     }
   }
 }
