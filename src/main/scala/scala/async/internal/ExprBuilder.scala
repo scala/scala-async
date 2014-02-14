@@ -17,7 +17,7 @@ trait ExprBuilder {
   import defn._
 
   val futureSystem: FutureSystem
-  val futureSystemOps: futureSystem.Ops { val universe: global.type }
+  val futureSystemOps: futureSystem.Ops { val c: builder.c.type }
 
   val stateAssigner  = new StateAssigner
   val labelDefStates = collection.mutable.Map[Symbol, Int]()
