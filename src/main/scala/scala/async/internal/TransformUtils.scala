@@ -12,7 +12,8 @@ import reflect.ClassTag
 private[async] trait TransformUtils {
   self: AsyncMacro =>
 
-  import c.universe._
+  import c.universe.{gen => _, _}
+  import c.internal._
 
   object name {
     val resume        = newTermName("resume")
@@ -231,7 +232,7 @@ private[async] trait TransformUtils {
   // Attributed version of `TreeGen#mkCastPreservingAnnotations`
   def mkAttributedCastPreservingAnnotations(tree: Tree, tp: Type): Tree = {
     atPos(tree.pos) {
-      val casted = gen.mkAttributedCast(tree, uncheckedBounds(tp.withoutAnnotations).dealias)
+      val casted = c.typecheck(gen.mkCast(tree, uncheckedBounds(tp.withoutAnnotations).dealias))
       Typed(casted, TypeTree(tp)).setType(tp)
     }
   }
