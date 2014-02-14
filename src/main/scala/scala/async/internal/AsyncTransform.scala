@@ -152,35 +152,30 @@ trait AsyncTransform {
     // fields. Similarly, replace references to them with references to the field.
     //
     // This transform will only be run on the RHS of `def foo`.
-    class UseFields extends MacroTypingTransformer {
-      override def transform(tree: Tree): Tree = tree match {
-        case _ if currentOwner == stateMachineClass          =>
-          super.transform(tree)
-        case ValDef(_, _, _, rhs) if liftedSyms(tree.symbol) =>
-          atOwner(currentOwner) {
-            val fieldSym = tree.symbol
-            val set = Assign(gen.mkAttributedStableRef(fieldSym.owner.thisType, fieldSym), transform(rhs))
-            set.changeOwner(tree.symbol, currentOwner)
-            localTyper.typedPos(tree.pos)(set)
-          }
-        case _: DefTree if liftedSyms(tree.symbol)           =>
-          EmptyTree
-        case Ident(name) if liftedSyms(tree.symbol)          =>
+    val useFields: (Tree, TypingTransformApi) => Tree = (tree, api) => tree match {
+      case _ if api.currentOwner == stateMachineClass          =>
+        api.default(tree)
+      case ValDef(_, _, _, rhs) if liftedSyms(tree.symbol) =>
+        api.atOwner(api.currentOwner) {
           val fieldSym = tree.symbol
-          atPos(tree.pos) {
-            gen.mkAttributedStableRef(fieldSym.owner.thisType, fieldSym).setType(tree.tpe)
-          }
-        case _                                               =>
-          super.transform(tree)
-      }
+          val set = Assign(gen.mkAttributedStableRef(fieldSym.owner.thisType, fieldSym), api.recur(rhs))
+          set.changeOwner(tree.symbol, api.currentOwner)
+          api.typecheck(atPos(tree.pos)(set))
+        }
+      case _: DefTree if liftedSyms(tree.symbol)           =>
+        EmptyTree
+      case Ident(name) if liftedSyms(tree.symbol)          =>
+        val fieldSym = tree.symbol
+        atPos(tree.pos) {
+          gen.mkAttributedStableRef(fieldSym.owner.thisType, fieldSym).setType(tree.tpe)
+        }
+      case _                                               =>
+        api.default(tree)
     }
 
     val liftablesUseFields = liftables.map {
       case vd: ValDef => vd
-      case x          =>
-        val useField = new UseFields()
-        //.substituteSymbols(fromSyms, toSyms)
-        useField.atOwner(stateMachineClass)(useField.transform(x))
+      case x          => typingTransform(x, stateMachineClass)(useFields)
     }
 
     tree.children.foreach(_.changeOwner(enclosingOwner, tree.symbol))
@@ -189,8 +184,7 @@ trait AsyncTransform {
     /* Fixes up DefDef: use lifted fields in `body` */
     def fixup(dd: DefDef, body: Tree, api: TypingTransformApi): Tree = {
       val spliceeAnfFixedOwnerSyms = body
-      val useField = new UseFields()
-      val newRhs = useField.atOwner(dd.symbol)(useField.transform(spliceeAnfFixedOwnerSyms))
+      val newRhs = typingTransform(spliceeAnfFixedOwnerSyms, dd.symbol)(useFields)
       val newRhsTyped = api.atOwner(dd, dd.symbol)(api.typecheck(newRhs))
       treeCopy.DefDef(dd, dd.mods, dd.name, dd.tparams, dd.vparamss, dd.tpt, newRhsTyped)
     }
