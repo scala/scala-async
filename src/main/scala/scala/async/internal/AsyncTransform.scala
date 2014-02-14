@@ -187,32 +187,32 @@ trait AsyncTransform {
     val treeSubst = tree
 
     /* Fixes up DefDef: use lifted fields in `body` */
-    def fixup(dd: DefDef, body: Tree, ctx: analyzer.Context): Tree = {
+    def fixup(dd: DefDef, body: Tree, api: TypingTransformApi): Tree = {
       val spliceeAnfFixedOwnerSyms = body
       val useField = new UseFields()
       val newRhs = useField.atOwner(dd.symbol)(useField.transform(spliceeAnfFixedOwnerSyms))
-      val typer = global.analyzer.newTyper(ctx.make(dd, dd.symbol))
-      treeCopy.DefDef(dd, dd.mods, dd.name, dd.tparams, dd.vparamss, dd.tpt, typer.typed(newRhs))
+      val newRhsTyped = api.atOwner(dd, dd.symbol)(api.typecheck(newRhs))
+      treeCopy.DefDef(dd, dd.mods, dd.name, dd.tparams, dd.vparamss, dd.tpt, newRhsTyped)
     }
 
     liftablesUseFields.foreach(t => if (t.symbol != null) stateMachineClass.info.decls.enter(t.symbol))
 
     val result0 = transformAt(treeSubst) {
       case t@Template(parents, self, stats) =>
-        (ctx: analyzer.Context) => {
+        (api: TypingTransformApi) => {
           treeCopy.Template(t, parents, self, liftablesUseFields ++ stats)
         }
     }
     val result = transformAt(result0) {
       case dd@DefDef(_, name.apply, _, List(List(_)), _, _) if dd.symbol.owner == stateMachineClass =>
-        (ctx: analyzer.Context) =>
-          val typedTree = fixup(dd, applyBody.changeOwner(enclosingOwner, dd.symbol), ctx)
+        (api: TypingTransformApi) =>
+          val typedTree = fixup(dd, applyBody.changeOwner(enclosingOwner, dd.symbol), api)
           typedTree
 
       case dd@DefDef(_, name.resume, _, _, _, _) if dd.symbol.owner == stateMachineClass =>
-        (ctx: analyzer.Context) =>
+        (api: TypingTransformApi) =>
           val changed = resumeBody.changeOwner(enclosingOwner, dd.symbol)
-          val res = fixup(dd, changed, ctx)
+          val res = fixup(dd, changed, api)
           res
     }
     result

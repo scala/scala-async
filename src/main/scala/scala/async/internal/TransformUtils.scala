@@ -215,15 +215,11 @@ private[async] trait TransformUtils {
     localTyper = global.analyzer.newTyper(callSiteTyper.context.make(unit = callSiteTyper.context.unit))
   }
 
-  def transformAt(tree: Tree)(f: PartialFunction[Tree, (analyzer.Context => Tree)]) = {
-    object trans extends MacroTypingTransformer {
-      override def transform(tree: Tree): Tree = {
-        if (f.isDefinedAt(tree)) {
-          f(tree)(localTyper.context)
-        } else super.transform(tree)
-      }
-    }
-    trans.transform(tree)
+  def transformAt(tree: Tree)(f: PartialFunction[Tree, (TypingTransformApi => Tree)]) = {
+    typingTransform(tree)((tree, api) => {
+      if (f.isDefinedAt(tree)) f(tree)(api)
+      else api.default(tree)
+    })
   }
 
   def toMultiMap[A, B](as: Iterable[(A, B)]): Map[A, List[B]] =
