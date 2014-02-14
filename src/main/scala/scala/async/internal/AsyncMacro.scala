@@ -31,21 +31,4 @@ private[async] trait AsyncMacro
 
   lazy val macroPos = macroApplication.pos.makeTransparent
   def atMacroPos(t: global.Tree) = global.atPos(macroPos)(t)
-
-  def suppressExpansion() {
-    // Have your cake : Scala IDE sees original trees and hyperlinking, etc within async blocks "Just Works"
-    // Eat it too     : (domain specific errors like "unsupported use of await"
-    //
-    // TODO remove this once we unsupport 2.10.x, scalac 2.11 does this automatically.
-
-    import global.Tree
-    type Suppress = { def suppressMacroExpansion(a: Tree): Tree }
-    try {
-      global.asInstanceOf[Suppress].suppressMacroExpansion(macroApplication)
-    } catch {
-      case _: NoSuchMethodException =>
-        global.analyzer.asInstanceOf[Suppress].suppressMacroExpansion(macroApplication)
-    }
-  }
-
 }
