@@ -123,7 +123,7 @@ trait AsyncTransform {
     }
 
     AsyncUtils.vprintln(s"In file '$location':")
-    AsyncUtils.vprintln(s"${macroApplication}")
+    AsyncUtils.vprintln(s"${c.macroApplication}")
     AsyncUtils.vprintln(s"ANF transform expands to:\n $anfTree")
     states foreach (s => AsyncUtils.vprintln(s))
   }

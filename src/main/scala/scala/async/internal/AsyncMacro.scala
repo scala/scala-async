@@ -10,7 +10,6 @@ object AsyncMacro {
     new AsyncMacro { self =>
       val c: scala.reflect.macros.Context { val universe: global.type } = c0.asInstanceOf[scala.reflect.macros.Context { val universe: global.type }]
       val global: powerContext.universe.type   = powerContext.universe
-      val macroApplication: global.Tree        = c0.macroApplication.asInstanceOf[global.Tree]
       // This member is required by `AsyncTransform`:
       val asyncBase: AsyncBase                 = base
       // These members are required by `ExprBuilder`:
@@ -26,8 +25,7 @@ private[async] trait AsyncMacro
 
   val c: scala.reflect.macros.Context { val universe: global.type }
   val global: Global
-  val macroApplication: global.Tree
 
-  lazy val macroPos = macroApplication.pos.makeTransparent
-  def atMacroPos(t: global.Tree) = global.atPos(macroPos)(t)
+  lazy val macroPos = c.macroApplication.pos.makeTransparent
+  def atMacroPos(t: global.Tree) = c.universe.atPos(macroPos)(t)
 }
