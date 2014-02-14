@@ -10,7 +10,7 @@ import scala.collection.mutable
 trait AsyncAnalysis {
   self: AsyncMacro =>
 
-  import global._
+  import c.universe._
 
   /**
    * Analyze the contents of an `async` block in order to:
