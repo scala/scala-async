@@ -42,8 +42,7 @@ abstract class AsyncBase {
   def asyncImpl[T: c.WeakTypeTag](c: Context)
                                  (body: c.Expr[T])
                                  (execContext: c.Expr[futureSystem.ExecContext]): c.Expr[futureSystem.Fut[T]] = {
-    import c.universe._
-    import compat._
+    import c.universe._, c.internal._, decorators._
     val asyncMacro = AsyncMacro(c, self)
 
     val code = asyncMacro.asyncTransform[T](
@@ -53,7 +52,7 @@ abstract class AsyncBase {
     AsyncUtils.vprintln(s"async state machine transform expands to:\n ${code}")
 
     // Mark range positions for synthetic code as transparent to allow some wiggle room for overlapping ranges
-    for (t <- code) t.pos = t.pos.makeTransparent
+    for (t <- code) t.setPos(t.pos.makeTransparent)
     c.Expr[futureSystem.Fut[T]](code)
   }
 
