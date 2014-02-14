@@ -3,7 +3,7 @@ package scala.async.internal
 trait AsyncTransform {
   self: AsyncMacro =>
 
-  import global._
+  import c.universe._
 
   val asyncBase: AsyncBase
 
@@ -78,7 +78,7 @@ trait AsyncTransform {
         val fieldSym = fld.symbol
         Block(
           List(
-            asyncBase.nullOut(global)(c.Expr[String](Literal(Constant(fieldSym.name.toString))), c.Expr[Any](Ident(fieldSym))).tree
+            asyncBase.nullOut(c.universe)(c.Expr[String](Literal(Constant(fieldSym.name.toString))), c.Expr[Any](Ident(fieldSym))).tree
           ),
           Assign(gen.mkAttributedStableRef(fieldSym.owner.thisType, fieldSym), gen.mkZero(fieldSym.info))
         )
