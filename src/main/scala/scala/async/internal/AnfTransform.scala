@@ -11,12 +11,14 @@ import scala.Predef._
 private[async] trait AnfTransform {
   self: AsyncMacro =>
 
-  import global._
-  import reflect.internal.Flags._
+  import c.universe.{gen => _, _}
+  import Flag._
+  import c.internal._
+  import decorators._
 
   def anfTransform(tree: Tree): Block = {
     // Must prepend the () for issue #31.
-    val block = callSiteTyper.typedPos(tree.pos)(Block(List(Literal(Constant(()))), tree)).setType(tree.tpe)
+    val block = c.typecheck(atPos(tree.pos)(Block(List(Literal(Constant(()))), tree))).setType(tree.tpe)
 
     new SelectiveAnfTransform().transform(block)
   }
