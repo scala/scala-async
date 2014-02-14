@@ -78,7 +78,7 @@ trait AsyncTransform {
         val fieldSym = fld.symbol
         Block(
           List(
-            asyncBase.nullOut(global)(Expr[String](Literal(Constant(fieldSym.name.toString))), Expr[Any](Ident(fieldSym))).tree
+            asyncBase.nullOut(global)(c.Expr[String](Literal(Constant(fieldSym.name.toString))), c.Expr[Any](Ident(fieldSym))).tree
           ),
           Assign(gen.mkAttributedStableRef(fieldSym.owner.thisType, fieldSym), gen.mkZero(fieldSym.info))
         )
@@ -102,7 +102,7 @@ trait AsyncTransform {
         ValDef(NoMods, name.stateMachine, TypeTree(), Apply(Select(New(Ident(stateMachine.symbol)), nme.CONSTRUCTOR), Nil)),
         futureSystemOps.spawn(Apply(selectStateMachine(name.apply), Nil), selectStateMachine(name.execContext))
       ),
-      futureSystemOps.promiseToFuture(Expr[futureSystem.Prom[T]](selectStateMachine(name.result))).tree)
+      futureSystemOps.promiseToFuture(c.Expr[futureSystem.Prom[T]](selectStateMachine(name.result))).tree)
     }
 
     val isSimple = asyncBlock.asyncStates.size == 1

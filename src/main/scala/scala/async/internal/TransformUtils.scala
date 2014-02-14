@@ -12,7 +12,7 @@ import reflect.ClassTag
 private[async] trait TransformUtils {
   self: AsyncMacro =>
 
-  import global._
+  import c.universe._
 
   object name {
     val resume        = newTermName("resume")
@@ -60,11 +60,9 @@ private[async] trait TransformUtils {
     (i, j) => util.Try(namess(i)(j)).getOrElse(s"arg_${i}_${j}")
   }
 
-  def Expr[A: WeakTypeTag](t: Tree) = global.Expr[A](rootMirror, new FixedMirrorTreeCreator(rootMirror, t))
-
   object defn {
     def mkList_apply[A](args: List[Expr[A]]): Expr[List[A]] = {
-      Expr(Apply(Ident(definitions.List_apply), args.map(_.tree)))
+      c.Expr(Apply(Ident(definitions.List_apply), args.map(_.tree)))
     }
 
     def mkList_contains[A](self: Expr[List[A]])(elem: Expr[Any]) = reify {

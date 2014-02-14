@@ -80,8 +80,8 @@ trait ExprBuilder {
       List(nextState)
 
     override def mkHandlerCaseForState: CaseDef = {
-      val callOnComplete = futureSystemOps.onComplete(Expr(awaitable.expr),
-        Expr(This(tpnme.EMPTY)), Expr(Ident(name.execContext))).tree
+      val callOnComplete = futureSystemOps.onComplete(c.Expr(awaitable.expr),
+        c.Expr(This(tpnme.EMPTY)), c.Expr(Ident(name.execContext))).tree
       mkHandlerCase(state, stats :+ callOnComplete)
     }
 
@@ -89,7 +89,7 @@ trait ExprBuilder {
       val tryGetTree =
         Assign(
           Ident(awaitable.resultName),
-          TypeApply(Select(futureSystemOps.tryyGet[T](Expr[futureSystem.Tryy[T]](Ident(symLookup.applyTrParam))).tree, newTermName("asInstanceOf")), List(TypeTree(awaitable.resultType)))
+          TypeApply(Select(futureSystemOps.tryyGet[T](c.Expr[futureSystem.Tryy[T]](Ident(symLookup.applyTrParam))).tree, newTermName("asInstanceOf")), List(TypeTree(awaitable.resultType)))
         )
 
       /* if (tr.isFailure)
@@ -101,10 +101,10 @@ trait ExprBuilder {
        * }
        */
       val ifIsFailureTree =
-        If(futureSystemOps.tryyIsFailure(Expr[futureSystem.Tryy[T]](Ident(symLookup.applyTrParam))).tree,
+        If(futureSystemOps.tryyIsFailure(c.Expr[futureSystem.Tryy[T]](Ident(symLookup.applyTrParam))).tree,
            futureSystemOps.completeProm[T](
-             Expr[futureSystem.Prom[T]](symLookup.memberRef(name.result)),
-             Expr[futureSystem.Tryy[T]](
+             c.Expr[futureSystem.Prom[T]](symLookup.memberRef(name.result)),
+             c.Expr[futureSystem.Tryy[T]](
                TypeApply(Select(Ident(symLookup.applyTrParam), newTermName("asInstanceOf")),
                          List(TypeTree(futureSystemOps.tryType[T]))))).tree,
            Block(List(tryGetTree, mkStateTree(nextState, symLookup)), mkResumeApply(symLookup))
@@ -327,9 +327,9 @@ trait ExprBuilder {
       def mkCombinedHandlerCases[T: WeakTypeTag]: List[CaseDef] = {
         val caseForLastState: CaseDef = {
           val lastState = asyncStates.last
-          val lastStateBody = Expr[T](lastState.body)
+          val lastStateBody = c.Expr[T](lastState.body)
           val rhs = futureSystemOps.completeProm(
-            Expr[futureSystem.Prom[T]](symLookup.memberRef(name.result)), futureSystemOps.tryySuccess[T](lastStateBody))
+            c.Expr[futureSystem.Prom[T]](symLookup.memberRef(name.result)), futureSystemOps.tryySuccess[T](lastStateBody))
           mkHandlerCase(lastState.state, rhs.tree)
         }
         asyncStates.toList match {
@@ -370,9 +370,9 @@ trait ExprBuilder {
               CaseDef(
                 Bind(name.t, Ident(nme.WILDCARD)),
                 Apply(Ident(defn.NonFatalClass), List(Ident(name.t))), {
-                  val t = Expr[Throwable](Ident(name.t))
+                  val t = c.Expr[Throwable](Ident(name.t))
                   futureSystemOps.completeProm[T](
-                    Expr[futureSystem.Prom[T]](symLookup.memberRef(name.result)), futureSystemOps.tryyFailure[T](t)).tree
+                    c.Expr[futureSystem.Prom[T]](symLookup.memberRef(name.result)), futureSystemOps.tryyFailure[T](t)).tree
                 })), EmptyTree))
 
       /**
