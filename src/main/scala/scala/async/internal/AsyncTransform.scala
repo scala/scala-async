@@ -57,7 +57,7 @@ trait AsyncTransform {
       val template = Template(List(tryToUnit, typeOf[() => Unit]).map(TypeTree(_)), emptyValDef, body)
 
       val t = ClassDef(NoMods, name.stateMachineT, Nil, template)
-      callSiteTyper.typedPos(macroPos)(Block(t :: Nil, Literal(Constant(()))))
+      typingTransform(atPos(macroPos)(Block(t :: Nil, Literal(Constant(())))))((tree, api) => api.typecheck(tree))
       t
     }
 
