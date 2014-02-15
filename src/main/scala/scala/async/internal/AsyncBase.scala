@@ -43,6 +43,7 @@ abstract class AsyncBase {
                                  (body: c.Expr[T])
                                  (execContext: c.Expr[futureSystem.ExecContext]): c.Expr[futureSystem.Fut[T]] = {
     import c.universe._
+    import compat._
     val asyncMacro = AsyncMacro(c, self)
 
     val isPresentationCompiler = asyncMacro.global.forInteractive
@@ -68,8 +69,8 @@ abstract class AsyncBase {
   protected[async] def awaitMethod(u: Universe)(asyncMacroSymbol: u.Symbol): u.Symbol = {
     import u._
     asyncMacroSymbol.owner.typeSignature.member(newTermName("await"))
-  }  
-  
+  }
+
   protected[async] def nullOut(u: Universe)(name: u.Expr[String], v: u.Expr[Any]): u.Expr[Unit] =
     u.reify { () }
 }
