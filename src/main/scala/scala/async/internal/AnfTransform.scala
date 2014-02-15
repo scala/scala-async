@@ -5,13 +5,13 @@
 
 package scala.async.internal
 
-import scala.tools.nsc.Global
 import scala.Predef._
+import scala.reflect.internal.util.Collections.map2
 
 private[async] trait AnfTransform {
   self: AsyncMacro =>
 
-  import c.universe.{gen => _, _}
+  import c.universe._
   import Flag._
   import c.internal._
   import decorators._
@@ -61,7 +61,7 @@ private[async] trait AnfTransform {
               } else {
                 val varDef = defineVar(name.ifRes, expr.tpe, tree.pos)
                 def branchWithAssign(orig: Tree) = api.typecheck(atPos(orig.pos) {
-                  def cast(t: Tree) = mkAttributedCastPreservingAnnotations(t, varDef.symbol.tpe)
+                  def cast(t: Tree) = mkAttributedCastPreservingAnnotations(t, tpe(varDef.symbol))
                   orig match {
                     case Block(thenStats, thenExpr) => Block(thenStats, Assign(Ident(varDef.symbol), cast(thenExpr)))
                     case _                          => Assign(Ident(varDef.symbol), cast(orig))
@@ -82,7 +82,7 @@ private[async] trait AnfTransform {
               else {
                 val varDef = defineVar(name.matchRes, expr.tpe, tree.pos)
                 def typedAssign(lhs: Tree) =
-                  api.typecheck(atPos(lhs.pos)(Assign(Ident(varDef.symbol), mkAttributedCastPreservingAnnotations(lhs, varDef.symbol.tpe))))
+                  api.typecheck(atPos(lhs.pos)(Assign(Ident(varDef.symbol), mkAttributedCastPreservingAnnotations(lhs, tpe(varDef.symbol)))))
                 val casesWithAssign = cases map {
                   case cd@CaseDef(pat, guard, body) =>
                     val newBody = body match {
@@ -102,7 +102,7 @@ private[async] trait AnfTransform {
 
         private def defineVar(prefix: String, tp: Type, pos: Position): ValDef = {
           val sym = api.currentOwner.newTermSymbol(name.fresh(prefix), pos, MUTABLE | SYNTHETIC).setInfo(uncheckedBounds(tp))
-          ValDef(sym, gen.mkZero(uncheckedBounds(tp))).setType(NoType).setPos(pos)
+          valDef(sym, gen.mkZero(uncheckedBounds(tp))).setType(NoType).setPos(pos)
         }
       }
 
@@ -129,7 +129,7 @@ private[async] trait AnfTransform {
       def defineVal(prefix: String, lhs: Tree, pos: Position): ValDef = {
         val sym = api.currentOwner.newTermSymbol(name.fresh(prefix), pos, SYNTHETIC).setInfo(uncheckedBounds(lhs.tpe))
         lhs.changeOwner(api.currentOwner, sym)
-        ValDef(sym, lhs.changeOwner(api.currentOwner, sym)).setType(NoType).setPos(pos)
+        valDef(sym, lhs.changeOwner(api.currentOwner, sym)).setType(NoType).setPos(pos)
       }
 
       object anf {
@@ -161,7 +161,7 @@ private[async] trait AnfTransform {
               val stats :+ expr1 = linearize.transformToList(expr)
               stats :+ treeCopy.Typed(tree, expr1, tpt)
 
-            case treeInfo.Applied(fun, targs, argss) if argss.nonEmpty =>
+            case q"$fun[..$targs](...$argss)" if argss.nonEmpty =>
               // we can assume that no await call appears in a by-name argument position,
               // this has already been checked.
               val funStats :+ simpleFun = linearize.transformToList(fun)
@@ -271,7 +271,7 @@ private[async] trait AnfTransform {
         case _: ValDef | _: DefDef | _: Function | _: ClassDef | _: TypeDef =>
           api.atOwner(tree.symbol)(anfLinearize(tree))
         case _: ModuleDef                                                   =>
-          api.atOwner(tree.symbol.moduleClass orElse tree.symbol)(anfLinearize(tree))
+          api.atOwner(tree.symbol.asModule.moduleClass orElse tree.symbol)(anfLinearize(tree))
         case _                                                              =>
           anfLinearize(tree)
       }

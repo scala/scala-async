@@ -5,6 +5,7 @@ package scala.async.internal
 
 import scala.reflect.macros.Context
 import reflect.ClassTag
+import scala.collection.immutable.ListMap
 
 /**
  * Utilities used in both `ExprBuilder` and `AnfTransform`.
@@ -12,8 +13,9 @@ import reflect.ClassTag
 private[async] trait TransformUtils {
   self: AsyncMacro =>
 
-  import c.universe.{gen => _, _}
+  import c.universe._
   import c.internal._
+  import decorators._
 
   object name {
     val resume        = newTermName("resume")
@@ -51,7 +53,7 @@ private[async] trait TransformUtils {
     if (Boolean_ShortCircuits contains fun.symbol) (i, j) => true
     else {
       val paramss = fun.tpe.paramss
-      val byNamess = paramss.map(_.map(_.isByNameParam))
+      val byNamess = paramss.map(_.map(_.asTerm.isByNameParam))
       (i, j) => util.Try(byNamess(i)(j)).getOrElse(false)
     }
   }
@@ -84,10 +86,6 @@ private[async] trait TransformUtils {
 
     val NonFatalClass = rootMirror.staticModule("scala.util.control.NonFatal")
     val Async_await   = asyncBase.awaitMethod(c.universe)(c.macroApplication.symbol).ensuring(_ != NoSymbol)
-  }
-
-  def isSafeToInline(tree: Tree) = {
-    treeInfo.isExprSafeToInline(tree)
   }
 
   // `while(await(x))` ... or `do { await(x); ... } while(...)` contain an `If` that loops;
@@ -192,7 +190,7 @@ private[async] trait TransformUtils {
         case dd: DefDef            => nestedMethod(dd)
         case fun: Function         => function(fun)
         case m@Match(EmptyTree, _) => patMatFunction(m) // Pattern matching anonymous function under -Xoldpatmat of after `restorePatternMatchingFunctions`
-        case treeInfo.Applied(fun, targs, argss) if argss.nonEmpty =>
+        case q"$fun[..$targs](...$argss)" if argss.nonEmpty =>
           val isInByName = isByName(fun)
           for ((args, i) <- argss.zipWithIndex) {
             for ((arg, j) <- args.zipWithIndex) {
@@ -219,9 +217,40 @@ private[async] trait TransformUtils {
   // Attributed version of `TreeGen#mkCastPreservingAnnotations`
   def mkAttributedCastPreservingAnnotations(tree: Tree, tp: Type): Tree = {
     atPos(tree.pos) {
-      val casted = c.typecheck(gen.mkCast(tree, uncheckedBounds(tp.withoutAnnotations).dealias))
+      val casted = c.typecheck(gen.mkCast(tree, uncheckedBounds(withoutAnnotations(tp)).dealias))
       Typed(casted, TypeTree(tp)).setType(tp)
     }
+  }
+
+  def deconst(tp: Type): Type = tp match {
+    case AnnotatedType(anns, underlying) => annotatedType(anns, deconst(underlying))
+    case ExistentialType(quants, underlying) => existentialType(quants, deconst(underlying))
+    case ConstantType(value) => deconst(value.tpe)
+    case _ => tp
+  }
+
+  def withAnnotation(tp: Type, ann: Annotation): Type = withAnnotations(tp, List(ann))
+
+  def withAnnotations(tp: Type, anns: List[Annotation]): Type = tp match {
+    case AnnotatedType(existingAnns, underlying) => annotatedType(anns ::: existingAnns, underlying)
+    case ExistentialType(quants, underlying) => existentialType(quants, withAnnotations(underlying, anns))
+    case _ => annotatedType(anns, tp)
+  }
+
+  def withoutAnnotations(tp: Type): Type = tp match {
+    case AnnotatedType(anns, underlying) => withoutAnnotations(underlying)
+    case ExistentialType(quants, underlying) => existentialType(quants, withoutAnnotations(underlying))
+    case _ => tp
+  }
+
+  def tpe(sym: Symbol): Type = {
+    if (sym.isType) sym.asType.toType
+    else sym.info
+  }
+
+  def thisType(sym: Symbol): Type = {
+    if (sym.isClass) sym.asClass.thisPrefix
+    else NoPrefix
   }
 
   // =====================================
@@ -232,7 +261,7 @@ private[async] trait TransformUtils {
   }
   final def uncheckedBounds(tp: Type): Type = {
     if (tp.typeArgs.isEmpty || UncheckedBoundsClass == NoSymbol) tp
-    else tp.withAnnotation(AnnotationInfo marker UncheckedBoundsClass.tpe)
+    else withAnnotation(tp, Annotation(UncheckedBoundsClass.asType.toType, Nil, ListMap()))
   }
   // =====================================
 }

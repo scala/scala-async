@@ -45,10 +45,7 @@ abstract class AsyncBase {
     import c.universe._, c.internal._, decorators._
     val asyncMacro = AsyncMacro(c, self)
 
-    val code = asyncMacro.asyncTransform[T](
-      body.tree.asInstanceOf[asyncMacro.global.Tree],
-      execContext.tree.asInstanceOf[asyncMacro.global.Tree]
-    )(implicitly[c.WeakTypeTag[T]].asInstanceOf[asyncMacro.global.WeakTypeTag[T]]).asInstanceOf[Tree]
+    val code = asyncMacro.asyncTransform[T](body.tree, execContext.tree)(c.weakTypeTag[T])
     AsyncUtils.vprintln(s"async state machine transform expands to:\n ${code}")
 
     // Mark range positions for synthetic code as transparent to allow some wiggle room for overlapping ranges

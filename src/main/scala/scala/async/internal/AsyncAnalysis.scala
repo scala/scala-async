@@ -28,7 +28,7 @@ trait AsyncAnalysis {
     var hasUnsupportedAwaits = false
 
     override def nestedClass(classDef: ClassDef) {
-      val kind = if (classDef.symbol.isTrait) "trait" else "class"
+      val kind = if (classDef.symbol.asClass.isTrait) "trait" else "class"
       reportUnsupportedAwait(classDef, s"nested ${kind}")
     }
 

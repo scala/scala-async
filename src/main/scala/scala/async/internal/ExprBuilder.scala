@@ -15,6 +15,7 @@ trait ExprBuilder {
 
   import c.universe._
   import defn._
+  import c.internal._
 
   val futureSystem: FutureSystem
   val futureSystemOps: futureSystem.Ops { val c: builder.c.type }

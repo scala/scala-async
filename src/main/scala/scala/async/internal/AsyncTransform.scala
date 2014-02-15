@@ -3,7 +3,7 @@ package scala.async.internal
 trait AsyncTransform {
   self: AsyncMacro =>
 
-  import c.universe.{gen => _, _}
+  import c.universe._
   import c.internal._
   import decorators._
 
@@ -15,7 +15,7 @@ trait AsyncTransform {
     // We annotate the type of the whole expression as `T @uncheckedBounds` so as not to introduce
     // warnings about non-conformant LUBs. See SI-7694
     // This implicit propagates the annotated type in the type tag.
-    implicit val uncheckedBoundsResultTag: WeakTypeTag[T] = WeakTypeTag[T](rootMirror, FixedMirrorTypeCreator(rootMirror, uncheckedBounds(resultType.tpe)))
+    implicit val uncheckedBoundsResultTag: WeakTypeTag[T] = c.WeakTypeTag[T](uncheckedBounds(resultType.tpe))
 
     reportUnsupportedAwaits(body)
 
@@ -82,7 +82,7 @@ trait AsyncTransform {
           List(
             asyncBase.nullOut(c.universe)(c.Expr[String](Literal(Constant(fieldSym.name.toString))), c.Expr[Any](Ident(fieldSym))).tree
           ),
-          Assign(gen.mkAttributedStableRef(fieldSym.owner.thisType, fieldSym), gen.mkZero(fieldSym.info))
+          Assign(gen.mkAttributedStableRef(thisType(fieldSym.owner), fieldSym), gen.mkZero(fieldSym.info))
         )
       }
       val asyncState = asyncBlock.asyncStates.find(_.state == state).get
@@ -143,9 +143,9 @@ trait AsyncTransform {
     liftedSyms.foreach {
       sym =>
         if (sym != null) {
-          sym.owner = stateMachineClass
+          sym.setOwner(stateMachineClass)
           if (sym.isModule)
-            sym.moduleClass.owner = stateMachineClass
+            sym.asModule.moduleClass.setOwner(stateMachineClass)
         }
     }
     // Replace the ValDefs in the splicee with Assigns to the corresponding lifted
@@ -158,7 +158,7 @@ trait AsyncTransform {
       case ValDef(_, _, _, rhs) if liftedSyms(tree.symbol) =>
         api.atOwner(api.currentOwner) {
           val fieldSym = tree.symbol
-          val set = Assign(gen.mkAttributedStableRef(fieldSym.owner.thisType, fieldSym), api.recur(rhs))
+          val set = Assign(gen.mkAttributedStableRef(thisType(fieldSym.owner.asClass), fieldSym), api.recur(rhs))
           set.changeOwner(tree.symbol, api.currentOwner)
           api.typecheck(atPos(tree.pos)(set))
         }
@@ -167,7 +167,7 @@ trait AsyncTransform {
       case Ident(name) if liftedSyms(tree.symbol)          =>
         val fieldSym = tree.symbol
         atPos(tree.pos) {
-          gen.mkAttributedStableRef(fieldSym.owner.thisType, fieldSym).setType(tree.tpe)
+          gen.mkAttributedStableRef(thisType(fieldSym.owner.asClass), fieldSym).setType(tree.tpe)
         }
       case _                                               =>
         api.default(tree)
