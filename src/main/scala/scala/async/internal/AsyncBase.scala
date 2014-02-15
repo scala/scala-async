@@ -42,34 +42,22 @@ abstract class AsyncBase {
   def asyncImpl[T: c.WeakTypeTag](c: Context)
                                  (body: c.Expr[T])
                                  (execContext: c.Expr[futureSystem.ExecContext]): c.Expr[futureSystem.Fut[T]] = {
-    import c.universe._
+    import c.universe._, c.internal._, decorators._
     val asyncMacro = AsyncMacro(c, self)
 
-    val isPresentationCompiler = asyncMacro.global.forInteractive
-
-    val code = asyncMacro.asyncTransform[T](
-      body.tree.asInstanceOf[asyncMacro.global.Tree],
-      execContext.tree.asInstanceOf[asyncMacro.global.Tree]
-    )(implicitly[c.WeakTypeTag[T]].asInstanceOf[asyncMacro.global.WeakTypeTag[T]]).asInstanceOf[Tree]
-
+    val code = asyncMacro.asyncTransform[T](body.tree, execContext.tree)(c.weakTypeTag[T])
     AsyncUtils.vprintln(s"async state machine transform expands to:\n ${code}")
-    val result = if (isPresentationCompiler) {
-      asyncMacro.suppressExpansion()
-      c.macroApplication
-    } else {
-      // Mark range positions for synthetic code as transparent to allow some wiggle room for overlapping ranges
-      for (t <- code)
-        t.pos = t.pos.makeTransparent
-      code
-    }
-    c.Expr[futureSystem.Fut[T]](result)
+
+    // Mark range positions for synthetic code as transparent to allow some wiggle room for overlapping ranges
+    for (t <- code) t.setPos(t.pos.makeTransparent)
+    c.Expr[futureSystem.Fut[T]](code)
   }
 
   protected[async] def awaitMethod(u: Universe)(asyncMacroSymbol: u.Symbol): u.Symbol = {
     import u._
     asyncMacroSymbol.owner.typeSignature.member(newTermName("await"))
-  }  
-  
+  }
+
   protected[async] def nullOut(u: Universe)(name: u.Expr[String], v: u.Expr[Any]): u.Expr[Unit] =
     u.reify { () }
 }

@@ -36,9 +36,9 @@ class LiveVariablesSpec {
       // a == Cell(1)
       val b: Cell[Int] = await(m1(a))  // await$2$1
       // b == Cell(2)
-      assert(AsyncTestLV.log.exists(_ == ("await$1$1" -> Cell(1))), AsyncTestLV.log)
+      assert(AsyncTestLV.log.exists(_._2 == Cell(1)), AsyncTestLV.log)
       val res = await(m2(b))           // await$3$1
-      assert(AsyncTestLV.log.exists(_ == ("await$2$1" -> Cell(2))))
+      assert(AsyncTestLV.log.exists(_._2 == Cell(2)))
       res
     }
 
@@ -60,9 +60,9 @@ class LiveVariablesSpec {
       // a == Cell(1)
       val b: Any = await(m1(a))        // await$5$1
       // b == Cell(2)
-      assert(AsyncTestLV.log.exists(_ == ("await$4$1" -> Cell(1))))
+      assert(AsyncTestLV.log.exists(_._2 == Cell(1)))
       val res = await(m2(b))           // await$6$1
-      assert(AsyncTestLV.log.exists(_ == ("await$5$1" -> Cell(2))))
+      assert(AsyncTestLV.log.exists(_._2 == Cell(2)))
       res
     }
 
@@ -84,9 +84,9 @@ class LiveVariablesSpec {
       // a == 1
       val b: Any = await(m1(a))        // await$8$1
       // b == Cell(2)
-      assert(!AsyncTestLV.log.exists(p => p._1 == "await$7$1"))
+      // assert(!AsyncTestLV.log.exists(p => p._1 == "await$7$1"))
       val res = await(m2(b))           // await$9$1
-      assert(AsyncTestLV.log.exists(_ == ("await$8$1" -> Cell(2))))
+      assert(AsyncTestLV.log.exists(_._2 == Cell(2)))
       res
     }
 
@@ -108,9 +108,9 @@ class LiveVariablesSpec {
       // a == Cell(1)
       val b: Meter = await(m1(a))      // await$11$1
       // b == Meter(2)
-      assert(AsyncTestLV.log.exists(_ == ("await$10$1" -> Cell(1))))
+      assert(AsyncTestLV.log.exists(_._2 == Cell(1)))
       val res = await(m2(b.len))       // await$12$1
-      assert(AsyncTestLV.log.exists(entry => entry._1 == "await$11$1" && entry._2.asInstanceOf[Meter].len == 2L))
+      assert(AsyncTestLV.log.exists(_._2.asInstanceOf[Meter].len == 2L))
       res
     }
 
@@ -138,12 +138,12 @@ class LiveVariablesSpec {
       }
 
       // state #3
-      assert(AsyncTestLV.log.exists(entry => entry._1 == "await$14$1"))
+      // assert(AsyncTestLV.log.exists(entry => entry._1 == "await$14$1"))
 
       val b = await(m1(a, y.v))        // await$15$1
       // state #8
-      assert(AsyncTestLV.log.exists(_ == ("a$1" -> MCell(10))), AsyncTestLV.log)
-      assert(AsyncTestLV.log.exists(_ == ("y$1" -> MCell(11))))
+      assert(AsyncTestLV.log.exists(_._2 == MCell(10)), AsyncTestLV.log)
+      assert(AsyncTestLV.log.exists(_._2 == MCell(11)))
       b
     }
 

@@ -2,8 +2,10 @@ package scala.async.internal
 
 trait Lifter {
   self: AsyncMacro =>
-  import scala.reflect.internal.Flags._
-  import global._
+  import c.universe._
+  import Flag._
+  import c.internal._
+  import decorators._
 
   /**
    * Identify which DefTrees are used (including transitively) which are declared
@@ -88,7 +90,7 @@ trait Lifter {
 
           // Only mark transitive references of defs, modules and classes. The RHS of lifted vals/vars
           // stays in its original location, so things that it refers to need not be lifted.
-          if (!(sym.isVal || sym.isVar))
+          if (!(sym.isTerm && (sym.asTerm.isVal || sym.asTerm.isVar)))
             defSymToReferenced(sym).foreach(sym2 => markForLift(sym2))
         }
       }
@@ -111,35 +113,35 @@ trait Lifter {
         val treeLifted = t match {
           case vd@ValDef(_, _, tpt, rhs)                    =>
             sym.setFlag(MUTABLE | STABLE | PRIVATE | LOCAL)
-            sym.name = name.fresh(sym.name.toTermName)
-            sym.modifyInfo(_.deconst)
+            sym.setName(name.fresh(sym.name.toTermName))
+            sym.setInfo(deconst(sym.info))
             val zeroRhs = atPos(t.pos)(gen.mkZero(vd.symbol.info))
-            treeCopy.ValDef(vd, Modifiers(sym.flags), sym.name, TypeTree(sym.tpe).setPos(t.pos), zeroRhs)
+            treeCopy.ValDef(vd, Modifiers(sym.flags), sym.name, TypeTree(tpe(sym)).setPos(t.pos), zeroRhs)
           case dd@DefDef(_, _, tparams, vparamss, tpt, rhs) =>
-            sym.name = this.name.fresh(sym.name.toTermName)
+            sym.setName(this.name.fresh(sym.name.toTermName))
             sym.setFlag(PRIVATE | LOCAL)
             // Was `DefDef(sym, rhs)`, but this ran afoul of `ToughTypeSpec.nestedMethodWithInconsistencyTreeAndInfoParamSymbols`
             // due to the handling of type parameter skolems in `thisMethodType` in `Namers`
             treeCopy.DefDef(dd, Modifiers(sym.flags), sym.name, tparams, vparamss, tpt, rhs)
           case cd@ClassDef(_, _, tparams, impl)             =>
-            sym.name = newTypeName(name.fresh(sym.name.toString).toString)
+            sym.setName(newTypeName(name.fresh(sym.name.toString).toString))
             companionship.companionOf(cd.symbol) match {
               case NoSymbol     =>
               case moduleSymbol =>
-                moduleSymbol.name = sym.name.toTermName
-                moduleSymbol.moduleClass.name = moduleSymbol.name.toTypeName
+                moduleSymbol.setName(sym.name.toTermName)
+                moduleSymbol.asModule.moduleClass.setName(moduleSymbol.name.toTypeName)
             }
             treeCopy.ClassDef(cd, Modifiers(sym.flags), sym.name, tparams, impl)
           case md@ModuleDef(_, _, impl)                     =>
             companionship.companionOf(md.symbol) match {
               case NoSymbol    =>
-                sym.name = name.fresh(sym.name.toTermName)
-                sym.moduleClass.name = sym.name.toTypeName
+                sym.setName(name.fresh(sym.name.toTermName))
+                sym.asModule.moduleClass.setName(sym.name.toTypeName)
               case classSymbol => // will be renamed by `case ClassDef` above.
             }
             treeCopy.ModuleDef(md, Modifiers(sym.flags), sym.name, impl)
           case td@TypeDef(_, _, tparams, rhs)               =>
-            sym.name = newTypeName(name.fresh(sym.name.toString).toString)
+            sym.setName(newTypeName(name.fresh(sym.name.toString).toString))
             treeCopy.TypeDef(td, Modifiers(sym.flags), sym.name, tparams, rhs)
         }
         atPos(t.pos)(treeLifted)

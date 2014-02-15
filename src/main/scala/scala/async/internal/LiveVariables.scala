@@ -1,10 +1,9 @@
 package scala.async.internal
 
-import reflect.internal.Flags._
-
 trait LiveVariables {
   self: AsyncMacro =>
-  import global._
+  import c.universe._
+  import Flag._
 
   /**
    *  Returns for a given state a list of fields (as trees) that should be nulled out
@@ -56,7 +55,7 @@ trait LiveVariables {
 
     // determine which fields should be live also at the end (will not be nulled out)
     val noNull: Set[Symbol] = liftedSyms.filter { sym =>
-      sym.tpe.typeSymbol.isPrimitiveValueClass || liftables.exists { tree =>
+      tpe(sym).typeSymbol.asClass.isPrimitive || liftables.exists { tree =>
         !liftedSyms.contains(tree.symbol) && tree.exists(_.symbol == sym)
       }
     }

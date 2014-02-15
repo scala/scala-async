@@ -1,4 +1,4 @@
-scalaVersion := "2.10.3"
+scalaVersion := "2.11.0-RC1"
 
 // Uncomment to test with a locally built copy of Scala.
 // scalaHome := Some(file("/code/scala2/build/pack"))

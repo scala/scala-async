@@ -18,6 +18,15 @@ package object async {
 
   implicit class stringops(text: String) {
     def mustContain(substring: String) = assert(text contains substring, text)
+
+    def mustStartWith(prefix: String) = assert(text startsWith prefix, text)
+  }
+
+  implicit class listops(list: List[String]) {
+    def mustStartWith(prefixes: List[String]) = {
+      assert(list.length == prefixes.size, ("expected = " + prefixes.length + ", actual = " + list.length, list))
+      list.zip(prefixes).foreach{ case (el, prefix) => el mustStartWith prefix }
+    }
   }
 
   def intercept[T <: Throwable : ClassTag](body: => Any): T = {
@@ -45,8 +54,10 @@ package object async {
   def scalaBinaryVersion: String = {
     val PreReleasePattern = """.*-(M|RC).*""".r
     val Pattern = """(\d+\.\d+)\..*""".r
+    val SnapshotPattern = """(\d+\.\d+\.\d+)-\d+-\d+-.*""".r
     scala.util.Properties.versionNumberString match {
       case s @ PreReleasePattern(_) => s
+      case SnapshotPattern(v) => v + "-SNAPSHOT"
       case Pattern(v) => v
       case _          => ""
     }

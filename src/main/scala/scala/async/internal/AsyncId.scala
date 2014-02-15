@@ -7,7 +7,6 @@ package scala.async.internal
 import language.experimental.macros
 import scala.reflect.macros.Context
 import scala.reflect.api.Universe
-import scala.reflect.internal.SymbolTable
 
 object AsyncId extends AsyncBase {
   lazy val futureSystem = IdentityFutureSystem
@@ -52,12 +51,11 @@ object IdentityFutureSystem extends FutureSystem {
   type ExecContext = Unit
   type Tryy[A] = scala.util.Try[A]
 
-  def mkOps(c: SymbolTable): Ops {val universe: c.type} = new Ops {
-    val universe: c.type = c
+  def mkOps(c0: Context): Ops {val c: c0.type} = new Ops {
+    val c: c0.type = c0
+    import c.universe._
 
-    import universe._
-
-    def execContext: Expr[ExecContext] = Expr[Unit](Literal(Constant(())))
+    def execContext: Expr[ExecContext] = c.Expr[Unit](Literal(Constant(())))
 
     def promType[A: WeakTypeTag]: Type = weakTypeOf[Prom[A]]
     def tryType[A: WeakTypeTag]: Type = weakTypeOf[scala.util.Try[A]]
@@ -76,12 +74,12 @@ object IdentityFutureSystem extends FutureSystem {
     def onComplete[A, U](future: Expr[Fut[A]], fun: Expr[Tryy[A] => U],
                          execContext: Expr[ExecContext]): Expr[Unit] = reify {
       fun.splice.apply(util.Success(future.splice))
-      Expr[Unit](Literal(Constant(()))).splice
+      c.Expr[Unit](Literal(Constant(()))).splice
     }
 
     def completeProm[A](prom: Expr[Prom[A]], value: Expr[Tryy[A]]): Expr[Unit] = reify {
       prom.splice.a = value.splice.get
-      Expr[Unit](Literal(Constant(()))).splice
+      c.Expr[Unit](Literal(Constant(()))).splice
     }
 
     def tryyIsFailure[A](tryy: Expr[Tryy[A]]): Expr[Boolean] = reify {
