@@ -2,6 +2,7 @@
 
 [![Build Status](https://secure.travis-ci.org/scala/async.png)](http://travis-ci.org/scala/async)
 
+Note: this branch targets Scala 2.11.x, support for Scala 2.10.x has been moved to [this branch](https://github.com/scala/async/tree/2.10.x).
 
 ## Quick start
 

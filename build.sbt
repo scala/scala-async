@@ -1,8 +1,8 @@
-scalaVersion := "2.11.0-RC1"
+scalaVersion := "2.11.0-SNAPSHOT"
 
 // Uncomment to test with a locally built copy of Scala.
 // scalaHome := Some(file("/code/scala2/build/pack"))
-
+resolvers ++= (if (scalaVersion.value.endsWith("SNAPSHOT")) List(Resolver.sonatypeRepo("snapshots")) else Nil)
 
 organization := "org.scala-lang.modules"
 
@@ -10,15 +10,9 @@ name := "scala-async"
 
 version := "0.9.0-SNAPSHOT"
 
-libraryDependencies <++= (scalaVersion) {
-  sv => Seq(
-    // TODO we should make this provided after we rely on @compileTimeOnly in scla-library in 2.11.-
-    //      but if we do that now, and a user doesn't have this on the classpath, they can get the
-    //      dreaded MissingRequirementErrors when unpickling types from scala.async.Async
-    "org.scala-lang" % "scala-reflect" % sv,
-    "org.scala-lang" % "scala-compiler" % sv % "provided"
-  )
-}
+libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value % "provided"
+
+libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value % "test" // for ToolBox
 
 libraryDependencies += "junit" % "junit-dep" % "4.10" % "test"
 
