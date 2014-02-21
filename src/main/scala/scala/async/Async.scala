@@ -6,7 +6,7 @@ package scala.async
 
 import scala.language.experimental.macros
 import scala.concurrent.{Future, ExecutionContext}
-import scala.reflect.internal.annotations.compileTimeOnly
+import scala.annotation.compileTimeOnly
 
 /**
  * Async blocks provide a direct means to work with [[scala.concurrent.Future]].

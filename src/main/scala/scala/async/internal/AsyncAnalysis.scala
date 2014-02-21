@@ -10,7 +10,7 @@ import scala.collection.mutable
 trait AsyncAnalysis {
   self: AsyncMacro =>
 
-  import global._
+  import c.universe._
 
   /**
    * Analyze the contents of an `async` block in order to:
@@ -21,14 +21,14 @@ trait AsyncAnalysis {
   def reportUnsupportedAwaits(tree: Tree): Unit = {
     val analyzer = new UnsupportedAwaitAnalyzer
     analyzer.traverse(tree)
-    analyzer.hasUnsupportedAwaits
+    // analyzer.hasUnsupportedAwaits // XB: not used?!
   }
 
   private class UnsupportedAwaitAnalyzer extends AsyncTraverser {
     var hasUnsupportedAwaits = false
 
     override def nestedClass(classDef: ClassDef) {
-      val kind = if (classDef.symbol.isTrait) "trait" else "class"
+      val kind = if (classDef.symbol.asClass.isTrait) "trait" else "class"
       reportUnsupportedAwait(classDef, s"nested ${kind}")
     }
 
@@ -59,10 +59,10 @@ trait AsyncAnalysis {
           reportUnsupportedAwait(tree, "try/catch")
           super.traverse(tree)
         case Return(_)                                        =>
-          abort(tree.pos, "return is illegal within a async block")
+          c.abort(tree.pos, "return is illegal within a async block")
         case ValDef(mods, _, _, _) if mods.hasFlag(Flag.LAZY) =>
           // TODO lift this restriction
-          abort(tree.pos, "lazy vals are illegal within an async block")
+          c.abort(tree.pos, "lazy vals are illegal within an async block")
         case CaseDef(_, guard, _) if guard exists isAwait     =>
           // TODO lift this restriction
           reportUnsupportedAwait(tree, "pattern guard")
@@ -87,7 +87,7 @@ trait AsyncAnalysis {
 
     private def reportError(pos: Position, msg: String) {
       hasUnsupportedAwaits = true
-      abort(pos, msg)
+      c.abort(pos, msg)
     }
   }
 }

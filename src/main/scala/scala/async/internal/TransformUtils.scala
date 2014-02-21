@@ -5,7 +5,7 @@ package scala.async.internal
 
 import scala.reflect.macros.Context
 import reflect.ClassTag
-import scala.reflect.macros.runtime.AbortMacroException
+import scala.collection.immutable.ListMap
 
 /**
  * Utilities used in both `ExprBuilder` and `AnfTransform`.
@@ -13,7 +13,9 @@ import scala.reflect.macros.runtime.AbortMacroException
 private[async] trait TransformUtils {
   self: AsyncMacro =>
 
-  import global._
+  import c.universe._
+  import c.internal._
+  import decorators._
 
   object name {
     val resume        = newTermName("resume")
@@ -31,9 +33,9 @@ private[async] trait TransformUtils {
     val tr            = newTermName("tr")
     val t             = newTermName("throwable")
 
-    def fresh(name: TermName): TermName = newTermName(fresh(name.toString))
+    def fresh(name: TermName): TermName = c.freshName(name)
 
-    def fresh(name: String): String = currentUnit.freshTermName("" + name + "$").toString
+    def fresh(name: String): String = c.freshName(name)
   }
 
   def isAwait(fun: Tree) =
@@ -51,7 +53,7 @@ private[async] trait TransformUtils {
     if (Boolean_ShortCircuits contains fun.symbol) (i, j) => true
     else {
       val paramss = fun.tpe.paramss
-      val byNamess = paramss.map(_.map(_.isByNameParam))
+      val byNamess = paramss.map(_.map(_.asTerm.isByNameParam))
       (i, j) => util.Try(byNamess(i)(j)).getOrElse(false)
     }
   }
@@ -61,11 +63,9 @@ private[async] trait TransformUtils {
     (i, j) => util.Try(namess(i)(j)).getOrElse(s"arg_${i}_${j}")
   }
 
-  def Expr[A: WeakTypeTag](t: Tree) = global.Expr[A](rootMirror, new FixedMirrorTreeCreator(rootMirror, t))
-
   object defn {
     def mkList_apply[A](args: List[Expr[A]]): Expr[List[A]] = {
-      Expr(Apply(Ident(definitions.List_apply), args.map(_.tree)))
+      c.Expr(Apply(Ident(definitions.List_apply), args.map(_.tree)))
     }
 
     def mkList_contains[A](self: Expr[List[A]])(elem: Expr[Any]) = reify {
@@ -85,11 +85,7 @@ private[async] trait TransformUtils {
     }
 
     val NonFatalClass = rootMirror.staticModule("scala.util.control.NonFatal")
-    val Async_await   = asyncBase.awaitMethod(global)(macroApplication.symbol).ensuring(_ != NoSymbol)
-  }
-
-  def isSafeToInline(tree: Tree) = {
-    treeInfo.isExprSafeToInline(tree)
+    val Async_await   = asyncBase.awaitMethod(c.universe)(c.macroApplication.symbol).ensuring(_ != NoSymbol)
   }
 
   // `while(await(x))` ... or `do { await(x); ... } while(...)` contain an `If` that loops;
@@ -194,7 +190,7 @@ private[async] trait TransformUtils {
         case dd: DefDef            => nestedMethod(dd)
         case fun: Function         => function(fun)
         case m@Match(EmptyTree, _) => patMatFunction(m) // Pattern matching anonymous function under -Xoldpatmat of after `restorePatternMatchingFunctions`
-        case treeInfo.Applied(fun, targs, argss) if argss.nonEmpty =>
+        case q"$fun[..$targs](...$argss)" if argss.nonEmpty =>
           val isInByName = isByName(fun)
           for ((args, i) <- argss.zipWithIndex) {
             for ((arg, j) <- args.zipWithIndex) {
@@ -208,43 +204,11 @@ private[async] trait TransformUtils {
     }
   }
 
-  def abort(pos: Position, msg: String) = throw new AbortMacroException(pos, msg)
-
-  abstract class MacroTypingTransformer extends TypingTransformer(callSiteTyper.context.unit) {
-    currentOwner = callSiteTyper.context.owner
-    curTree = EmptyTree
-
-    def currOwner: Symbol = currentOwner
-
-    localTyper = global.analyzer.newTyper(callSiteTyper.context.make(unit = callSiteTyper.context.unit))
-  }
-
-  def transformAt(tree: Tree)(f: PartialFunction[Tree, (analyzer.Context => Tree)]) = {
-    object trans extends MacroTypingTransformer {
-      override def transform(tree: Tree): Tree = {
-        if (f.isDefinedAt(tree)) {
-          f(tree)(localTyper.context)
-        } else super.transform(tree)
-      }
-    }
-    trans.transform(tree)
-  }
-
-  def changeOwner(tree: Tree, oldOwner: Symbol, newOwner: Symbol): tree.type = {
-    new ChangeOwnerAndModuleClassTraverser(oldOwner, newOwner).traverse(tree)
-    tree
-  }
-
-  class ChangeOwnerAndModuleClassTraverser(oldowner: Symbol, newowner: Symbol)
-    extends ChangeOwnerTraverser(oldowner, newowner) {
-
-    override def traverse(tree: Tree) {
-      tree match {
-        case _: DefTree => change(tree.symbol.moduleClass)
-        case _          =>
-      }
-      super.traverse(tree)
-    }
+  def transformAt(tree: Tree)(f: PartialFunction[Tree, (TypingTransformApi => Tree)]) = {
+    typingTransform(tree)((tree, api) => {
+      if (f.isDefinedAt(tree)) f(tree)(api)
+      else api.default(tree)
+    })
   }
 
   def toMultiMap[A, B](as: Iterable[(A, B)]): Map[A, List[B]] =
@@ -253,19 +217,51 @@ private[async] trait TransformUtils {
   // Attributed version of `TreeGen#mkCastPreservingAnnotations`
   def mkAttributedCastPreservingAnnotations(tree: Tree, tp: Type): Tree = {
     atPos(tree.pos) {
-      val casted = gen.mkAttributedCast(tree, uncheckedBounds(tp.withoutAnnotations).dealias)
+      val casted = c.typecheck(gen.mkCast(tree, uncheckedBounds(withoutAnnotations(tp)).dealias))
       Typed(casted, TypeTree(tp)).setType(tp)
     }
+  }
+
+  def deconst(tp: Type): Type = tp match {
+    case AnnotatedType(anns, underlying) => annotatedType(anns, deconst(underlying))
+    case ExistentialType(quants, underlying) => existentialType(quants, deconst(underlying))
+    case ConstantType(value) => deconst(value.tpe)
+    case _ => tp
+  }
+
+  def withAnnotation(tp: Type, ann: Annotation): Type = withAnnotations(tp, List(ann))
+
+  def withAnnotations(tp: Type, anns: List[Annotation]): Type = tp match {
+    case AnnotatedType(existingAnns, underlying) => annotatedType(anns ::: existingAnns, underlying)
+    case ExistentialType(quants, underlying) => existentialType(quants, withAnnotations(underlying, anns))
+    case _ => annotatedType(anns, tp)
+  }
+
+  def withoutAnnotations(tp: Type): Type = tp match {
+    case AnnotatedType(anns, underlying) => withoutAnnotations(underlying)
+    case ExistentialType(quants, underlying) => existentialType(quants, withoutAnnotations(underlying))
+    case _ => tp
+  }
+
+  def tpe(sym: Symbol): Type = {
+    if (sym.isType) sym.asType.toType
+    else sym.info
+  }
+
+  def thisType(sym: Symbol): Type = {
+    if (sym.isClass) sym.asClass.thisPrefix
+    else NoPrefix
   }
 
   // =====================================
   // Copy/Pasted from Scala 2.10.3. See SI-7694.
   private lazy val UncheckedBoundsClass = {
-    global.rootMirror.getClassIfDefined("scala.reflect.internal.annotations.uncheckedBounds")
+    try c.mirror.staticClass("scala.reflect.internal.annotations.uncheckedBounds")
+    catch { case _: ScalaReflectionException => NoSymbol }
   }
   final def uncheckedBounds(tp: Type): Type = {
     if (tp.typeArgs.isEmpty || UncheckedBoundsClass == NoSymbol) tp
-    else tp.withAnnotation(AnnotationInfo marker UncheckedBoundsClass.tpe)
+    else withAnnotation(tp, Annotation(UncheckedBoundsClass.asType.toType, Nil, ListMap()))
   }
   // =====================================
 }

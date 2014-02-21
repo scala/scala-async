@@ -4,7 +4,7 @@
 package scala.async.internal
 
 import scala.language.higherKinds
-import scala.reflect.internal.SymbolTable
+import scala.reflect.macros.Context
 
 /**
  * An abstraction over a future system.
@@ -27,10 +27,8 @@ trait FutureSystem {
   type Tryy[T]
 
   trait Ops {
-    val universe: reflect.internal.SymbolTable
-
-    import universe._
-    def Expr[T: WeakTypeTag](tree: Tree): Expr[T] = universe.Expr[T](rootMirror, universe.FixedMirrorTreeCreator(rootMirror, tree))
+    val c: Context
+    import c.universe._
 
     def promType[A: WeakTypeTag]: Type
     def tryType[A: WeakTypeTag]: Type
@@ -53,7 +51,7 @@ trait FutureSystem {
     def completeProm[A](prom: Expr[Prom[A]], value: Expr[Tryy[A]]): Expr[Unit]
 
     def spawn(tree: Tree, execContext: Tree): Tree =
-      future(Expr[Unit](tree))(Expr[ExecContext](execContext)).tree
+      future(c.Expr[Unit](tree))(c.Expr[ExecContext](execContext)).tree
 
     def tryyIsFailure[A](tryy: Expr[Tryy[A]]): Expr[Boolean]
 
@@ -65,7 +63,7 @@ trait FutureSystem {
     def postAnfTransform(tree: Block): Block = tree
   }
 
-  def mkOps(c: SymbolTable): Ops { val universe: c.type }
+  def mkOps(c0: Context): Ops { val c: c0.type }
 }
 
 object ScalaConcurrentFutureSystem extends FutureSystem {
@@ -77,10 +75,9 @@ object ScalaConcurrentFutureSystem extends FutureSystem {
   type ExecContext = ExecutionContext
   type Tryy[A] = scala.util.Try[A]
 
-  def mkOps(c: SymbolTable): Ops {val universe: c.type} = new Ops {
-    val universe: c.type = c
-
-    import universe._
+  def mkOps(c0: Context): Ops {val c: c0.type} = new Ops {
+    val c: c0.type = c0
+    import c.universe._
 
     def promType[A: WeakTypeTag]: Type = weakTypeOf[Promise[A]]
     def tryType[A: WeakTypeTag]: Type = weakTypeOf[scala.util.Try[A]]
@@ -105,7 +102,7 @@ object ScalaConcurrentFutureSystem extends FutureSystem {
 
     def completeProm[A](prom: Expr[Prom[A]], value: Expr[scala.util.Try[A]]): Expr[Unit] = reify {
       prom.splice.complete(value.splice)
-      Expr[Unit](Literal(Constant(()))).splice
+      c.Expr[Unit](Literal(Constant(()))).splice
     }
 
     def tryyIsFailure[A](tryy: Expr[scala.util.Try[A]]): Expr[Boolean] = reify {
