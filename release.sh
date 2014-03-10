@@ -27,8 +27,8 @@ sbt $RELEASE
 
 cat <<EOM
 Released! For non-snapshot releases:
- - tag: git tag -s -a v$VERSION_2.11 -m "scala-async $VERSION for Scala 2.11"
- - push tag: git push origin v$VERSION_2.11
+ - tag: git tag -s -a v${VERSION}_2.11 -m "scala-async $VERSION for Scala 2.11"
+ - push tag: git push origin v${VERSION}_2.11
  - close and release the staging repository: https://oss.sonatype.org
  - change the version number in build.sbt to a suitable -SNAPSHOT version
 EOM
