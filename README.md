@@ -10,7 +10,7 @@ Add a dependency:
 
 ```scala
 // SBT
-libraryDependencies += "org.scala-lang.modules" %% "scala-async" % "0.9.0-M4"
+libraryDependencies += "org.scala-lang.modules" %% "scala-async" % "0.9.0-M5"
 ```
 
 Write your first `async` block:
