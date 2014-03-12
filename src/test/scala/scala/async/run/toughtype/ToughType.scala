@@ -184,6 +184,34 @@ class ToughTypeSpec {
     }
     Bippy
   }
+
+  @Test
+  def ticket63(): Unit = {
+    import scala.async.Async._
+    import scala.concurrent.{ ExecutionContext, Future }
+
+    object SomeExecutionContext extends ExecutionContext {
+      def reportFailure(t: Throwable): Unit = ???
+      def execute(runnable: Runnable): Unit = ???
+    }
+
+    trait FunDep[W, S, R] {
+      def method(w: W, s: S): Future[R]
+    }
+
+    object FunDep {
+      implicit def `Something to do with List`[W, S, R](implicit funDep: FunDep[W, S, R]) =
+        new FunDep[W, List[S], W] {
+          def method(w: W, l: List[S]) = async {
+            val it = l.iterator
+            while (it.hasNext) {
+              await(funDep.method(w, it.next()))
+            }
+            w
+          }(SomeExecutionContext)
+        }
+    }
+  }
 }
 
 trait A
