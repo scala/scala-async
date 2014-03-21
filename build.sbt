@@ -8,7 +8,7 @@ organization := "org.scala-lang.modules"
 
 name := "scala-async"
 
-version := "0.9.0"
+version := "0.9.1-SNAPSHOT"
 
 libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value % "provided"
 
