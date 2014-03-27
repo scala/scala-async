@@ -54,7 +54,7 @@ trait AsyncTransform {
       }
 
       val tryToUnit = appliedType(definitions.FunctionClass(1), futureSystemOps.tryType[Any], typeOf[Unit])
-      val template = Template(List(tryToUnit, typeOf[() => Unit]).map(TypeTree(_)), emptyValDef, body).setType(NoType)
+      val template = Template(List(tryToUnit, typeOf[() => Unit]).map(TypeTree(_)), emptyValDef, body)
 
       val t = ClassDef(NoMods, name.stateMachineT, Nil, template)
       typecheckClassDef(t)
