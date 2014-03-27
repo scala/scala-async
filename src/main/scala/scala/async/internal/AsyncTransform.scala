@@ -54,11 +54,10 @@ trait AsyncTransform {
       }
 
       val tryToUnit = appliedType(definitions.FunctionClass(1), futureSystemOps.tryType[Any], typeOf[Unit])
-      val template = Template(List(tryToUnit, typeOf[() => Unit]).map(TypeTree(_)), emptyValDef, body)
+      val template = Template(List(tryToUnit, typeOf[() => Unit]).map(TypeTree(_)), emptyValDef, body).setType(NoType)
 
       val t = ClassDef(NoMods, name.stateMachineT, Nil, template)
-      typingTransform(atPos(macroPos)(Block(t :: Nil, Literal(Constant(())))))((tree, api) => api.typecheck(tree))
-      t
+      typecheckClassDef(t)
     }
 
     val stateMachineClass = stateMachine.symbol
@@ -210,5 +209,13 @@ trait AsyncTransform {
           res
     }
     result
+  }
+
+  def typecheckClassDef(cd: ClassDef): ClassDef = {
+    val Block(cd1 :: Nil, _) = typingTransform(atPos(macroPos)(Block(cd :: Nil, Literal(Constant(())))))(
+      (tree, api) =>
+        api.typecheck(tree)
+    )
+    cd1.asInstanceOf[ClassDef]
   }
 }
