@@ -6,11 +6,6 @@ package scala.async
 package run
 package lazyval
 
-import scala.async.run.noawait
-
-import scala.async.internal.AsyncId
-import scala.async.internal.AsyncId
-import AsyncId._
 import org.junit.Test
 import scala.async.internal.AsyncId._
 
