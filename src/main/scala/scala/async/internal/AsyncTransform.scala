@@ -55,8 +55,7 @@ trait AsyncTransform {
       val template = Template(List(tryToUnit, typeOf[() => Unit]).map(TypeTree(_)), emptyValDef, body)
 
       val t = ClassDef(NoMods, name.stateMachineT, Nil, template)
-      callSiteTyper.typedPos(macroPos)(Block(t :: Nil, Literal(Constant(()))))
-      t
+      typecheckClassDef(t)
     }
 
     val stateMachineClass = stateMachine.symbol
@@ -217,5 +216,10 @@ trait AsyncTransform {
           res
     }
     result
+  }
+
+  def typecheckClassDef(cd: ClassDef): ClassDef = {
+    val Block(cd1 :: Nil, _) = callSiteTyper.typedPos(macroPos)(Block(cd :: Nil, Literal(Constant(()))))
+    cd1.asInstanceOf[ClassDef]
   }
 }
