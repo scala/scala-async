@@ -161,7 +161,7 @@ private[async] trait AnfTransform {
               val stats :+ expr1 = linearize.transformToList(expr)
               stats :+ treeCopy.Typed(tree, expr1, tpt)
 
-            case q"$fun[..$targs](...$argss)" if argss.nonEmpty =>
+            case Applied(fun, targs, argss) if argss.nonEmpty =>
               // we can assume that no await call appears in a by-name argument position,
               // this has already been checked.
               val funStats :+ simpleFun = linearize.transformToList(fun)
@@ -188,21 +188,7 @@ private[async] trait AnfTransform {
                 }
               }
 
-
-              /** The depth of the nested applies: e.g. Apply(Apply(Apply(_, _), _), _)
-                *  has depth 3.  Continues through type applications (without counting them.)
-               */
-              def applyDepth: Int = {
-                def loop(tree: Tree): Int = tree match {
-                  case Apply(fn, _)           => 1 + loop(fn)
-                  case TypeApply(fn, _)       => loop(fn)
-                  case AppliedTypeTree(fn, _) => loop(fn)
-                  case _                      => 0
-                }
-                loop(tree)
-              }
-
-              val typedNewApply = copyApplied(tree, applyDepth)
+              val typedNewApply = copyApplied(tree, argss.length)
 
               funStats ++ argStatss.flatten.flatten :+ typedNewApply
 

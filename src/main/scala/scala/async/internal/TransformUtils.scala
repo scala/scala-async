@@ -41,6 +41,74 @@ private[async] trait TransformUtils {
   def isAwait(fun: Tree) =
     fun.symbol == defn.Async_await
 
+  // Copy pasted from TreeInfo in the compiler.
+  // Using a quasiquote pattern like `case q"$fun[..$targs](...$args)" => is not
+  // sufficient since https://github.com/scala/scala/pull/3656 as it doesn't match
+  // constructor invocations.
+  class Applied(val tree: Tree) {
+    /** The tree stripped of the possibly nested applications.
+     *  The original tree if it's not an application.
+     */
+    def callee: Tree = {
+      def loop(tree: Tree): Tree = tree match {
+        case Apply(fn, _) => loop(fn)
+        case tree         => tree
+      }
+      loop(tree)
+    }
+
+    /** The `callee` unwrapped from type applications.
+     *  The original `callee` if it's not a type application.
+     */
+    def core: Tree = callee match {
+      case TypeApply(fn, _)       => fn
+      case AppliedTypeTree(fn, _) => fn
+      case tree                   => tree
+    }
+
+    /** The type arguments of the `callee`.
+     *  `Nil` if the `callee` is not a type application.
+     */
+    def targs: List[Tree] = callee match {
+      case TypeApply(_, args)       => args
+      case AppliedTypeTree(_, args) => args
+      case _                        => Nil
+    }
+
+    /** (Possibly multiple lists of) value arguments of an application.
+     *  `Nil` if the `callee` is not an application.
+     */
+    def argss: List[List[Tree]] = {
+      def loop(tree: Tree): List[List[Tree]] = tree match {
+        case Apply(fn, args) => loop(fn) :+ args
+        case _               => Nil
+      }
+      loop(tree)
+    }
+  }
+
+  /** Returns a wrapper that knows how to destructure and analyze applications.
+   */
+  def dissectApplied(tree: Tree) = new Applied(tree)
+
+  /** Destructures applications into important subparts described in `Applied` class,
+   *  namely into: core, targs and argss (in the specified order).
+   *
+   *  Trees which are not applications are also accepted. Their callee and core will
+   *  be equal to the input, while targs and argss will be Nil.
+   *
+   *  The provided extractors don't expose all the API of the `Applied` class.
+   *  For advanced use, call `dissectApplied` explicitly and use its methods instead of pattern matching.
+   */
+  object Applied {
+    def apply(tree: Tree): Applied = new Applied(tree)
+
+    def unapply(applied: Applied): Option[(Tree, List[Tree], List[List[Tree]])] =
+      Some((applied.core, applied.targs, applied.argss))
+
+    def unapply(tree: Tree): Option[(Tree, List[Tree], List[List[Tree]])] =
+      unapply(dissectApplied(tree))
+  }
   private lazy val Boolean_ShortCircuits: Set[Symbol] = {
     import definitions.BooleanClass
     def BooleanTermMember(name: String) = BooleanClass.typeSignature.member(newTermName(name).encodedName)
