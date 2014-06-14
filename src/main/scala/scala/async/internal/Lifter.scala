@@ -113,8 +113,7 @@ trait Lifter {
             sym.setFlag(MUTABLE | STABLE | PRIVATE | LOCAL)
             sym.name = name.fresh(sym.name.toTermName)
             sym.modifyInfo(_.deconst)
-            val zeroRhs = atPos(t.pos)(gen.mkZero(vd.symbol.info))
-            treeCopy.ValDef(vd, Modifiers(sym.flags), sym.name, TypeTree(sym.tpe).setPos(t.pos), zeroRhs)
+            treeCopy.ValDef(vd, Modifiers(sym.flags), sym.name, TypeTree(sym.tpe).setPos(t.pos), EmptyTree)
           case dd@DefDef(_, _, tparams, vparamss, tpt, rhs) =>
             sym.name = this.name.fresh(sym.name.toTermName)
             sym.setFlag(PRIVATE | LOCAL)
