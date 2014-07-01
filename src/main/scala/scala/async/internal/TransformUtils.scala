@@ -100,7 +100,7 @@ private[async] trait TransformUtils {
       case ld: LabelDef => ld.symbol
     }.toSet
     t.exists {
-      case rt: RefTree => !(labelDefs contains rt.symbol)
+      case rt: RefTree => rt.symbol.isLabel && !(labelDefs contains rt.symbol)
       case _ => false
     }
   }
