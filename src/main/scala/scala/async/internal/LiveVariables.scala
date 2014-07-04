@@ -126,14 +126,22 @@ trait LiveVariables {
 
     /** Tests if `state1` is a predecessor of `state2`.
      */
-    def isPred(state1: Int, state2: Int, seen: Set[Int] = Set()): Boolean =
-      if (seen(state1)) false  // breaks cycles in the CFG
-      else cfg get state1 match {
-        case Some(nextStates) =>
-          nextStates.contains(state2) || nextStates.exists(isPred(_, state2, seen + state1))
-        case None =>
-          false
-      }
+    def isPred(state1: Int, state2: Int): Boolean = {
+      val seen = scala.collection.mutable.HashSet[Int]()
+
+      def isPred0(state1: Int, state2: Int): Boolean = 
+        if(state1 == state2) false
+        else if (seen(state1)) false  // breaks cycles in the CFG
+        else cfg get state1 match {
+          case Some(nextStates) =>
+            seen += state1
+            nextStates.contains(state2) || nextStates.exists(isPred0(_, state2))
+          case None =>
+            false
+        }
+
+      isPred0(state1, state2)
+    }
 
     val finalState = asyncStates.find(as => !asyncStates.exists(other => isPred(as.state, other.state))).get
 
@@ -162,12 +170,10 @@ trait LiveVariables {
     LVexit = LVexit + (finalState.state -> noNull)
 
     var currStates = List(finalState)    // start at final state
-    var pred       = List[AsyncState]()  // current predecessor states
-    var hasChanged = true                // if something has changed we need to continue iterating
     var captured: Set[Symbol] = Set()
 
-    while (hasChanged) {
-      hasChanged = false
+    while (!currStates.isEmpty) {
+      var entryChanged: List[AsyncState] = Nil
 
       for (cs <- currStates) {
         val LVentryOld = LVentry(cs.state)
@@ -176,22 +182,23 @@ trait LiveVariables {
         val LVentryNew = LVexit(cs.state) ++ referenced.used
         if (!LVentryNew.sameElements(LVentryOld)) {
           LVentry = LVentry + (cs.state -> LVentryNew)
-          hasChanged = true
+          entryChanged ::= cs
         }
       }
 
-      pred = currStates.flatMap(cs => asyncStates.filter(_.nextStates.contains(cs.state)))
+      val pred = entryChanged.flatMap(cs => asyncStates.filter(_.nextStates.contains(cs.state)))
+      var exitChanged: List[AsyncState] = Nil
 
       for (p <- pred) {
         val LVexitOld = LVexit(p.state)
         val LVexitNew = p.nextStates.flatMap(succ => LVentry(succ)).toSet
         if (!LVexitNew.sameElements(LVexitOld)) {
           LVexit = LVexit + (p.state -> LVexitNew)
-          hasChanged = true
+          exitChanged ::= p
         }
       }
 
-      currStates = pred
+      currStates = exitChanged
     }
 
     for (as <- asyncStates) {
@@ -199,21 +206,29 @@ trait LiveVariables {
       AsyncUtils.vprintln(s"LVexit  at state #${as.state}: ${LVexit(as.state).mkString(", ")}")
     }
 
-    def lastUsagesOf(field: Tree, at: AsyncState, avoid: Set[AsyncState]): Set[Int] =
-      if (avoid(at)) Set()
-      else if (captured(field.symbol)) {
-        Set()
-      }
-      else LVentry get at.state match {
-        case Some(fields) if fields.exists(_ == field.symbol) =>
-          Set(at.state)
-        case _ =>
-          val preds = asyncStates.filter(_.nextStates.contains(at.state)).toSet
-          preds.flatMap(p => lastUsagesOf(field, p, avoid + at))
+    def lastUsagesOf(field: Tree, at: AsyncState): Set[Int] = {
+      val avoid = scala.collection.mutable.HashSet[AsyncState]()
+
+      def lastUsagesOf0(field: Tree, at: AsyncState): Set[Int] = {
+        if (avoid(at)) Set()
+        else if (captured(field.symbol)) {
+          Set()
+        }
+        else LVentry get at.state match {
+          case Some(fields) if fields.exists(_ == field.symbol) =>
+            Set(at.state)
+          case _ =>
+            avoid += at
+            val preds = asyncStates.filter(_.nextStates.contains(at.state)).toSet
+            preds.flatMap(p => lastUsagesOf0(field, p))
+        }
       }
 
+      lastUsagesOf0(field, at)
+    }
+
     val lastUsages: Map[Tree, Set[Int]] =
-      liftables.map(fld => (fld -> lastUsagesOf(fld, finalState, Set()))).toMap
+      liftables.map(fld => (fld -> lastUsagesOf(fld, finalState))).toMap
 
     for ((fld, lastStates) <- lastUsages)
       AsyncUtils.vprintln(s"field ${fld.symbol.name} is last used in states ${lastStates.mkString(", ")}")
