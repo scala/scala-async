@@ -87,6 +87,75 @@ class TestIfElse1Class {
     }
     z
   }
+
+  def pred: Future[Boolean] = async(true) 
+
+  def m5: Future[Boolean] = async {
+    if(if(if(if(if(if(if(if(if(if(if(if(if(if(if(if(if(if(if(if(if(await(pred))
+      await(pred)
+    else
+      false)
+      await(pred)
+    else
+      false)
+      await(pred)
+    else
+      false)
+      await(pred)
+    else
+      false)
+      await(pred)
+    else
+      false)
+      await(pred)
+    else
+      false)
+      await(pred)
+    else
+      false)
+      await(pred)
+    else
+      false)
+      await(pred)
+    else
+      false)
+      await(pred)
+    else
+      false)
+      await(pred)
+    else
+      false)
+      await(pred)
+    else
+      false)
+      await(pred)
+    else
+      false)
+      await(pred)
+    else
+      false)
+      await(pred)
+    else
+      false)
+      await(pred)
+    else
+      false)
+      await(pred)
+    else
+      false)
+      await(pred)
+    else
+      false)
+      await(pred)
+    else
+      false)
+      await(pred)
+    else
+      false)
+      await(pred)
+    else
+      false
+  }
 }
 
 class IfElse1Spec {
@@ -123,5 +192,13 @@ class IfElse1Spec {
     val fut = o.m4(10)
     val res = Await.result(fut, 2 seconds)
     res mustBe (14)
+  }
+
+  @Test
+  def `await in deeply-nested if-else conditions`() {
+    val o = new TestIfElse1Class
+    val fut = o.m5
+    val res = Await.result(fut, 2 seconds)
+    res mustBe true
   }
 }
