@@ -228,7 +228,21 @@ class ToughTypeSpec {
       case `e` =>
     }
   }
+
+  @Test def ticket83ValueClass() {
+    import scala.async.Async._
+    import scala.concurrent._, duration._, ExecutionContext.Implicits.global
+    val f = async {
+      val uid = new IntWrapper("foo")
+      await(Future(uid))
+    }
+    val result = Await.result(f, 5.seconds)
+    result mustEqual (new IntWrapper("foo"))
+  }
 }
+
+class IntWrapper(val value: String) extends AnyVal
+
 
 trait A
 
