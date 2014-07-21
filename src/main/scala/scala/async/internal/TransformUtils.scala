@@ -164,10 +164,16 @@ private[async] trait TransformUtils {
       case ld: LabelDef => ld.symbol
     }.toSet
     t.exists {
-      case rt: RefTree => !(labelDefs contains rt.symbol)
+      case rt: RefTree => rt.symbol != null && isLabel(rt.symbol) && !(labelDefs contains rt.symbol)
       case _ => false
     }
   }
+
+  private def isLabel(sym: Symbol): Boolean = {
+    val LABEL = 1L << 17 // not in the public reflection API.
+    (internal.flags(sym).asInstanceOf[Long] & LABEL) != 0L
+  }
+
 
   /** Map a list of arguments to:
     * - A list of argument Trees

@@ -211,6 +211,22 @@ class ToughTypeSpec {
           }(SomeExecutionContext)
         }
     }
+
+  }
+
+  @Test def ticket66Nothing() {
+    import scala.concurrent.Future
+    import scala.concurrent.ExecutionContext.Implicits.global
+    val e = new Exception()
+    val f: Future[Nothing] = Future.failed(e)
+    val f1 = async {
+      await(f)
+    }
+    try {
+      Await.result(f1, 5.seconds)
+    } catch {
+      case `e` =>
+    }
   }
 }
 

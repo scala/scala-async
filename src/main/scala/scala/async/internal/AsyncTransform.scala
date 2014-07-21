@@ -157,9 +157,10 @@ trait AsyncTransform {
       case ValDef(_, _, _, rhs) if liftedSyms(tree.symbol) =>
         api.atOwner(api.currentOwner) {
           val fieldSym = tree.symbol
-          val set = Assign(gen.mkAttributedStableRef(thisType(fieldSym.owner.asClass), fieldSym), api.recur(rhs))
-          set.changeOwner(tree.symbol, api.currentOwner)
-          api.typecheck(atPos(tree.pos)(set))
+          val lhs = atPos(tree.pos) {
+            gen.mkAttributedStableRef(thisType(fieldSym.owner.asClass), fieldSym)
+          }
+          treeCopy.Assign(tree, lhs, api.recur(rhs)).setType(definitions.UnitTpe).changeOwner(fieldSym, api.currentOwner)
         }
       case _: DefTree if liftedSyms(tree.symbol)           =>
         EmptyTree
