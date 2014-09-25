@@ -102,7 +102,7 @@ private[async] trait AnfTransform {
 
         private def defineVar(prefix: String, tp: Type, pos: Position): ValDef = {
           val sym = api.currentOwner.newTermSymbol(name.fresh(prefix), pos, MUTABLE | SYNTHETIC).setInfo(uncheckedBounds(tp))
-          valDef(sym, gen.mkZero(uncheckedBounds(tp))).setType(NoType).setPos(pos)
+          valDef(sym, EmptyTree).setType(NoType).setPos(pos)
         }
       }
 
