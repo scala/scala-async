@@ -228,7 +228,71 @@ class ToughTypeSpec {
       case `e` =>
     }
   }
+
+  @Test def ticket83ValueClass() {
+    import scala.async.Async._
+    import scala.concurrent._, duration._, ExecutionContext.Implicits.global
+    val f = async {
+      val uid = new IntWrapper("foo")
+      await(Future(uid))
+    }
+    val result = Await.result(f, 5.seconds)
+    result mustEqual (new IntWrapper("foo"))
+  }
+
+  @Test def ticket86NestedValueClass() {
+    import ExecutionContext.Implicits.global
+
+    val f = async {
+      val a = Future.successful(new IntWrapper("42"))
+      await(await(a).plusStr)
+    }
+    val result = Await.result(f, 5.seconds)
+    result mustEqual "42!"
+  }
+
+  @Test def ticket86MatchedValueClass(): Unit = {
+    import ExecutionContext.Implicits.global
+
+    def doAThing(param: IntWrapper) = Future(None)
+
+    val fut = async {
+      Option(new IntWrapper("value!")) match {
+        case Some(valueHolder) =>
+          await(doAThing(valueHolder))
+        case None =>
+          None
+      }
+    }
+
+    val result = Await.result(fut, 5.seconds)
+    result mustBe None
+  }
+
+  @Test def ticket86MatchedParameterizedValueClass(): Unit = {
+    import ExecutionContext.Implicits.global
+
+    def doAThing(param: ParamWrapper[String]) = Future(None)
+
+    val fut = async {
+      Option(new ParamWrapper("value!")) match {
+        case Some(valueHolder) =>
+          await(doAThing(valueHolder))
+        case None =>
+          None
+      }
+    }
+
+    val result = Await.result(fut, 5.seconds)
+    result mustBe None
+  }
 }
+
+class IntWrapper(val value: String) extends AnyVal {
+  def plusStr = Future.successful(value + "!")
+}
+class ParamWrapper[T](val value: T) extends AnyVal
+
 
 trait A
 
