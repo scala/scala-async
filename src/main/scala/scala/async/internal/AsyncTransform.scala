@@ -81,7 +81,7 @@ trait AsyncTransform {
           List(
             asyncBase.nullOut(c.universe)(c.Expr[String](Literal(Constant(fieldSym.name.toString))), c.Expr[Any](Ident(fieldSym))).tree
           ),
-          Assign(gen.mkAttributedStableRef(thisType(fieldSym.owner), fieldSym), gen.mkZero(fieldSym.info))
+          Assign(gen.mkAttributedStableRef(thisType(fieldSym.owner), fieldSym), mkZero(fieldSym.info))
         )
       }
       val asyncState = asyncBlock.asyncStates.find(_.state == state).get

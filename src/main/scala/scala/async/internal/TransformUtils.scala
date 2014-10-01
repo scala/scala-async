@@ -327,6 +327,22 @@ private[async] trait TransformUtils {
     else NoPrefix
   }
 
+  private def derivedValueClassUnbox(cls: Symbol) =
+    (cls.info.decls.find(sym => sym.isMethod && sym.asTerm.isParamAccessor) getOrElse NoSymbol)
+
+  def mkZero(tp: Type): Tree = {
+    if (tp.typeSymbol.asClass.isDerivedValueClass) {
+      val argZero = mkZero(derivedValueClassUnbox(tp.typeSymbol).infoIn(tp).resultType)
+      val target: Tree = gen.mkAttributedSelect(
+        c.typecheck(atMacroPos(
+        New(TypeTree(tp.baseType(tp.typeSymbol))))), tp.typeSymbol.asClass.primaryConstructor)
+      val zero = gen.mkMethodCall(target, argZero :: Nil)
+      gen.mkCast(zero, tp)
+    } else {
+      gen.mkZero(tp)
+    }
+  }
+
   // =====================================
   // Copy/Pasted from Scala 2.10.3. See SI-7694.
   private lazy val UncheckedBoundsClass = {
