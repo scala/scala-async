@@ -286,12 +286,36 @@ class ToughTypeSpec {
     val result = Await.result(fut, 5.seconds)
     result mustBe None
   }
+
+  @Test def ticket86PrivateValueClass(): Unit = {
+    import ExecutionContext.Implicits.global
+
+    def doAThing(param: PrivateWrapper) = Future(None)
+
+    val fut = async {
+      Option(PrivateWrapper.Instance) match {
+        case Some(valueHolder) =>
+          await(doAThing(valueHolder))
+        case None =>
+          None
+      }
+    }
+
+    val result = Await.result(fut, 5.seconds)
+    result mustBe None
+  }
 }
 
 class IntWrapper(val value: String) extends AnyVal {
   def plusStr = Future.successful(value + "!")
 }
 class ParamWrapper[T](val value: T) extends AnyVal
+
+class PrivateWrapper private (private val value: String) extends AnyVal
+object PrivateWrapper {
+  def Instance = new PrivateWrapper("")
+}
+
 
 trait A
 
