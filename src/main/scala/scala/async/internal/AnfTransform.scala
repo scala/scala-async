@@ -51,7 +51,7 @@ private[async] trait AnfTransform {
           expr match {
             case Apply(fun, args) if isAwait(fun) =>
               val valDef = defineVal(name.await, expr, tree.pos)
-              stats :+ valDef :+ gen.mkAttributedStableRef(valDef.symbol).setType(tree.tpe).setPos(tree.pos)
+              stats :+ valDef :+ atPos(tree.pos)(gen.mkAttributedStableRef(valDef.symbol)).setType(tree.tpe)
 
             case If(cond, thenp, elsep) =>
               // if type of if-else is Unit don't introduce assignment,
@@ -68,7 +68,7 @@ private[async] trait AnfTransform {
                   }
                 })
                 val ifWithAssign = treeCopy.If(tree, cond, branchWithAssign(thenp), branchWithAssign(elsep)).setType(definitions.UnitTpe)
-                stats :+ varDef :+ ifWithAssign :+ gen.mkAttributedStableRef(varDef.symbol).setType(tree.tpe).setPos(tree.pos)
+                stats :+ varDef :+ ifWithAssign :+ atPos(tree.pos)(gen.mkAttributedStableRef(varDef.symbol)).setType(tree.tpe)
               }
             case LabelDef(name, params, rhs) =>
               statsExprUnit
@@ -93,7 +93,7 @@ private[async] trait AnfTransform {
                 }
                 val matchWithAssign = treeCopy.Match(tree, scrut, casesWithAssign).setType(definitions.UnitTpe)
                 require(matchWithAssign.tpe != null, matchWithAssign)
-                stats :+ varDef :+ matchWithAssign :+ gen.mkAttributedStableRef(varDef.symbol).setPos(tree.pos).setType(tree.tpe)
+                stats :+ varDef :+ matchWithAssign :+ atPos(tree.pos)(gen.mkAttributedStableRef(varDef.symbol)).setType(tree.tpe)
               }
             case _                   =>
               stats :+ expr
@@ -102,7 +102,7 @@ private[async] trait AnfTransform {
 
         private def defineVar(prefix: String, tp: Type, pos: Position): ValDef = {
           val sym = api.currentOwner.newTermSymbol(name.fresh(prefix), pos, MUTABLE | SYNTHETIC).setInfo(uncheckedBounds(tp))
-          valDef(sym, gen.mkZero(uncheckedBounds(tp))).setType(NoType).setPos(pos)
+          valDef(sym, mkZero(uncheckedBounds(tp))).setType(NoType).setPos(pos)
         }
       }
 
@@ -128,8 +128,7 @@ private[async] trait AnfTransform {
 
       def defineVal(prefix: String, lhs: Tree, pos: Position): ValDef = {
         val sym = api.currentOwner.newTermSymbol(name.fresh(prefix), pos, SYNTHETIC).setInfo(uncheckedBounds(lhs.tpe))
-        lhs.changeOwner(api.currentOwner, sym)
-        valDef(sym, lhs.changeOwner(api.currentOwner, sym)).setType(NoType).setPos(pos)
+        internal.valDef(sym, internal.changeOwner(lhs, api.currentOwner, sym)).setType(NoType).setPos(pos)
       }
 
       object anf {
