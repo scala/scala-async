@@ -120,6 +120,12 @@ private[async] trait TransformUtils {
   private def isByName(fun: Tree): ((Int, Int) => Boolean) = {
     if (Boolean_ShortCircuits contains fun.symbol) (i, j) => true
     else {
+      if (fun eq null) {
+         System.err.println(s"fun == null")
+      }
+      if (fun.tpe eq null) {
+         System.err.println(s"fun.tpe == null, fun=${fun}")
+      }
       val paramss = fun.tpe.paramss
       val byNamess = paramss.map(_.map(_.asTerm.isByNameParam))
       (i, j) => util.Try(byNamess(i)(j)).getOrElse(false)

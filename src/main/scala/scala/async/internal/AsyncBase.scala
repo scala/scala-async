@@ -43,6 +43,7 @@ abstract class AsyncBase {
                                  (body: c.Expr[T])
                                  (execContext: c.Expr[futureSystem.ExecContext]): c.Expr[futureSystem.Fut[T]] = {
     import c.universe._, c.internal._, decorators._
+    System.err.println("async receive:"+body)
     val asyncMacro = AsyncMacro(c, self)
 
     val code = asyncMacro.asyncTransform[T](body.tree, execContext.tree)(c.weakTypeTag[T])
