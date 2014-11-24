@@ -331,7 +331,7 @@ private[async] trait TransformUtils {
     (cls.info.decls.find(sym => sym.isMethod && sym.asTerm.isParamAccessor) getOrElse NoSymbol)
 
   def mkZero(tp: Type): Tree = {
-    if (tp.typeSymbol.asClass.isDerivedValueClass) {
+    if (tp.typeSymbol.isClass && tp.typeSymbol.asClass.isDerivedValueClass) {
       val argZero = mkZero(derivedValueClassUnbox(tp.typeSymbol).infoIn(tp).resultType)
       val baseType = tp.baseType(tp.typeSymbol) // use base type here to dealias / strip phantom "tagged types" etc.
 
