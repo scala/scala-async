@@ -331,9 +331,10 @@ private[async] trait TransformUtils {
     (cls.info.decls.find(sym => sym.isMethod && sym.asTerm.isParamAccessor) getOrElse NoSymbol)
 
   def mkZero(tp: Type): Tree = {
-    if (tp.typeSymbol.asClass.isDerivedValueClass) {
-      val argZero = mkZero(derivedValueClassUnbox(tp.typeSymbol).infoIn(tp).resultType)
-      val baseType = tp.baseType(tp.typeSymbol) // use base type here to dealias / strip phantom "tagged types" etc.
+    val tpSym = tp.typeSymbol
+    if (tpSym.isClass && tpSym.asClass.isDerivedValueClass) {
+      val argZero = mkZero(derivedValueClassUnbox(tpSym).infoIn(tp).resultType)
+      val baseType = tp.baseType(tpSym) // use base type here to dealias / strip phantom "tagged types" etc.
 
       // By explicitly attributing the types and symbols here, we subvert privacy.
       // Otherwise, ticket86PrivateValueClass would fail.
@@ -342,7 +343,7 @@ private[async] trait TransformUtils {
       // q"new ${valueClass}[$..targs](argZero)"
       val target: Tree = gen.mkAttributedSelect(
         c.typecheck(atMacroPos(
-        New(TypeTree(baseType)))), tp.typeSymbol.asClass.primaryConstructor)
+        New(TypeTree(baseType)))), tpSym.asClass.primaryConstructor)
 
       val zero = gen.mkMethodCall(target, argZero :: Nil)
 

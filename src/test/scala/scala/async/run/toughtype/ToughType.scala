@@ -304,6 +304,21 @@ class ToughTypeSpec {
     val result = Await.result(fut, 5.seconds)
     result mustBe None
   }
+
+  @Test def awaitOfAbstractType(): Unit = {
+    import ExecutionContext.Implicits.global
+
+    def combine[A](a1: A, a2: A): A = a1
+
+    def combineAsync[A](a1: Future[A], a2: Future[A]) = async {
+      combine(await(a1), await(a2))
+    }
+
+    val fut = combineAsync(Future(1), Future(2))
+
+    val result = Await.result(fut, 5.seconds)
+    result mustEqual 1
+  }
 }
 
 class IntWrapper(val value: String) extends AnyVal {
