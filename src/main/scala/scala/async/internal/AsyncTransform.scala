@@ -38,15 +38,10 @@ trait AsyncTransform {
 
         val apply0DefDef: DefDef = {
           // We extend () => Unit so we can pass this class as the by-name argument to `Future.apply`.
-          // See SI-1247 for the the optimization that avoids creatio
+          // See SI-1247 for the the optimization that avoids creation.
           DefDef(NoMods, name.apply, Nil, Nil, TypeTree(definitions.UnitTpe), Apply(Ident(name.apply), literalNull :: Nil))
         }
-        val extraValDef: ValDef = {
-          // We extend () => Unit so we can pass this class as the by-name argument to `Future.apply`.
-          // See SI-1247 for the the optimization that avoids creatio
-          ValDef(NoMods, newTermName("extra"), TypeTree(definitions.UnitTpe), literalUnit)
-        }
-        List(emptyConstructor, stateVar, result, execContextValDef) ++ List(applyDefDefDummyBody, apply0DefDef, extraValDef)
+        List(emptyConstructor, stateVar, result, execContextValDef) ++ List(applyDefDefDummyBody, apply0DefDef)
       }
 
       val tryToUnit = appliedType(definitions.FunctionClass(1), futureSystemOps.tryType[Any], typeOf[Unit])
