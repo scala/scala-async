@@ -52,7 +52,7 @@ trait ExprBuilder {
       List(nextState)
 
     def mkHandlerCaseForState: CaseDef =
-      mkHandlerCase(state, stats :+ mkStateTree(nextState, symLookup) :+ mkResumeApply(symLookup))
+      mkHandlerCase(state, stats :+ mkStateTree(nextState, symLookup))
 
     override val toString: String =
       s"AsyncState #$state, next = $nextState"
@@ -72,7 +72,7 @@ trait ExprBuilder {
   /** A sequence of statements that concludes with an `await` call. The `onComplete`
     * handler will unconditionally transition to `nextState`.
     */
-  final class AsyncStateWithAwait(var stats: List[Tree], val state: Int, nextState: Int,
+  final class AsyncStateWithAwait(var stats: List[Tree], val state: Int, onCompleteState: Int, nextState: Int,
                                   val awaitable: Awaitable, symLookup: SymLookup)
     extends AsyncState {
 
@@ -82,7 +82,7 @@ trait ExprBuilder {
     override def mkHandlerCaseForState: CaseDef = {
       val callOnComplete = futureSystemOps.onComplete(Expr(awaitable.expr),
         Expr(This(tpnme.EMPTY)), Expr(Ident(name.execContext))).tree
-      mkHandlerCase(state, stats :+ callOnComplete)
+      mkHandlerCase(state, stats ++ List(mkStateTree(onCompleteState, symLookup), callOnComplete, Return(literalUnit)))
     }
 
     override def mkOnCompleteHandler[T: WeakTypeTag]: Option[CaseDef] = {
@@ -102,15 +102,16 @@ trait ExprBuilder {
        */
       val ifIsFailureTree =
         If(futureSystemOps.tryyIsFailure(Expr[futureSystem.Tryy[T]](Ident(symLookup.applyTrParam))).tree,
-           futureSystemOps.completeProm[T](
+           Block(futureSystemOps.completeProm[T](
              Expr[futureSystem.Prom[T]](symLookup.memberRef(name.result)),
              Expr[futureSystem.Tryy[T]](
                TypeApply(Select(Ident(symLookup.applyTrParam), newTermName("asInstanceOf")),
-                         List(TypeTree(futureSystemOps.tryType[T]))))).tree,
-           Block(List(tryGetTree, mkStateTree(nextState, symLookup)), mkResumeApply(symLookup))
+                         List(TypeTree(futureSystemOps.tryType[T]))))).tree :: Nil,
+             Return(literalUnit)),
+           Block(List(tryGetTree), mkStateTree(nextState, symLookup))
          )
 
-      Some(mkHandlerCase(state, List(ifIsFailureTree)))
+      Some(mkHandlerCase(onCompleteState, List(ifIsFailureTree)))
     }
 
     override val toString: String =
@@ -146,9 +147,10 @@ trait ExprBuilder {
     }
 
     def resultWithAwait(awaitable: Awaitable,
+                        onCompleteState: Int,
                         nextState: Int): AsyncState = {
       val effectiveNextState = nextJumpState.getOrElse(nextState)
-      new AsyncStateWithAwait(stats.toList, state, effectiveNextState, awaitable, symLookup)
+      new AsyncStateWithAwait(stats.toList, state, onCompleteState, effectiveNextState, awaitable, symLookup)
     }
 
     def resultSimple(nextState: Int): AsyncState = {
@@ -157,7 +159,7 @@ trait ExprBuilder {
     }
 
     def resultWithIf(condTree: Tree, thenState: Int, elseState: Int): AsyncState = {
-      def mkBranch(state: Int) = Block(mkStateTree(state, symLookup) :: Nil, mkResumeApply(symLookup))
+      def mkBranch(state: Int) = mkStateTree(state, symLookup)
       this += If(condTree, mkBranch(thenState), mkBranch(elseState))
       new AsyncStateWithoutAwait(stats.toList, state, List(thenState, elseState))
     }
@@ -177,7 +179,7 @@ trait ExprBuilder {
       val newCases = for ((cas, num) <- cases.zipWithIndex) yield cas match {
         case CaseDef(pat, guard, rhs) =>
           val bindAssigns = rhs.children.takeWhile(isSyntheticBindVal)
-          CaseDef(pat, guard, Block(bindAssigns :+ mkStateTree(caseStates(num), symLookup), mkResumeApply(symLookup)))
+          CaseDef(pat, guard, Block(bindAssigns, mkStateTree(caseStates(num), symLookup)))
       }
       // 2. insert changed match tree at the end of the current state
       this += Match(scrutTree, newCases)
@@ -185,7 +187,7 @@ trait ExprBuilder {
     }
 
     def resultWithLabel(startLabelState: Int, symLookup: SymLookup): AsyncState = {
-      this += Block(mkStateTree(startLabelState, symLookup) :: Nil, mkResumeApply(symLookup))
+      this += mkStateTree(startLabelState, symLookup)
       new AsyncStateWithoutAwait(stats.toList, state, List(startLabelState))
     }
 
@@ -226,9 +228,10 @@ trait ExprBuilder {
     for (stat <- stats) stat match {
       // the val name = await(..) pattern
       case vd @ ValDef(mods, name, tpt, Apply(fun, arg :: Nil)) if isAwait(fun) =>
+        val onCompleteState = nextState()
         val afterAwaitState = nextState()
         val awaitable = Awaitable(arg, stat.symbol, tpt.tpe, vd)
-        asyncStates += stateBuilder.resultWithAwait(awaitable, afterAwaitState) // complete with await
+        asyncStates += stateBuilder.resultWithAwait(awaitable, onCompleteState, afterAwaitState) // complete with await
         currState = afterAwaitState
         stateBuilder = new AsyncStateBuilder(currState, symLookup)
 
@@ -296,8 +299,6 @@ trait ExprBuilder {
     def asyncStates: List[AsyncState]
 
     def onCompleteHandler[T: WeakTypeTag]: Tree
-
-    def resumeFunTree[T: WeakTypeTag]: DefDef
   }
 
   case class SymLookup(stateMachineClass: Symbol, applyTrParam: Symbol) {
@@ -330,7 +331,7 @@ trait ExprBuilder {
           val lastStateBody = Expr[T](lastState.body)
           val rhs = futureSystemOps.completeProm(
             Expr[futureSystem.Prom[T]](symLookup.memberRef(name.result)), futureSystemOps.tryySuccess[T](lastStateBody))
-          mkHandlerCase(lastState.state, rhs.tree)
+          mkHandlerCase(lastState.state, Block(rhs.tree, Return(literalUnit)))
         }
         asyncStates.toList match {
           case s :: Nil =>
@@ -362,18 +363,23 @@ trait ExprBuilder {
        *       }
        *     }
        */
-      def resumeFunTree[T: WeakTypeTag]: DefDef =
-        DefDef(Modifiers(), name.resume, Nil, List(Nil), Ident(definitions.UnitClass),
+      private def resumeFunTree[T: WeakTypeTag]: Tree =
           Try(
-            Match(symLookup.memberRef(name.state), mkCombinedHandlerCases[T]),
+            Match(symLookup.memberRef(name.state), mkCombinedHandlerCases[T] ++ initStates.flatMap(_.mkOnCompleteHandler[T]) ),
             List(
               CaseDef(
                 Bind(name.t, Ident(nme.WILDCARD)),
                 Apply(Ident(defn.NonFatalClass), List(Ident(name.t))), {
                   val t = Expr[Throwable](Ident(name.t))
-                  futureSystemOps.completeProm[T](
+                  val complete = futureSystemOps.completeProm[T](
                     Expr[futureSystem.Prom[T]](symLookup.memberRef(name.result)), futureSystemOps.tryyFailure[T](t)).tree
-                })), EmptyTree))
+                  Block(complete :: Nil, Return(literalUnit))
+                })), EmptyTree)
+
+      def forever(t: Tree): Tree = {
+        val labelName = name.fresh("while$")
+        LabelDef(labelName, Nil, Block(t :: Nil, Apply(Ident(labelName), Nil)))
+      }
 
       /**
        * Builds a `match` expression used as an onComplete handler.
@@ -387,8 +393,12 @@ trait ExprBuilder {
        *         resume()
        *     }
        */
-      def onCompleteHandler[T: WeakTypeTag]: Tree =
-        Match(symLookup.memberRef(name.state), initStates.flatMap(_.mkOnCompleteHandler[T]).toList)
+      def onCompleteHandler[T: WeakTypeTag]: Tree = {
+        val onCompletes = initStates.flatMap(_.mkOnCompleteHandler[T]).toList
+        forever {
+          Block(resumeFunTree :: Nil, literalUnit)
+        }
+      }
     }
   }
 
@@ -399,9 +409,6 @@ trait ExprBuilder {
 
   case class Awaitable(expr: Tree, resultName: Symbol, resultType: Type, resultValDef: ValDef)
 
-  private def mkResumeApply(symLookup: SymLookup) =
-    Apply(symLookup.memberRef(name.resume), Nil)
-
   private def mkStateTree(nextState: Int, symLookup: SymLookup): Tree =
     Assign(symLookup.memberRef(name.state), Literal(Constant(nextState)))
 
@@ -411,5 +418,7 @@ trait ExprBuilder {
   private def mkHandlerCase(num: Int, rhs: Tree): CaseDef =
     CaseDef(Literal(Constant(num)), EmptyTree, rhs)
 
-  private def literalUnit = Literal(Constant(()))
+  def literalUnit = Literal(Constant(()))
+
+  def literalNull = Literal(Constant(null))
 }
