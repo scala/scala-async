@@ -538,7 +538,6 @@ class FutureSpec {
       val f = async { await(future(5)) / 0 }
       Await.ready(f, defaultTimeout).value.get.toString mustBe expected.toString
     }
-  
 }
 
 
