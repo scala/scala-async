@@ -100,7 +100,12 @@ object ScalaConcurrentFutureSystem extends FutureSystem {
 
     def onComplete[A, U](future: Expr[Fut[A]], fun: Expr[scala.util.Try[A] => U],
                          execContext: Expr[ExecContext]): Expr[Unit] = reify {
-      future.splice.onComplete(fun.splice)(execContext.splice)
+      val future1 = future.splice
+      val fun1 = fun.splice
+      if (future1.isCompleted)
+        fun1(future1.value.get) // Optimization for completed futures, see https://github.com/scala/async/issues/73
+      else
+        future1.onComplete(fun1)(execContext.splice)
     }
 
     def completeProm[A](prom: Expr[Prom[A]], value: Expr[scala.util.Try[A]]): Expr[Unit] = reify {
