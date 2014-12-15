@@ -27,7 +27,7 @@ trait ExprBuilder {
 
     def nextStates: List[Int]
 
-    def mkHandlerCaseForState: CaseDef
+    def mkHandlerCaseForState[T: WeakTypeTag]: CaseDef
 
     def mkOnCompleteHandler[T: WeakTypeTag]: Option[CaseDef] = None
 
@@ -51,7 +51,7 @@ trait ExprBuilder {
     def nextStates: List[Int] =
       List(nextState)
 
-    def mkHandlerCaseForState: CaseDef =
+    def mkHandlerCaseForState[T: WeakTypeTag]: CaseDef =
       mkHandlerCase(state, stats :+ mkStateTree(nextState, symLookup))
 
     override val toString: String =
@@ -62,7 +62,7 @@ trait ExprBuilder {
     * a branch of an `if` or a `match`.
     */
   final class AsyncStateWithoutAwait(var stats: List[Tree], val state: Int, val nextStates: List[Int]) extends AsyncState {
-    override def mkHandlerCaseForState: CaseDef =
+    override def mkHandlerCaseForState[T: WeakTypeTag]: CaseDef =
       mkHandlerCase(state, stats)
 
     override val toString: String =
@@ -79,39 +79,47 @@ trait ExprBuilder {
     def nextStates: List[Int] =
       List(nextState)
 
-    override def mkHandlerCaseForState: CaseDef = {
-      val callOnComplete = futureSystemOps.onComplete(Expr(awaitable.expr),
-        Expr(This(tpnme.EMPTY)), Expr(Ident(name.execContext))).tree
-      mkHandlerCase(state, stats ++ List(mkStateTree(onCompleteState, symLookup), callOnComplete, Return(literalUnit)))
+    override def mkHandlerCaseForState[T: WeakTypeTag]: CaseDef = {
+      val fun = This(tpnme.EMPTY)
+      val callOnComplete = futureSystemOps.onComplete[Any, Unit](Expr[futureSystem.Fut[Any]](awaitable.expr),
+        Expr[futureSystem.Tryy[Any] => Unit](fun), Expr[futureSystem.ExecContext](Ident(name.execContext))).tree
+      val tryGetOrCallOnComplete =
+        if (futureSystemOps.continueCompletedFutureOnSameThread)
+          If(futureSystemOps.isCompleted(Expr[futureSystem.Fut[_]](awaitable.expr)).tree,
+            Block(ifIsFailureTree[T](futureSystemOps.getCompleted[Any](Expr[futureSystem.Fut[Any]](awaitable.expr)).tree) :: Nil, literalUnit),
+            Block(callOnComplete :: Nil, Return(literalUnit)))
+        else
+          Block(callOnComplete :: Nil, Return(literalUnit))
+      mkHandlerCase(state, stats ++ List(mkStateTree(onCompleteState, symLookup), tryGetOrCallOnComplete))
     }
 
+    private def tryGetTree(tryReference: => Tree) =
+      Assign(
+        Ident(awaitable.resultName),
+        TypeApply(Select(futureSystemOps.tryyGet[Any](Expr[futureSystem.Tryy[Any]](tryReference)).tree, newTermName("asInstanceOf")), List(TypeTree(awaitable.resultType)))
+      )
+
+    /* if (tr.isFailure)
+     *   result.complete(tr.asInstanceOf[Try[T]])
+     * else {
+     *   <resultName> = tr.get.asInstanceOf[<resultType>]
+     *   <nextState>
+     *   <mkResumeApply>
+     * }
+     */
+    def ifIsFailureTree[T: WeakTypeTag](tryReference: => Tree) =
+      If(futureSystemOps.tryyIsFailure(Expr[futureSystem.Tryy[T]](tryReference)).tree,
+        Block(futureSystemOps.completeProm[T](
+          Expr[futureSystem.Prom[T]](symLookup.memberRef(name.result)),
+          Expr[futureSystem.Tryy[T]](
+            TypeApply(Select(tryReference, newTermName("asInstanceOf")),
+              List(TypeTree(futureSystemOps.tryType[T]))))).tree :: Nil,
+          Return(literalUnit)),
+        Block(List(tryGetTree(tryReference)), mkStateTree(nextState, symLookup))
+      )
+
     override def mkOnCompleteHandler[T: WeakTypeTag]: Option[CaseDef] = {
-      val tryGetTree =
-        Assign(
-          Ident(awaitable.resultName),
-          TypeApply(Select(futureSystemOps.tryyGet[T](Expr[futureSystem.Tryy[T]](Ident(symLookup.applyTrParam))).tree, newTermName("asInstanceOf")), List(TypeTree(awaitable.resultType)))
-        )
-
-      /* if (tr.isFailure)
-       *   result.complete(tr.asInstanceOf[Try[T]])
-       * else {
-       *   <resultName> = tr.get.asInstanceOf[<resultType>]
-       *   <nextState>
-       *   <mkResumeApply>
-       * }
-       */
-      val ifIsFailureTree =
-        If(futureSystemOps.tryyIsFailure(Expr[futureSystem.Tryy[T]](Ident(symLookup.applyTrParam))).tree,
-           Block(futureSystemOps.completeProm[T](
-             Expr[futureSystem.Prom[T]](symLookup.memberRef(name.result)),
-             Expr[futureSystem.Tryy[T]](
-               TypeApply(Select(Ident(symLookup.applyTrParam), newTermName("asInstanceOf")),
-                         List(TypeTree(futureSystemOps.tryType[T]))))).tree :: Nil,
-             Return(literalUnit)),
-           Block(List(tryGetTree), mkStateTree(nextState, symLookup))
-         )
-
-      Some(mkHandlerCase(onCompleteState, List(ifIsFailureTree)))
+      Some(mkHandlerCase(onCompleteState, List(ifIsFailureTree[T](Ident(symLookup.applyTrParam)))))
     }
 
     override val toString: String =
@@ -337,7 +345,7 @@ trait ExprBuilder {
           case s :: Nil =>
             List(caseForLastState)
           case _        =>
-            val initCases = for (state <- asyncStates.toList.init) yield state.mkHandlerCaseForState
+            val initCases = for (state <- asyncStates.toList.init) yield state.mkHandlerCaseForState[T]
             initCases :+ caseForLastState
         }
       }
