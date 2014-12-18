@@ -119,6 +119,7 @@ private[async] trait TransformUtils {
 
   private def isByName(fun: Tree): ((Int, Int) => Boolean) = {
     if (Boolean_ShortCircuits contains fun.symbol) (i, j) => true
+    else if (fun.tpe == null) (x, y) => false
     else {
       val paramss = fun.tpe.paramss
       val byNamess = paramss.map(_.map(_.asTerm.isByNameParam))
@@ -138,10 +139,6 @@ private[async] trait TransformUtils {
 
     def mkList_contains[A](self: Expr[List[A]])(elem: Expr[Any]) = reify {
       self.splice.contains(elem.splice)
-    }
-
-    def mkFunction_apply[A, B](self: Expr[Function1[A, B]])(arg: Expr[A]) = reify {
-      self.splice.apply(arg.splice)
     }
 
     def mkAny_==(self: Expr[Any])(other: Expr[Any]) = reify {

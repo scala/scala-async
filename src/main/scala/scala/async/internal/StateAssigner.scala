@@ -5,10 +5,12 @@
 package scala.async.internal
 
 private[async] final class StateAssigner {
-  private var current = -1
+  private var current = StateAssigner.Initial
 
-  def nextState(): Int = {
-    current += 1
-    current
-  }
+  def nextState(): Int =
+    try current finally current += 1
+}
+
+object StateAssigner {
+  final val Initial = 0
 }
