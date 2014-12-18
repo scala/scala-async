@@ -36,7 +36,7 @@ class TreeInterrogation {
     functions.size mustBe 1
 
     val varDefs = tree1.collect {
-      case ValDef(mods, name, _, _) if mods.hasFlag(Flag.MUTABLE) => name
+      case vd @ ValDef(mods, name, _, _) if mods.hasFlag(Flag.MUTABLE) && vd.symbol.owner.isClass => name
     }
     varDefs.map(_.decoded.trim).toSet.toList.sorted mustStartWith (List("await$macro$", "await$macro$", "state"))
 
@@ -49,7 +49,7 @@ class TreeInterrogation {
               && !dd.symbol.asTerm.isAccessor && !dd.symbol.asTerm.isSetter => dd.name
         }
     }.flatten
-    defDefs.map(_.decoded.trim).toSet.toList.sorted mustStartWith (List("<init>", "apply", "foo$macro$", "resume"))
+    defDefs.map(_.decoded.trim).toList mustStartWith (List("foo$macro$", "<init>", "apply", "apply"))
   }
 }
 

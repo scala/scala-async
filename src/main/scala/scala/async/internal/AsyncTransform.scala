@@ -26,31 +26,24 @@ trait AsyncTransform {
 
     val anfTree = futureSystemOps.postAnfTransform(anfTree0)
 
-    val resumeFunTreeDummyBody = DefDef(Modifiers(), name.resume, Nil, List(Nil), Ident(definitions.UnitClass), Literal(Constant(())))
-
     val applyDefDefDummyBody: DefDef = {
       val applyVParamss = List(List(ValDef(Modifiers(Flag.PARAM), name.tr, TypeTree(futureSystemOps.tryType[Any]), EmptyTree)))
-      DefDef(NoMods, name.apply, Nil, applyVParamss, TypeTree(definitions.UnitTpe), Literal(Constant(())))
+      DefDef(NoMods, name.apply, Nil, applyVParamss, TypeTree(definitions.UnitTpe), literalUnit)
     }
 
     // Create `ClassDef` of state machine with empty method bodies for `resume` and `apply`.
     val stateMachine: ClassDef = {
       val body: List[Tree] = {
-        val stateVar = ValDef(Modifiers(Flag.MUTABLE | Flag.PRIVATE | Flag.LOCAL), name.state, TypeTree(definitions.IntTpe), Literal(Constant(0)))
+        val stateVar = ValDef(Modifiers(Flag.MUTABLE | Flag.PRIVATE | Flag.LOCAL), name.state, TypeTree(definitions.IntTpe), Literal(Constant(StateAssigner.Initial)))
         val result = ValDef(NoMods, name.result, TypeTree(futureSystemOps.promType[T](uncheckedBoundsResultTag)), futureSystemOps.createProm[T](uncheckedBoundsResultTag).tree)
         val execContextValDef = ValDef(NoMods, name.execContext, TypeTree(), execContext)
 
         val apply0DefDef: DefDef = {
           // We extend () => Unit so we can pass this class as the by-name argument to `Future.apply`.
-          // See SI-1247 for the the optimization that avoids creatio
-          DefDef(NoMods, name.apply, Nil, Nil, TypeTree(definitions.UnitTpe), Apply(Ident(name.resume), Nil))
+          // See SI-1247 for the the optimization that avoids creation.
+          DefDef(NoMods, name.apply, Nil, Nil, TypeTree(definitions.UnitTpe), Apply(Ident(name.apply), literalNull :: Nil))
         }
-        val extraValDef: ValDef = {
-          // We extend () => Unit so we can pass this class as the by-name argument to `Future.apply`.
-          // See SI-1247 for the the optimization that avoids creatio
-          ValDef(NoMods, newTermName("extra"), TypeTree(definitions.UnitTpe), Literal(Constant(())))
-        }
-        List(emptyConstructor, stateVar, result, execContextValDef) ++ List(resumeFunTreeDummyBody, applyDefDefDummyBody, apply0DefDef, extraValDef)
+        List(emptyConstructor, stateVar, result, execContextValDef) ++ List(applyDefDefDummyBody, apply0DefDef)
       }
 
       val tryToUnit = appliedType(definitions.FunctionClass(1), futureSystemOps.tryType[Any], typeOf[Unit])
@@ -92,8 +85,7 @@ trait AsyncTransform {
       val stateMachineSpliced: Tree = spliceMethodBodies(
         liftedFields,
         stateMachine,
-        atMacroPos(asyncBlock.onCompleteHandler[T]),
-        atMacroPos(asyncBlock.resumeFunTree[T].rhs)
+        atMacroPos(asyncBlock.onCompleteHandler[T])
       )
 
       def selectStateMachine(selection: TermName) = Select(Ident(name.stateMachine), selection)
@@ -133,10 +125,9 @@ trait AsyncTransform {
    *  @param  liftables  trees of definitions that are lifted to fields of the state machine class
    *  @param  tree       `ClassDef` tree of the state machine class
    *  @param  applyBody  tree of onComplete handler (`apply` method)
-   *  @param  resumeBody RHS of definition tree of `resume` method
    *  @return            transformed `ClassDef` tree of the state machine class
    */
-  def spliceMethodBodies(liftables: List[Tree], tree: ClassDef, applyBody: Tree, resumeBody: Tree): Tree = {
+  def spliceMethodBodies(liftables: List[Tree], tree: ClassDef, applyBody: Tree): Tree = {
     val liftedSyms = liftables.map(_.symbol).toSet
     val stateMachineClass = tree.symbol
     liftedSyms.foreach {
@@ -202,12 +193,6 @@ trait AsyncTransform {
         (api: TypingTransformApi) =>
           val typedTree = fixup(dd, applyBody.changeOwner(enclosingOwner, dd.symbol), api)
           typedTree
-
-      case dd@DefDef(_, name.resume, _, _, _, _) if dd.symbol.owner == stateMachineClass =>
-        (api: TypingTransformApi) =>
-          val changed = resumeBody.changeOwner(enclosingOwner, dd.symbol)
-          val res = fixup(dd, changed, api)
-          res
     }
     result
   }

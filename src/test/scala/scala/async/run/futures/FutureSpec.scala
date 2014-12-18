@@ -134,6 +134,13 @@ class FutureSpec {
       Await.result(future1, defaultTimeout) mustBe ("10-14")
       intercept[NoSuchElementException] { Await.result(future2, defaultTimeout) }
     }
+
+    @Test def mini() {
+      val future4 = async {
+        await(Future.successful(0)).toString
+      }
+      Await.result(future4, defaultTimeout)
+    }
     
     @Test def `recover from exceptions`() {
       val future1 = Future(5)
@@ -531,7 +538,6 @@ class FutureSpec {
       val f = async { await(future(5)) / 0 }
       Await.ready(f, defaultTimeout).value.get.toString mustBe expected.toString
     }
-  
 }
 
 
