@@ -49,6 +49,12 @@ trait FutureSystem {
     def onComplete[A, U](future: Expr[Fut[A]], fun: Expr[Tryy[A] => U],
                          execContext: Expr[ExecContext]): Expr[Unit]
 
+    def continueCompletedFutureOnSameThread = false
+    def isCompleted(future: Expr[Fut[_]]): Expr[Boolean] =
+      throw new UnsupportedOperationException("isCompleted not supported by this FutureSystem")
+    def getCompleted[A: WeakTypeTag](future: Expr[Fut[A]]): Expr[Tryy[A]] =
+      throw new UnsupportedOperationException("getCompleted not supported by this FutureSystem")
+
     /** Complete a promise with a value */
     def completeProm[A](prom: Expr[Prom[A]], value: Expr[Tryy[A]]): Expr[Unit]
 
@@ -101,6 +107,15 @@ object ScalaConcurrentFutureSystem extends FutureSystem {
     def onComplete[A, U](future: Expr[Fut[A]], fun: Expr[scala.util.Try[A] => U],
                          execContext: Expr[ExecContext]): Expr[Unit] = reify {
       future.splice.onComplete(fun.splice)(execContext.splice)
+    }
+
+    override def continueCompletedFutureOnSameThread: Boolean = true
+
+    override def isCompleted(future: Expr[Fut[_]]): Expr[Boolean] = reify {
+      future.splice.isCompleted
+    }
+    override def getCompleted[A: WeakTypeTag](future: Expr[Fut[A]]): Expr[Tryy[A]] = reify {
+      future.splice.value.get
     }
 
     def completeProm[A](prom: Expr[Prom[A]], value: Expr[scala.util.Try[A]]): Expr[Unit] = reify {
