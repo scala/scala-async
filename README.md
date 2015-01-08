@@ -9,7 +9,7 @@ Add a dependency:
 
 ```scala
 // SBT
-libraryDependencies += "org.scala-lang.modules" %% "scala-async" % "0.9.2"
+libraryDependencies += "org.scala-lang.modules" %% "scala-async" % "0.9.3"
 ```
 
 Write your first `async` block:
@@ -145,6 +145,6 @@ difficult to understand.
  - See the [neg](https://github.com/scala/async/tree/master/src/test/scala/scala/async/neg) test cases for
    for constructs that are not allowed in a async block
  - See the [issue list](https://github.com/scala/async/issues?state=open) for which of these restrictions are planned
-   to be dropped in the next milestone.
+   to be dropped.
  - See [#13](https://github.com/scala/async/issues/13) for why `await` is not possible in closures, and for suggestions on
    ways to structure the code to work around this limitation.
