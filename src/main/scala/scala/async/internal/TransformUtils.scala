@@ -343,9 +343,8 @@ private[async] trait TransformUtils {
         New(TypeTree(baseType)))), tpSym.asClass.primaryConstructor)
 
       val zero = gen.mkMethodCall(target, argZero :: Nil)
-
       // restore the original type which we might otherwise have weakened with `baseType` above
-      gen.mkCast(zero, tp)
+      c.typecheck(atMacroPos(gen.mkCast(zero, tp)))
     } else {
       gen.mkZero(tp)
     }
