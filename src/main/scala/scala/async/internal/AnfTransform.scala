@@ -73,7 +73,17 @@ private[async] trait AnfTransform {
         expr match {
           case Apply(fun, args) if isAwait(fun) =>
             val valDef = defineVal(name.await, expr, tree.pos)
-            stats :+ valDef :+ atPos(tree.pos)(gen.mkAttributedStableRef(valDef.symbol)).setType(tree.tpe)
+            val ref = gen.mkAttributedStableRef(valDef.symbol).setType(tree.tpe)
+            val ref1 = if (ref.tpe =:= definitions.UnitTpe)
+            // https://github.com/scala/async/issues/74
+            // Use a cast to hide from "pure expression does nothing" error
+            //
+            // TODO avoid creating a ValDef for the result of this await to avoid this tree shape altogether.
+            // This will require some deeper changes to the later parts of the macro which currently assume regular
+            // tree structure around `await` calls.
+              gen.mkCast(ref, definitions.UnitTpe)
+            else ref
+            stats :+ valDef :+ atPos(tree.pos)(ref1)
 
           case If(cond, thenp, elsep) =>
             // if type of if-else is Unit don't introduce assignment,
