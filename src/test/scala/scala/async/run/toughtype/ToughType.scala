@@ -286,6 +286,19 @@ class ToughTypeSpec {
     val result = Await.result(fut, 5.seconds)
     result mustBe None
   }
+
+  // https://github.com/scala/async/issues/106
+  @Test def valueClassT106(): Unit = {
+    import scala.async.internal.AsyncId._
+    async {
+      "whatever value" match {
+        case _ =>
+          await("whatever return type")
+          new IntWrapper("value class matters")
+      }
+      "whatever return type"
+    }
+  }
 }
 
 class IntWrapper(val value: String) extends AnyVal {

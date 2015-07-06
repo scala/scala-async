@@ -259,10 +259,11 @@ private[async] trait TransformUtils {
     if (tp.typeSymbol.isDerivedValueClass) {
       val argZero = mkZero(tp.memberType(tp.typeSymbol.derivedValueClassUnbox).resultType)
       val target: Tree = gen.mkAttributedSelect(
-        typer.typedPos(macroPos)(
+        callSiteTyper.typedPos(macroPos)(
         New(TypeTree(tp.baseType(tp.typeSymbol)))), tp.typeSymbol.primaryConstructor)
       val zero = gen.mkMethodCall(target, argZero :: Nil)
-      gen.mkCast(zero, tp)
+      // restore the original type which we might otherwise have weakened with `baseType` above
+      callSiteTyper.typedPos(macroPos)(gen.mkCast(zero, tp))
     } else {
       gen.mkZero(tp)
     }
