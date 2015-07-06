@@ -1,18 +1,8 @@
-# Scala Async Project
-
-[![Build Status](https://secure.travis-ci.org/scala/async.png)](http://travis-ci.org/scala/async)
-
+# scala-async [<img src="https://img.shields.io/travis/scala/async.svg"/>](https://travis-ci.org/scala/async) [<img src="https://img.shields.io/maven-central/v/org.scala-lang.modules/scala-async_2.10.svg?label=latest%20release%20for%202.10"/>](http://search.maven.org/#search%7Cga%7C1%7Cg%3Aorg.scala-lang.modules%20a%3Ascala-async_2.10) [<img src="https://img.shields.io/maven-central/v/org.scala-lang.modules/scala-async_2.11*.svg?label=latest%20release%20for%202.11"/>](http://search.maven.org/#search%7Cga%7C1%7Cg%3Aorg.scala-lang.modules%20a%3Ascala-async_2.11*)
 
 ## Quick start
 
-Add a dependency:
-
-```scala
-// SBT
-libraryDependencies += "org.scala-lang.modules" %% "scala-async" % "0.9.3"
-```
-
-Write your first `async` block:
+After adding a scala-async to your classpath, write your first `async` block:
 
 ```scala
 import ExecutionContext.Implicits.global
