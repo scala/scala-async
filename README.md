@@ -1,19 +1,10 @@
-# Scala Async Project
-
-[![Build Status](https://secure.travis-ci.org/scala/async.png)](http://travis-ci.org/scala/async)
+# scala-async [<img src="https://img.shields.io/travis/scala/async.svg"/>](https://travis-ci.org/scala/async) [<img src="https://img.shields.io/maven-central/v/org.scala-lang.modules/scala-async_2.10.svg?label=latest%20release%20for%202.10"/>](http://search.maven.org/#search%7Cga%7C1%7Cg%3Aorg.scala-lang.modules%20a%3Ascala-async_2.10) [<img src="https://img.shields.io/maven-central/v/org.scala-lang.modules/scala-async_2.11*.svg?label=latest%20release%20for%202.11"/>](http://search.maven.org/#search%7Cga%7C1%7Cg%3Aorg.scala-lang.modules%20a%3Ascala-async_2.11*)
 
 Note: this branch targets Scala 2.11.x, support for Scala 2.10.x has been moved to [this branch](https://github.com/scala/async/tree/2.10.x).
 
 ## Quick start
 
-Add a dependency:
-
-```scala
-// SBT
-libraryDependencies += "org.scala-lang.modules" %% "scala-async" % "0.9.2"
-```
-
-Write your first `async` block:
+After adding a scala-async to your classpath, write your first `async` block:
 
 ```scala
 import ExecutionContext.Implicits.global
@@ -146,6 +137,6 @@ difficult to understand.
  - See the [neg](https://github.com/scala/async/tree/master/src/test/scala/scala/async/neg) test cases for
    for constructs that are not allowed in a async block
  - See the [issue list](https://github.com/scala/async/issues?state=open) for which of these restrictions are planned
-   to be dropped in the next milestone.
+   to be dropped in the future.
  - See [#13](https://github.com/scala/async/issues/13) for why `await` is not possible in closures, and for suggestions on
    ways to structure the code to work around this limitation.
