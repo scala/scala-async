@@ -263,4 +263,30 @@ class LiveVariablesSpec {
     }
     baz()
   }
+
+  // https://github.com/scala/async/issues/104
+  @Test def dontNullOutVarsOfTypeNothing_t104(): Unit = {
+    implicit val ec: scala.concurrent.ExecutionContext = null
+    import scala.async.Async._
+    import scala.concurrent.duration.Duration
+    import scala.concurrent.{Await, Future}
+    import scala.concurrent.ExecutionContext.Implicits.global
+    def errorGenerator(randomNum: Double) = {
+      Future {
+        if (randomNum < 0) {
+          throw new IllegalStateException("Random number was too low!")
+        } else {
+          throw new IllegalStateException("Random number was too high!")
+        }
+      }
+    }
+    def randomTimesTwo = async {
+      val num = _root_.scala.math.random
+      if (num < 0 || num > 1) {
+        await(errorGenerator(num))
+      }
+      num * 2
+    }
+    Await.result(randomTimesTwo, TestLatch.DefaultTimeout) // was: NotImplementedError
+  }
 }
