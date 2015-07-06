@@ -56,7 +56,7 @@ trait LiveVariables {
 
     // determine which fields should be live also at the end (will not be nulled out)
     val noNull: Set[Symbol] = liftedSyms.filter { sym =>
-      sym.tpe.typeSymbol.isPrimitiveValueClass || liftables.exists { tree =>
+      sym.tpe.typeSymbol.isPrimitiveValueClass || sym.tpe.typeSymbol == definitions.NothingClass || liftables.exists { tree =>
         !liftedSyms.contains(tree.symbol) && tree.exists(_.symbol == sym)
       }
     }
