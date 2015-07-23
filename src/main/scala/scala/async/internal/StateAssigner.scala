@@ -7,8 +7,7 @@ package scala.async.internal
 private[async] final class StateAssigner {
   private var current = StateAssigner.Initial
 
-  def nextState(): Int =
-    try current finally current += 1
+  def nextState(): Int = try current finally current += 1
 }
 
 object StateAssigner {

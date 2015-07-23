@@ -40,6 +40,7 @@ trait Lifter {
     val defs: Map[Tree, Int] = {
       /** Collect the DefTrees directly enclosed within `t` that have the same owner */
       def collectDirectlyEnclosedDefs(t: Tree): List[DefTree] = t match {
+        case ld: LabelDef => Nil
         case dt: DefTree => dt :: Nil
         case _: Function => Nil
         case t           =>
