@@ -48,6 +48,8 @@ private[async] trait AnfTransform {
           val stats :+ expr = anf.transformToList(tree)
           def statsExprUnit =
             stats :+ expr :+ api.typecheck(atPos(expr.pos)(Literal(Constant(()))))
+          def statsExprThrow =
+            stats :+ expr :+ api.typecheck(atPos(expr.pos)(Throw(Apply(Select(New(gen.mkAttributedRef(defn.IllegalStateExceptionClass)), nme.CONSTRUCTOR), Nil))))
           expr match {
             case Apply(fun, args) if isAwait(fun) =>
               val valDef = defineVal(name.await, expr, tree.pos)
@@ -68,6 +70,8 @@ private[async] trait AnfTransform {
               // but add Unit value to bring it into form expected by async transform
               if (expr.tpe =:= definitions.UnitTpe) {
                 statsExprUnit
+              } else if (expr.tpe =:= definitions.NothingTpe) {
+                statsExprThrow
               } else {
                 val varDef = defineVar(name.ifRes, expr.tpe, tree.pos)
                 def branchWithAssign(orig: Tree) = api.typecheck(atPos(orig.pos) {
@@ -88,8 +92,9 @@ private[async] trait AnfTransform {
               // but add Unit value to bring it into form expected by async transform
               if (expr.tpe =:= definitions.UnitTpe) {
                 statsExprUnit
-              }
-              else {
+              } else if (expr.tpe =:= definitions.NothingTpe) {
+                statsExprThrow
+              } else {
                 val varDef = defineVar(name.matchRes, expr.tpe, tree.pos)
                 def typedAssign(lhs: Tree) =
                   api.typecheck(atPos(lhs.pos)(Assign(Ident(varDef.symbol), mkAttributedCastPreservingAnnotations(lhs, tpe(varDef.symbol)))))

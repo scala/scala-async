@@ -405,4 +405,46 @@ class AnfTransformSpec {
     val applyImplicitView = tree.collect { case x if x.getClass.getName.endsWith("ApplyImplicitView") => x }
     applyImplicitView.map(_.toString) mustStartWith List("view(a$macro$")
   }
+
+  @Test
+  def nothingTypedIf(): Unit = {
+    import scala.async.internal.AsyncId.{async, await}
+    val result = util.Try(async {
+      if (true) {
+        val n = await(1)
+        if (n < 2) {
+          throw new RuntimeException("case a")
+        }
+        else {
+          throw new RuntimeException("case b")
+        }
+      }
+      else {
+        "case c"
+      }
+    })
+
+    assert(result.asInstanceOf[util.Failure[_]].exception.getMessage == "case a")
+  }
+
+  @Test
+  def nothingTypedMatch(): Unit = {
+    import scala.async.internal.AsyncId.{async, await}
+    val result = util.Try(async {
+      0 match {
+        case _ if "".isEmpty =>
+          val n = await(1)
+          n match {
+            case _ if n < 2 =>
+              throw new RuntimeException("case a")
+            case _ =>
+              throw new RuntimeException("case b")
+          }
+        case _ =>
+          "case c"
+      }
+    })
+
+    assert(result.asInstanceOf[util.Failure[_]].exception.getMessage == "case a")
+  }
 }
