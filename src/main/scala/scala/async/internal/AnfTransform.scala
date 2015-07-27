@@ -59,7 +59,7 @@ private[async] trait AnfTransform {
                 // TODO avoid creating a ValDef for the result of this await to avoid this tree shape altogether.
                 // This will require some deeper changes to the later parts of the macro which currently assume regular
                 // tree structure around `await` calls.
-                gen.mkCast(ref, definitions.UnitTpe)
+                api.typecheck(atPos(tree.pos)(gen.mkCast(ref, definitions.UnitTpe)))
               else ref
               stats :+ valDef :+ atPos(tree.pos)(ref1)
 
