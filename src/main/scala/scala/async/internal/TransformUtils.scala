@@ -83,6 +83,8 @@ private[async] trait TransformUtils {
 
     val NonFatalClass = rootMirror.staticModule("scala.util.control.NonFatal")
     val Async_await   = asyncBase.awaitMethod(global)(macroApplication.symbol).ensuring(_ != NoSymbol)
+    val IllegalStateExceptionClass = rootMirror.staticClass("java.lang.IllegalStateException")
+
   }
 
   def isSafeToInline(tree: Tree) = {
