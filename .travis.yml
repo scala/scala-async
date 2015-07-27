@@ -1,5 +1,5 @@
 language: scala
-
+sudo: false
 env:
   global:
     - PUBLISH_JDK=openjdk6 # admin/build.sh only publishes when running on this jdk
