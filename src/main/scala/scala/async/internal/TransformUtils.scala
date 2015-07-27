@@ -151,6 +151,7 @@ private[async] trait TransformUtils {
 
     val NonFatalClass = rootMirror.staticModule("scala.util.control.NonFatal")
     val Async_await   = asyncBase.awaitMethod(c.universe)(c.macroApplication.symbol).ensuring(_ != NoSymbol)
+    val IllegalStateExceptionClass = rootMirror.staticClass("java.lang.IllegalStateException")
   }
 
   // `while(await(x))` ... or `do { await(x); ... } while(...)` contain an `If` that loops;
