@@ -32,6 +32,25 @@ class WarningsSpec {
   }
 
   @Test
+  // https://github.com/scala/async/issues/74
+  def noDeadCodeWarningForAsyncThrow() {
+    val global = mkGlobal("-cp ${toolboxClasspath} -Yrangepos -Ywarn-dead-code -Xfatal-warnings")
+    // was: "a pure expression does nothing in statement position; you may be omitting necessary parentheses"
+    val source =
+      """
+        | class Test {
+        |   import scala.async.Async._
+        |   import scala.concurrent.ExecutionContext.Implicits.global
+        |   async { throw new Error() }
+        | }
+      """.stripMargin
+    val run = new global.Run
+    val sourceFile = global.newSourceFile(source)
+    run.compileSources(sourceFile :: Nil)
+    assert(!global.reporter.hasErrors, global.reporter.asInstanceOf[StoreReporter].infos)
+  }
+
+  @Test
   def noDeadCodeWarning() {
     val global = mkGlobal("-cp ${toolboxClasspath} -Yrangepos -Ywarn-dead-code -Xfatal-warnings")
     val source = """
