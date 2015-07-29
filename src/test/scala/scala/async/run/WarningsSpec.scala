@@ -7,10 +7,8 @@ package run
 
 import org.junit.Test
 
-import scala.async.internal.AsyncId
-import scala.concurrent.Await
-import scala.concurrent.duration._
 import scala.language.{postfixOps, reflectiveCalls}
+import scala.tools.nsc.reporters.StoreReporter
 
 
 class WarningsSpec {
@@ -31,5 +29,30 @@ class WarningsSpec {
         |   }
       """.stripMargin
     })
+  }
+
+  @Test
+  def noDeadCodeWarning() {
+    val global = mkGlobal("-cp ${toolboxClasspath} -Yrangepos -Ywarn-dead-code -Xfatal-warnings")
+    val source = """
+        | class Test {
+        |  def test = {
+        |    import scala.async.Async._, scala.concurrent._, ExecutionContext.Implicits.global
+        |    async {
+        |      val opt = await(async(Option.empty[String => Future[Unit]]))
+        |      opt match {
+        |        case None =>
+        |          throw new RuntimeException("case a")
+        |        case Some(f) =>
+        |          await(f("case b"))
+        |      }
+        |    }
+        |  }
+        |}
+      """.stripMargin
+    val run = new global.Run
+    val sourceFile = global.newSourceFile(source)
+    run.compileSources(sourceFile :: Nil)
+    assert(!global.reporter.hasErrors, global.reporter.asInstanceOf[StoreReporter].infos)
   }
 }

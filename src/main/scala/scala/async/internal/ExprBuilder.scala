@@ -34,7 +34,12 @@ trait ExprBuilder {
     var stats: List[Tree]
 
     def statsAnd(trees: List[Tree]): List[Tree] = {
-      val body = adaptToUnit(stats)
+      val body = stats match {
+        case init :+ last if tpeOf(last) =:= definitions.NothingTpe =>
+          adaptToUnit(init :+ Typed(last, TypeTree(definitions.AnyTpe)))
+        case _ =>
+          adaptToUnit(stats)
+      }
       Try(body, Nil, adaptToUnit(trees)) :: Nil
     }
 
