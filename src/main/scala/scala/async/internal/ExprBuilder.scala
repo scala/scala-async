@@ -33,8 +33,13 @@ trait ExprBuilder {
 
     var stats: List[Tree]
 
+    def statsAnd(trees: List[Tree]): List[Tree] = {
+      val body = adaptToUnit(stats)
+      Try(body, Nil, adaptToUnit(trees)) :: Nil
+    }
+
     final def allStats: List[Tree] = this match {
-      case a: AsyncStateWithAwait => stats :+ a.awaitable.resultValDef
+      case a: AsyncStateWithAwait => statsAnd(a.awaitable.resultValDef :: Nil)
       case _ => stats
     }
 
@@ -51,8 +56,9 @@ trait ExprBuilder {
     def nextStates: List[Int] =
       List(nextState)
 
-    def mkHandlerCaseForState[T: WeakTypeTag]: CaseDef =
-      mkHandlerCase(state, stats :+ mkStateTree(nextState, symLookup))
+    def mkHandlerCaseForState[T: WeakTypeTag]: CaseDef = {
+      mkHandlerCase(state, statsAnd(mkStateTree(nextState, symLookup) :: Nil))
+    }
 
     override val toString: String =
       s"AsyncState #$state, next = $nextState"
@@ -86,10 +92,10 @@ trait ExprBuilder {
       val tryGetOrCallOnComplete =
         if (futureSystemOps.continueCompletedFutureOnSameThread)
           If(futureSystemOps.isCompleted(Expr[futureSystem.Fut[_]](awaitable.expr)).tree,
-            Block(ifIsFailureTree[T](futureSystemOps.getCompleted[Any](Expr[futureSystem.Fut[Any]](awaitable.expr)).tree) :: Nil, literalUnit),
-            Block(callOnComplete :: Nil, Return(literalUnit)))
+            adaptToUnit(ifIsFailureTree[T](futureSystemOps.getCompleted[Any](Expr[futureSystem.Fut[Any]](awaitable.expr)).tree) :: Nil),
+            Block(toList(callOnComplete), Return(literalUnit)))
         else
-          Block(callOnComplete :: Nil, Return(literalUnit))
+          Block(toList(callOnComplete), Return(literalUnit))
       mkHandlerCase(state, stats ++ List(mkStateTree(onCompleteState, symLookup), tryGetOrCallOnComplete))
     }
 
@@ -109,11 +115,11 @@ trait ExprBuilder {
      */
     def ifIsFailureTree[T: WeakTypeTag](tryReference: => Tree) =
       If(futureSystemOps.tryyIsFailure(Expr[futureSystem.Tryy[T]](tryReference)).tree,
-        Block(futureSystemOps.completeProm[T](
+        Block(toList(futureSystemOps.completeProm[T](
           Expr[futureSystem.Prom[T]](symLookup.memberRef(name.result)),
           Expr[futureSystem.Tryy[T]](
             TypeApply(Select(tryReference, newTermName("asInstanceOf")),
-              List(TypeTree(futureSystemOps.tryType[T]))))).tree :: Nil,
+              List(TypeTree(futureSystemOps.tryType[T]))))).tree),
           Return(literalUnit)),
         Block(List(tryGetTree(tryReference)), mkStateTree(nextState, symLookup))
       )
@@ -381,12 +387,12 @@ trait ExprBuilder {
                   val t = Expr[Throwable](Ident(name.t))
                   val complete = futureSystemOps.completeProm[T](
                     Expr[futureSystem.Prom[T]](symLookup.memberRef(name.result)), futureSystemOps.tryyFailure[T](t)).tree
-                  Block(complete :: Nil, Return(literalUnit))
+                  Block(toList(complete), Return(literalUnit))
                 })), EmptyTree)
 
       def forever(t: Tree): Tree = {
         val labelName = name.fresh("while$")
-        LabelDef(labelName, Nil, Block(t :: Nil, Apply(Ident(labelName), Nil)))
+        LabelDef(labelName, Nil, Block(toList(t), Apply(Ident(labelName), Nil)))
       }
 
       /**
@@ -404,7 +410,7 @@ trait ExprBuilder {
       def onCompleteHandler[T: WeakTypeTag]: Tree = {
         val onCompletes = initStates.flatMap(_.mkOnCompleteHandler[T]).toList
         forever {
-          Block(resumeFunTree :: Nil, literalUnit)
+          adaptToUnit(toList(resumeFunTree))
         }
       }
     }
@@ -421,12 +427,32 @@ trait ExprBuilder {
     Assign(symLookup.memberRef(name.state), Literal(Constant(nextState)))
 
   private def mkHandlerCase(num: Int, rhs: List[Tree]): CaseDef =
-    mkHandlerCase(num, Block(rhs, literalUnit))
+    mkHandlerCase(num, adaptToUnit(rhs))
+
+  private def tpeOf(t: Tree): Type = t match {
+    case _ if t.tpe != null => t.tpe
+    case Try(body, Nil, _) => tpeOf(body)
+    case _ => NoType
+  }
+
+  private def adaptToUnit(rhs: List[Tree]): Block = {
+    rhs match {
+      case init :+ last if tpeOf(last) <:< definitions.UnitTpe =>
+        Block(init, last)
+      case _ =>
+        Block(rhs, literalUnit)
+    }
+  }
 
   private def mkHandlerCase(num: Int, rhs: Tree): CaseDef =
     CaseDef(Literal(Constant(num)), EmptyTree, rhs)
 
-  def literalUnit = Literal(Constant(()))
+  def literalUnit = Literal(Constant(())) // a def to avoid sharing trees
+
+  def toList(tree: Tree): List[Tree] = tree match {
+    case Block(stats, Literal(Constant(value))) if value == () => stats
+    case _ => tree :: Nil
+  }
 
   def literalNull = Literal(Constant(null))
 }

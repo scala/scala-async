@@ -68,12 +68,12 @@ trait AsyncTransform {
     for ((state, flds) <- assignsOf) {
       val assigns = flds.map { fld =>
         val fieldSym = fld.symbol
-        Block(
-          List(
-            asyncBase.nullOut(global)(Expr[String](Literal(Constant(fieldSym.name.toString))), Expr[Any](Ident(fieldSym))).tree
-          ),
-          Assign(gen.mkAttributedStableRef(fieldSym.owner.thisType, fieldSym), mkZero(fieldSym.info))
-        )
+        val assign = Assign(gen.mkAttributedStableRef(fieldSym.owner.thisType, fieldSym), mkZero(fieldSym.info))
+        asyncBase.nullOut(global)(Expr[String](Literal(Constant(fieldSym.name.toString))), Expr[Any](Ident(fieldSym))).tree
+        match {
+          case Literal(Constant(value: Unit)) => assign
+          case x => Block(x :: Nil, assign)
+        }
       }
       val asyncState = asyncBlock.asyncStates.find(_.state == state).get
       asyncState.stats = assigns ++ asyncState.stats
