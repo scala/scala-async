@@ -34,7 +34,7 @@ class WarningsSpec {
   @Test
   // https://github.com/scala/async/issues/74
   def noDeadCodeWarningForAsyncThrow() {
-    val global = mkGlobal("-cp ${toolboxClasspath} -Yrangepos -Ywarn-dead-code -Xfatal-warnings")
+    val global = mkGlobal("-cp ${toolboxClasspath} -Yrangepos -Ywarn-dead-code -Xfatal-warnings -Ystop-after:refchecks")
     // was: "a pure expression does nothing in statement position; you may be omitting necessary parentheses"
     val source =
       """
@@ -51,8 +51,8 @@ class WarningsSpec {
   }
 
   @Test
-  def noDeadCodeWarning() {
-    val global = mkGlobal("-cp ${toolboxClasspath} -Yrangepos -Ywarn-dead-code -Xfatal-warnings")
+  def noDeadCodeWarningInMacroExpansion() {
+    val global = mkGlobal("-cp ${toolboxClasspath} -Yrangepos -Ywarn-dead-code -Xfatal-warnings -Ystop-after:refchecks")
     val source = """
         | class Test {
         |  def test = {
