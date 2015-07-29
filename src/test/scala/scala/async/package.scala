@@ -51,6 +51,32 @@ package object async {
     m.mkToolBox(options = compileOptions)
   }
 
+  import scala.tools.nsc._, reporters._
+  def mkGlobal(compileOptions: String = ""): Global = {
+    val source = """
+                   | class Test {
+                   |   def test = {
+                   |     import scala.async.Async._, scala.concurrent._, ExecutionContext.Implicits.global
+                   |     async {
+                   |       val opt = await(async(Option.empty[String => Future[Unit]]))
+                   |       opt match {
+                   |         case None =>
+                   |           throw new RuntimeException("case a")
+                   |         case Some(f) =>
+                   |           await(f("case b"))
+                   |       }
+                   |     }
+                   |   }
+                   | }
+                   | """.stripMargin
+    val settings = new Settings()
+    settings.processArgumentString(compileOptions)
+    settings.usejavacp.value = true
+    settings.embeddedDefaults(getClass.getClassLoader)
+    val reporter = new StoreReporter
+    new Global(settings, reporter)
+  }
+
   def scalaBinaryVersion: String = {
     val PreReleasePattern = """.*-(M|RC).*""".r
     val Pattern = """(\d+\.\d+)\..*""".r
