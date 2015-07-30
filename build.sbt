@@ -8,7 +8,7 @@ organization := "org.scala-lang.modules"
 
 name := "scala-async"
 
-version := "0.9.5-SNAPSHOT"
+version := "0.9.6-SNAPSHOT"
 
 libraryDependencies <++= (scalaVersion) {
   sv => Seq(
