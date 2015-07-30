@@ -12,7 +12,7 @@ object AsyncId extends AsyncBase {
   lazy val futureSystem = IdentityFutureSystem
   type FS = IdentityFutureSystem.type
 
-  def async[T](body: T) = macro asyncIdImpl[T]
+  def async[T](body: => T) = macro asyncIdImpl[T]
 
   def asyncIdImpl[T: c.WeakTypeTag](c: Context)(body: c.Expr[T]): c.Expr[T] = asyncImpl[T](c)(body)(c.literalUnit)
 }
