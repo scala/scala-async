@@ -42,6 +42,18 @@ package object async {
     m.mkToolBox(options = compileOptions)
   }
 
+  import scala.tools.nsc._, reporters._
+  def mkGlobal(compileOptions: String = ""): Global = {
+    val settings = new Settings()
+    settings.processArgumentString(compileOptions)
+    val initClassPath = settings.classpath.value
+    settings.embeddedDefaults(getClass.getClassLoader)
+    if (initClassPath == settings.classpath.value)
+      settings.usejavacp.value = true // not running under SBT, try to use the Java claspath instead
+    val reporter = new StoreReporter
+    new Global(settings, reporter)
+  }
+
   def scalaBinaryVersion: String = {
     val PreReleasePattern = """.*-(M|RC).*""".r
     val Pattern = """(\d+\.\d+)\..*""".r
