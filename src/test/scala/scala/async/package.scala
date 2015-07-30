@@ -44,26 +44,12 @@ package object async {
 
   import scala.tools.nsc._, reporters._
   def mkGlobal(compileOptions: String = ""): Global = {
-    val source = """
-                   | class Test {
-                   |   def test = {
-                   |     import scala.async.Async._, scala.concurrent._, ExecutionContext.Implicits.global
-                   |     async {
-                   |       val opt = await(async(Option.empty[String => Future[Unit]]))
-                   |       opt match {
-                   |         case None =>
-                   |           throw new RuntimeException("case a")
-                   |         case Some(f) =>
-                   |           await(f("case b"))
-                   |       }
-                   |     }
-                   |   }
-                   | }
-                   | """.stripMargin
     val settings = new Settings()
     settings.processArgumentString(compileOptions)
-    settings.usejavacp.value = true
+    val initClassPath = settings.classpath.value
     settings.embeddedDefaults(getClass.getClassLoader)
+    if (initClassPath == settings.classpath.value)
+      settings.usejavacp.value = true // not running under SBT, try to use the Java claspath instead
     val reporter = new StoreReporter
     new Global(settings, reporter)
   }
