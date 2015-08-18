@@ -27,7 +27,7 @@ import scala.annotation.compileTimeOnly
  *  }
  * }}}
  *
- * Note that the in the following program, the second fetch does *not* start
+ * Note that in the following program, the second fetch does *not* start
  * until after the first. If you need to start tasks in parallel, you must do
  * so before `await`-ing a result.
  *
