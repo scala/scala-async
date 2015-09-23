@@ -396,13 +396,18 @@ private[async] trait TransformUtils {
    * in search of a sub tree that was decorated with the cached answer.
    */
   final def containsAwaitCached(t: Tree): Tree => Boolean = {
+    def treeCannotContainAwait(t: Tree) = t match {
+      case _: Ident | _: TypeTree | _: Literal => true
+      case _ => false
+    }
+    def shouldAttach(t: Tree) = !treeCannotContainAwait(t)
     val symtab = c.universe.asInstanceOf[scala.reflect.internal.SymbolTable]
-    def attachContainsAwait(t: Tree): Unit = {
+    def attachContainsAwait(t: Tree): Unit = if (shouldAttach(t)) {
       val t1 = t.asInstanceOf[symtab.Tree]
       t1.updateAttachment(ContainsAwait)
       t1.removeAttachment[NoAwait.type]
     }
-    def attachNoAwait(t: Tree): Unit = {
+    def attachNoAwait(t: Tree): Unit = if (shouldAttach(t)) {
       val t1 = t.asInstanceOf[symtab.Tree]
       t1.updateAttachment(NoAwait)
     }
@@ -423,15 +428,16 @@ private[async] trait TransformUtils {
     markContainsAwaitTraverser.traverse(t)
 
     (t: Tree) => {
-      val symtab = c.universe.asInstanceOf[scala.reflect.internal.SymbolTable]
       object traverser extends Traverser {
         var containsAwait = false
         override def traverse(tree: Tree): Unit = {
-          if (tree.asInstanceOf[symtab.Tree].hasAttachment[NoAwait.type])
-            ()
-          else if (tree.asInstanceOf[symtab.Tree].hasAttachment[ContainsAwait.type])
-            containsAwait = true
-          else super.traverse(tree)
+          def castTree = tree.asInstanceOf[symtab.Tree]
+          if (!castTree.hasAttachment[NoAwait.type]) {
+            if (castTree.hasAttachment[ContainsAwait.type])
+              containsAwait = true
+            else if (!treeCannotContainAwait(t))
+              super.traverse(tree)
+          }
         }
       }
       traverser.traverse(t)
@@ -439,6 +445,19 @@ private[async] trait TransformUtils {
     }
   }
 
+  final def cleanupContainsAwaitAttachments(t: Tree): t.type = {
+    val symtab = c.universe.asInstanceOf[scala.reflect.internal.SymbolTable]
+    t.foreach {t =>
+      t.asInstanceOf[symtab.Tree].removeAttachment[ContainsAwait.type]
+      t.asInstanceOf[symtab.Tree].removeAttachment[NoAwait.type]
+    }
+    t
+  }
+
+  // First modification to translated patterns:
+  //  - Set the type of label jumps to `Unit`
+  //  - Propagate this change to trees known to directly enclose them:
+  //    ``If` / `Block`) adjust types of enclosing
   final def adjustTypeOfTranslatedPatternMatches(t: Tree, owner: Symbol): Tree = {
     import definitions.UnitTpe
     typingTransform(t, owner) {

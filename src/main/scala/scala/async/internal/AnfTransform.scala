@@ -220,7 +220,7 @@ private[async] trait AnfTransform {
 
             case Block(stats, expr)                                    =>
               val trees = stats.flatMap(linearize.transformToList).filterNot(isLiteralUnit) ::: linearize.transformToList(expr)
-              eliminateLabelParameters(trees)
+              eliminateMatchEndLabelParameter(trees)
 
             case ValDef(mods, name, tpt, rhs) =>
               if (containsAwait(rhs)) {
@@ -273,7 +273,15 @@ private[async] trait AnfTransform {
       }
 
       // Replace the label parameters on `matchEnd` with use of a `matchRes` temporary variable
-      def eliminateLabelParameters(statsExpr: List[Tree]): List[Tree] = {
+      //
+      // CaseDefs are translated to labels without parmeters. A terminal label, `matchEnd`, accepts
+      // a parameter which is the result of the match (this is regular, so even Unit-typed matches have this).
+      //
+      // For our purposes, it is easier to:
+      //   - extract a `matchRes` variable
+      //   - rewrite the terminal label def to take no parameters, and instead read this temp variable
+      //   - change jumps to the terminal label to an assignment and a no-arg label application
+      def eliminateMatchEndLabelParameter(statsExpr: List[Tree]): List[Tree] = {
         import internal.{methodType, setInfo}
         val caseDefToMatchResult = collection.mutable.Map[Symbol, Symbol]()
 
@@ -304,7 +312,7 @@ private[async] trait AnfTransform {
             )
         }
         matchResults.toList match {
-          case Nil => statsExpr0.reverse
+          case Nil => statsExpr
           case r1 :: Nil => (r1 +: statsExpr0.reverse) :+ atPos(tree.pos)(gen.mkAttributedIdent(r1.symbol))
           case _ => c.error(macroPos, "Internal error: unexpected tree encountered during ANF transform " + statsExpr); statsExpr
         }

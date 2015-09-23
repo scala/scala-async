@@ -98,10 +98,11 @@ trait AsyncTransform {
     }
 
     val isSimple = asyncBlock.asyncStates.size == 1
-    if (isSimple)
+    val result = if (isSimple)
       futureSystemOps.spawn(body, execContext) // generate lean code for the simple case of `async { 1 + 1 }`
     else
       startStateMachine
+    cleanupContainsAwaitAttachments(result)
   }
 
   def logDiagnostics(anfTree: Tree, states: Seq[String]) {
