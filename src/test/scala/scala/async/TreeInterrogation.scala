@@ -82,6 +82,8 @@ object TreeInterrogation extends App {
     println(tree)
     val tree1 = tb.typeCheck(tree.duplicate)
     println(cm.universe.show(tree1))
+
     println(tb.eval(tree))
   }
+
 }

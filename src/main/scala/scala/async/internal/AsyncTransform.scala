@@ -9,7 +9,7 @@ trait AsyncTransform {
 
   val asyncBase: AsyncBase
 
-  def asyncTransform[T](body: Tree, execContext: Tree)
+  def asyncTransform[T](execContext: Tree)
                        (resultType: WeakTypeTag[T]): Tree = {
 
     // We annotate the type of the whole expression as `T @uncheckedBounds` so as not to introduce
@@ -22,7 +22,7 @@ trait AsyncTransform {
     // Transform to A-normal form:
     //  - no await calls in qualifiers or arguments,
     //  - if/match only used in statement position.
-    val anfTree0: Block = anfTransform(body)
+    val anfTree0: Block = anfTransform(body, c.internal.enclosingOwner)
 
     val anfTree = futureSystemOps.postAnfTransform(anfTree0)
 
@@ -35,7 +35,7 @@ trait AsyncTransform {
     val stateMachine: ClassDef = {
       val body: List[Tree] = {
         val stateVar = ValDef(Modifiers(Flag.MUTABLE | Flag.PRIVATE | Flag.LOCAL), name.state, TypeTree(definitions.IntTpe), Literal(Constant(StateAssigner.Initial)))
-        val result = ValDef(NoMods, name.result, TypeTree(futureSystemOps.promType[T](uncheckedBoundsResultTag)), futureSystemOps.createProm[T](uncheckedBoundsResultTag).tree)
+        val resultAndAccessors = mkMutableField(futureSystemOps.promType[T](uncheckedBoundsResultTag), name.result, futureSystemOps.createProm[T](uncheckedBoundsResultTag).tree)
         val execContextValDef = ValDef(NoMods, name.execContext, TypeTree(), execContext)
 
         val apply0DefDef: DefDef = {
@@ -43,7 +43,7 @@ trait AsyncTransform {
           // See SI-1247 for the the optimization that avoids creation.
           DefDef(NoMods, name.apply, Nil, Nil, TypeTree(definitions.UnitTpe), Apply(Ident(name.apply), literalNull :: Nil))
         }
-        List(emptyConstructor, stateVar, result, execContextValDef) ++ List(applyDefDefDummyBody, apply0DefDef)
+        List(emptyConstructor, stateVar) ++ resultAndAccessors ++ List(execContextValDef) ++ List(applyDefDefDummyBody, apply0DefDef)
       }
 
       val tryToUnit = appliedType(definitions.FunctionClass(1), futureSystemOps.tryType[Any], typeOf[Unit])
@@ -98,10 +98,11 @@ trait AsyncTransform {
     }
 
     val isSimple = asyncBlock.asyncStates.size == 1
-    if (isSimple)
+    val result = if (isSimple)
       futureSystemOps.spawn(body, execContext) // generate lean code for the simple case of `async { 1 + 1 }`
     else
       startStateMachine
+    cleanupContainsAwaitAttachments(result)
   }
 
   def logDiagnostics(anfTree: Tree, states: Seq[String]) {

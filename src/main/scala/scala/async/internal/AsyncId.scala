@@ -41,11 +41,11 @@ object AsyncTestLV extends AsyncBase {
  * A trivial implementation of [[FutureSystem]] that performs computations
  * on the current thread. Useful for testing.
  */
+class Box[A] {
+  var a: A = _
+}
 object IdentityFutureSystem extends FutureSystem {
-
-  class Prom[A] {
-    var a: A = _
-  }
+  type Prom[A] = Box[A]
 
   type Fut[A] = A
   type ExecContext = Unit
@@ -57,7 +57,7 @@ object IdentityFutureSystem extends FutureSystem {
 
     def execContext: Expr[ExecContext] = c.Expr[Unit](Literal(Constant(())))
 
-    def promType[A: WeakTypeTag]: Type = weakTypeOf[Prom[A]]
+    def promType[A: WeakTypeTag]: Type = weakTypeOf[Box[A]]
     def tryType[A: WeakTypeTag]: Type = weakTypeOf[scala.util.Try[A]]
     def execContextType: Type = weakTypeOf[Unit]
 
