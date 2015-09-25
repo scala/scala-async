@@ -4,6 +4,24 @@ Note: this branch targets Scala 2.11.x, support for Scala 2.10.x has been moved 
 
 ## Quick start
 
+To include scala-async in an existing project use the library published on Maven Central. 
+For sbt projects add the following to your build definition - build.sbt or project/Build.scala:
+
+```scala
+libraryDependencies += "org.scala-lang.modules" %% "scala-async" % "0.9.5"
+```
+
+For Maven projects add the following to your <dependencies> (make sure to use the correct Scala version prefix, _2.10 or _2.11, 
+to match your project’s Scala version):
+
+```scala
+<dependency>
+	<groupId>org.scala-lang.modules</groupId>
+	<artifactId>scala-async_2.11</artifactId>
+	<version>0.9.5</version>
+</dependency>
+```
+
 After adding a scala-async to your classpath, write your first `async` block:
 
 ```scala
