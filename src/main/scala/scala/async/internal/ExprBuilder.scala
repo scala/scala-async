@@ -237,10 +237,8 @@ trait ExprBuilder {
     var stateBuilder = new AsyncStateBuilder(startState, symLookup)
     var currState    = startState
 
-    def checkForUnsupportedAwait(tree: Tree) = if (tree exists {
-      case Apply(fun, _) if isAwait(fun) => true
-      case _                             => false
-    }) c.abort(tree.pos, "await must not be used in this position")
+    def checkForUnsupportedAwait(tree: Tree) = if (containsAwait(tree))
+      c.abort(tree.pos, "await must not be used in this position")
 
     def nestedBlockBuilder(nestedTree: Tree, startState: Int, endState: Int) = {
       val (nestedStats, nestedExpr) = statsAndExpr(nestedTree)

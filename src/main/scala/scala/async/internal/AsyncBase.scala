@@ -53,6 +53,11 @@ abstract class AsyncBase {
     c.Expr[futureSystem.Fut[T]](code)
   }
 
+  protected[async] def asyncMethod(u: Universe)(asyncMacroSymbol: u.Symbol): u.Symbol = {
+    import u._
+    asyncMacroSymbol.owner.typeSignature.member(newTermName("async"))
+  }
+
   protected[async] def awaitMethod(u: Universe)(asyncMacroSymbol: u.Symbol): u.Symbol = {
     import u._
     asyncMacroSymbol.owner.typeSignature.member(newTermName("await"))

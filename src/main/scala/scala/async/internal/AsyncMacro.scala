@@ -11,7 +11,7 @@ object AsyncMacro {
       // These members are required by `ExprBuilder`:
       val futureSystem: FutureSystem                             = base.futureSystem
       val futureSystemOps: futureSystem.Ops {val c: self.c.type} = futureSystem.mkOps(c)
-      val containsAwait: c.Tree => Boolean = containsAwaitCached(body0)
+      var containsAwait: c.Tree => Boolean = containsAwaitCached(body0)
     }
   }
 }
@@ -22,7 +22,7 @@ private[async] trait AsyncMacro
 
   val c: scala.reflect.macros.Context
   val body: c.Tree
-  val containsAwait: c.Tree => Boolean
+  var containsAwait: c.Tree => Boolean
 
   lazy val macroPos = c.macroApplication.pos.makeTransparent
   def atMacroPos(t: c.Tree) = c.universe.atPos(macroPos)(t)
