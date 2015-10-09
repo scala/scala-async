@@ -74,4 +74,24 @@ class WarningsSpec {
     run.compileSources(sourceFile :: Nil)
     assert(!global.reporter.hasErrors, global.reporter.asInstanceOf[StoreReporter].infos)
   }
+
+  @Test
+  def ignoreNestedAwaitsInIDE_t1002561() {
+    // https://www.assembla.com/spaces/scala-ide/tickets/1002561
+    val global = mkGlobal("-cp ${toolboxClasspath} -Yrangepos -Ystop-after:typer ")
+    val source = """
+        | class Test {
+        |  def test = {
+        |    import scala.async.Async._, scala.concurrent._, ExecutionContext.Implicits.global
+        |    async {
+        |      1 + await({def foo = (async(await(async(2)))); foo})
+        |    }
+        |  }
+        |}
+      """.stripMargin
+    val run = new global.Run
+    val sourceFile = global.newSourceFile(source)
+    run.compileSources(sourceFile :: Nil)
+    assert(!global.reporter.hasErrors, global.reporter.asInstanceOf[StoreReporter].infos)
+  }
 }

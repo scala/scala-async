@@ -26,6 +26,9 @@ trait AsyncTransform {
 
     val anfTree = futureSystemOps.postAnfTransform(anfTree0)
 
+    cleanupContainsAwaitAttachments(anfTree)
+    containsAwait = containsAwaitCached(anfTree)
+
     val applyDefDefDummyBody: DefDef = {
       val applyVParamss = List(List(ValDef(Modifiers(Flag.PARAM), name.tr, TypeTree(futureSystemOps.tryType[Any]), EmptyTree)))
       DefDef(NoMods, name.apply, Nil, applyVParamss, TypeTree(definitions.UnitTpe), literalUnit)

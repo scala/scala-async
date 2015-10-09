@@ -4,6 +4,7 @@
 
 package scala.async.internal
 
+import scala.collection.mutable.ListBuffer
 import scala.reflect.macros.Context
 import scala.collection.mutable
 
@@ -53,14 +54,13 @@ trait AsyncAnalysis {
     }
 
     override def traverse(tree: Tree) {
-      def containsAwait = tree exists isAwait
       tree match {
-        case Try(_, _, _) if containsAwait                    =>
+        case Try(_, _, _) if containsAwait(tree)              =>
           reportUnsupportedAwait(tree, "try/catch")
           super.traverse(tree)
         case Return(_)                                        =>
           c.abort(tree.pos, "return is illegal within a async block")
-        case DefDef(mods, _, _, _, _, _) if mods.hasFlag(Flag.LAZY) && containsAwait =>
+        case DefDef(mods, _, _, _, _, _) if mods.hasFlag(Flag.LAZY) && containsAwait(tree) =>
           reportUnsupportedAwait(tree, "lazy val initializer")
         case CaseDef(_, guard, _) if guard exists isAwait     =>
           // TODO lift this restriction
@@ -74,9 +74,19 @@ trait AsyncAnalysis {
      * @return true, if the tree contained an unsupported await.
      */
     private def reportUnsupportedAwait(tree: Tree, whyUnsupported: String): Boolean = {
-      val badAwaits: List[RefTree] = tree collect {
-        case rt: RefTree if isAwait(rt) => rt
+      val badAwaits = ListBuffer[Tree]()
+      object traverser extends Traverser {
+        override def traverse(tree: Tree): Unit = {
+          if (!isAsync(tree))
+            super.traverse(tree)
+          tree match {
+            case rt: RefTree if isAwait(rt) =>
+              badAwaits += rt
+            case _ =>
+          }
+        }
       }
+      traverser(tree)
       badAwaits foreach {
         tree =>
           reportError(tree.pos, s"await must not be used under a $whyUnsupported.")
