@@ -49,7 +49,15 @@ trait AsyncTransform {
         List(emptyConstructor, stateVar) ++ resultAndAccessors ++ List(execContextValDef) ++ List(applyDefDefDummyBody, apply0DefDef)
       }
 
-      val tryToUnit = appliedType(definitions.FunctionClass(1), futureSystemOps.tryType[Any], typeOf[Unit])
+      val customParents = futureSystemOps.stateMachineClassParents
+      val tycon = if (customParents.exists(!_.typeSymbol.asClass.isTrait)) {
+        // prefer extending a class to reduce the class file size of the state machine.
+        symbolOf[scala.runtime.AbstractFunction1[Any, Any]]
+      } else {
+        // ... unless a custom future system already extends some class
+        symbolOf[scala.Function1[Any, Any]]
+      }
+      val tryToUnit = appliedType(tycon, futureSystemOps.tryType[Any], typeOf[Unit])
       val template = Template((futureSystemOps.stateMachineClassParents ::: List(tryToUnit, typeOf[() => Unit])).map(TypeTree(_)), emptyValDef, body)
 
       val t = ClassDef(NoMods, name.stateMachineT, Nil, template)
