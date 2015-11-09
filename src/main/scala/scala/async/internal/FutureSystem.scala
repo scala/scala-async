@@ -33,6 +33,7 @@ trait FutureSystem {
     def promType[A: WeakTypeTag]: Type
     def tryType[A: WeakTypeTag]: Type
     def execContextType: Type
+    def stateMachineClassParents: List[Type] = Nil
 
     /** Create an empty promise */
     def createProm[A: WeakTypeTag]: Expr[Prom[A]]
@@ -55,6 +56,7 @@ trait FutureSystem {
 
     /** Complete a promise with a value */
     def completeProm[A](prom: Expr[Prom[A]], value: Expr[Tryy[A]]): Expr[Unit]
+    def completeWithSuccess[A: WeakTypeTag](prom: Expr[Prom[A]], value: Expr[A]): Expr[Unit] = completeProm(prom, tryySuccess(value))
 
     def spawn(tree: Tree, execContext: Tree): Tree =
       future(c.Expr[Unit](tree))(c.Expr[ExecContext](execContext)).tree

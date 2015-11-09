@@ -357,8 +357,8 @@ trait ExprBuilder {
         val caseForLastState: CaseDef = {
           val lastState = asyncStates.last
           val lastStateBody = c.Expr[T](lastState.body)
-          val rhs = futureSystemOps.completeProm(
-            c.Expr[futureSystem.Prom[T]](symLookup.memberRef(name.result)), futureSystemOps.tryySuccess[T](lastStateBody))
+          val rhs = futureSystemOps.completeWithSuccess(
+            c.Expr[futureSystem.Prom[T]](symLookup.memberRef(name.result)), lastStateBody)
           mkHandlerCase(lastState.state, Block(rhs.tree, Return(literalUnit)))
         }
         asyncStates.toList match {
