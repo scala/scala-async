@@ -167,8 +167,8 @@ private[async] trait TransformUtils {
 
     val NonFatalClass = rootMirror.staticModule("scala.util.control.NonFatal")
     val ThrowableClass = rootMirror.staticClass("java.lang.Throwable")
-    val Async_async   = asyncBase.asyncMethod(c.universe)(c.macroApplication.symbol).ensuring(_ != NoSymbol)
-    val Async_await   = asyncBase.awaitMethod(c.universe)(c.macroApplication.symbol).ensuring(_ != NoSymbol)
+    lazy val Async_async   = asyncBase.asyncMethod(c.universe)(c.macroApplication.symbol)
+    lazy val Async_await   = asyncBase.awaitMethod(c.universe)(c.macroApplication.symbol)
     val IllegalStateExceptionClass = rootMirror.staticClass("java.lang.IllegalStateException")
   }
 
@@ -189,6 +189,10 @@ private[async] trait TransformUtils {
   def isLabel(sym: Symbol): Boolean = {
     val LABEL = 1L << 17 // not in the public reflection API.
     (internal.flags(sym).asInstanceOf[Long] & LABEL) != 0L
+  }
+  def isSynth(sym: Symbol): Boolean = {
+    val SYNTHETIC = 1 << 21 // not in the public reflection API.
+    (internal.flags(sym).asInstanceOf[Long] & SYNTHETIC) != 0L
   }
   def symId(sym: Symbol): Int = {
     val symtab = this.c.universe.asInstanceOf[reflect.internal.SymbolTable]
@@ -388,7 +392,7 @@ private[async] trait TransformUtils {
     catch { case _: ScalaReflectionException => NoSymbol }
   }
   final def uncheckedBounds(tp: Type): Type = {
-    if (tp.typeArgs.isEmpty || UncheckedBoundsClass == NoSymbol) tp
+    if ((tp.typeArgs.isEmpty && (tp match { case _: TypeRef => true; case _ => false}))|| UncheckedBoundsClass == NoSymbol) tp
     else withAnnotation(tp, Annotation(UncheckedBoundsClass.asType.toType, Nil, ListMap()))
   }
   // =====================================
@@ -402,6 +406,8 @@ private[async] trait TransformUtils {
    * in search of a sub tree that was decorated with the cached answer.
    */
   final def containsAwaitCached(t: Tree): Tree => Boolean = {
+    if (c.macroApplication.symbol == null) return (t => false)
+
     def treeCannotContainAwait(t: Tree) = t match {
       case _: Ident | _: TypeTree | _: Literal => true
       case _ => isAsync(t)

@@ -54,7 +54,7 @@ class TreeInterrogation {
 }
 
 object TreeInterrogation extends App {
-  def withDebug[T](t: => T) {
+  def withDebug[T](t: => T): T = {
     def set(level: String, value: Boolean) = System.setProperty(s"scala.async.$level", value.toString)
     val levels = Seq("trace", "debug")
     def setAll(value: Boolean) = levels.foreach(set(_, value))

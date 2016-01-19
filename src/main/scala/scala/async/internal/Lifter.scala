@@ -76,8 +76,9 @@ trait Lifter {
     // are already accounted for.
     val stateIdToDirectlyReferenced: Map[Int, List[Symbol]] = {
       val refs: List[(Int, Symbol)] = asyncStates.flatMap(
-        asyncState => asyncState.stats.filterNot(_.isDef).flatMap(_.collect {
-          case rt: RefTree if symToDefiningState.contains(rt.symbol) => (asyncState.state, rt.symbol)
+        asyncState => asyncState.stats.filterNot(t => t.isDef && !isLabel(t.symbol)).flatMap(_.collect {
+          case rt: RefTree
+            if symToDefiningState.contains(rt.symbol) => (asyncState.state, rt.symbol)
         })
       )
       toMultiMap(refs)
