@@ -524,10 +524,50 @@ private[async] trait TransformUtils {
               treeCopy.If(tree, cond1, thenp1, elsep1)
           case Apply(fun, args) if isLabel(fun.symbol) =>
             internal.setType(treeCopy.Apply(tree, api.recur(fun), args map api.recur), UnitTpe)
+          case vd @ ValDef(mods, name, tpt, rhs) if isCaseTempVal(vd.symbol) =>
+            def addUncheckedBounds(t: Tree) = {
+              typingTransform(t, owner) {
+                (tree, api) =>
+                  internal.setType(api.default(tree), uncheckedBoundsIfNeeded(tree.tpe))
+              }
+
+            }
+            val uncheckedRhs = addUncheckedBounds(api.recur(rhs))
+            val uncheckedTpt = addUncheckedBounds(tpt)
+            internal.setInfo(vd.symbol, uncheckedBoundsIfNeeded(vd.symbol.info))
+            treeCopy.ValDef(vd, mods, name, uncheckedTpt, uncheckedRhs)
           case t => api.default(t)
         }
     }
   }
+
+  private def isExistentialSkolem(s: Symbol) = {
+    val EXISTENTIAL: Long = 1L << 35
+    internal.isSkolem(s) && (internal.flags(s).asInstanceOf[Long] & EXISTENTIAL) != 0
+  }
+  private def isCaseTempVal(s: Symbol) = {
+    s.isTerm && s.asTerm.isVal && s.isSynthetic && s.name.toString.startsWith("x")
+  }
+
+  def uncheckedBoundsIfNeeded(t: Type): Type = {
+    var quantified: List[Symbol] = Nil
+    var badSkolemRefs: List[Symbol] = Nil
+    t.foreach {
+      case et: ExistentialType =>
+        quantified :::= et.quantified
+      case TypeRef(pre, sym, args) =>
+        val illScopedSkolems = args.map(_.typeSymbol).filter(arg => isExistentialSkolem(arg) && !quantified.contains(arg))
+        badSkolemRefs :::= illScopedSkolems
+      case _ =>
+    }
+    if (badSkolemRefs.isEmpty) t
+    else t.map {
+      case tp @ TypeRef(pre, sym, args) if args.exists(a => badSkolemRefs.contains(a.typeSymbol)) =>
+        uncheckedBounds(tp)
+      case t => t
+    }
+  }
+
 
   final def mkMutableField(tpt: Type, name: TermName, init: Tree): List[Tree] = {
     if (isPastTyper) {
