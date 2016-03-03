@@ -93,12 +93,15 @@ trait ExprBuilder {
       val fun = This(tpnme.EMPTY)
       val callOnComplete = futureSystemOps.onComplete[Any, Unit](c.Expr[futureSystem.Fut[Any]](awaitable.expr),
         c.Expr[futureSystem.Tryy[Any] => Unit](fun), c.Expr[futureSystem.ExecContext](Ident(name.execContext))).tree
-      val tryGetOrCallOnComplete =
-        if (futureSystemOps.continueCompletedFutureOnSameThread)
-          If(futureSystemOps.isCompleted(c.Expr[futureSystem.Fut[_]](awaitable.expr)).tree,
-            adaptToUnit(ifIsFailureTree[T](futureSystemOps.getCompleted[Any](c.Expr[futureSystem.Fut[Any]](awaitable.expr)).tree) :: Nil),
-            Block(toList(callOnComplete), Return(literalUnit))) :: Nil
-        else
+      val tryGetOrCallOnComplete: List[Tree] =
+        if (futureSystemOps.continueCompletedFutureOnSameThread) {
+          val tempName = name.fresh(name.completed)
+          val initTemp = ValDef(NoMods, tempName, TypeTree(futureSystemOps.tryType[Any]), futureSystemOps.getCompleted[Any](c.Expr[futureSystem.Fut[Any]](awaitable.expr)).tree)
+          val ifTree = If(Apply(Select(Literal(Constant(null)), TermName("ne")), Ident(tempName) :: Nil),
+            adaptToUnit(ifIsFailureTree[T](Ident(tempName)) :: Nil),
+            Block(toList(callOnComplete), Return(literalUnit)))
+          initTemp :: ifTree :: Nil
+        } else
           toList(callOnComplete) ::: Return(literalUnit) :: Nil
       mkHandlerCase(state, stats ++ List(mkStateTree(onCompleteState, symLookup)) ++ tryGetOrCallOnComplete)
     }

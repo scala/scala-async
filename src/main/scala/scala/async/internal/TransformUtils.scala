@@ -24,6 +24,7 @@ private[async] trait TransformUtils {
     val ifRes         = "ifres"
     val await         = "await"
     val bindSuffix    = "$bind"
+    val completed     = newTermName("completed")
 
     val state         = newTermName("state")
     val result        = newTermName("result")
