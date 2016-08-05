@@ -97,7 +97,8 @@ The `async` approach has two advantages over the use of
 
 The existing continuations (CPS) plugin for Scala can also be used
 to provide a syntactic layer like `async`. This approach has been
-used in Akka's [Dataflow Concurrency](http://doc.akka.io/docs/akka/snapshot/scala/dataflow.html)
+used in Akka's [Dataflow Concurrency](http://doc.akka.io/docs/akka/2.3-M1/scala/dataflow.html)
+(now deprecated in favour of this library).
 
 CPS-based rewriting of asynchronous code also produces a closure
 for each suspension. It can also lead to type errors that are
