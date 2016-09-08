@@ -2,7 +2,6 @@ language: scala
 sudo: false
 env:
   global:
-    - PUBLISH_JDK=openjdk6 # admin/build.sh only publishes when running on this jdk
 # Don't commit sensitive files, instead commit a version encrypted with $SECRET,
 # this environment variable is encrypted with this repo's private key and stored below:
 # (See http://docs.travis-ci.com/user/environment-variables/#Secure-Variables.)
@@ -10,17 +9,16 @@ env:
 
 script: 
   - admin/build.sh
-scala:
-  - 2.11.8
-  - 2.12.0-RC1 # !!! Duplicated below, edit with care
-jdk:
-  - openjdk6
-  - oraclejdk8
 matrix:
-  exclude:
-
-  - scala: 2.12.0-RC1 # !!! Duplicated above, edit with care  
+  include:
+  - scala: 2.11.8
     jdk: openjdk6
+    env: IS_PUBLISH_JDK=true
+  - scala: 2.11.8
+    jdk: oraclejdk8
+  - scala: 2.12.0-RC1
+    jdk: oraclejdk8
+    env: IS_PUBLISH_JDK=true
 notifications:
   email:
     - jason.zaugg@typesafe.com

@@ -5,7 +5,7 @@
 # git on travis does not fetch tags, but we have TRAVIS_TAG
 # headTag=$(git describe --exact-match ||:)
 
-if [ "$TRAVIS_JDK_VERSION" == "$PUBLISH_JDK" ] && [[ "$TRAVIS_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9-]+)? ]]; then
+if [ "$IS_PUBLISH_JDK" == "true" ] && [[ "$TRAVIS_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9-]+)? ]]; then
   echo "Going to release from tag $TRAVIS_TAG!"
   myVer=$(echo $TRAVIS_TAG | sed -e s/^v// | sed -e 's/_[0-9]*\.[0-9]*//')
   publishVersion='set every version := "'$myVer'"'
