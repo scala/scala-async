@@ -1,4 +1,4 @@
-# scala-async [<img src="https://img.shields.io/travis/scala/async.svg"/>](https://travis-ci.org/scala/async) [<img src="https://img.shields.io/maven-central/v/org.scala-lang.modules/scala-async_2.10.svg?label=latest%20release%20for%202.10"/>](http://search.maven.org/#search%7Cga%7C1%7Cg%3Aorg.scala-lang.modules%20a%3Ascala-async_2.10) [<img src="https://img.shields.io/maven-central/v/org.scala-lang.modules/scala-async_2.11*.svg?label=latest%20release%20for%202.11"/>](http://search.maven.org/#search%7Cga%7C1%7Cg%3Aorg.scala-lang.modules%20a%3Ascala-async_2.11*)
+# scala-async [<img src="https://img.shields.io/travis/scala/async.svg"/>](https://travis-ci.org/scala/async) [<img src="https://img.shields.io/maven-central/v/org.scala-lang.modules/scala-async_2.10.svg?label=latest%20release%20for%202.10"/>](http://search.maven.org/#search%7Cga%7C1%7Cg%3Aorg.scala-lang.modules%20a%3Ascala-async_2.10) [<img src="https://img.shields.io/maven-central/v/org.scala-lang.modules/scala-async_2.11*.svg?label=latest%20release%20for%202.11"/>](http://search.maven.org/#search%7Cga%7C1%7Cg%3Aorg.scala-lang.modules%20a%3Ascala-async_2.11*) [<img src="https://img.shields.io/maven-central/v/org.scala-lang.modules/scala-async_2.12*.svg?label=latest%20release%20for%202.12"/>](http://search.maven.org/#search%7Cga%7C1%7Cg%3Aorg.scala-lang.modules%20a%3Ascala-async_2.12*)
 
 Note: this branch targets Scala 2.11.x, support for Scala 2.10.x has been moved to [this branch](https://github.com/scala/async/tree/2.10.x).
 
@@ -21,6 +21,8 @@ to match your project’s Scala version):
 	<version>0.9.5</version>
 </dependency>
 ```
+
+Scala 2.12 support is introduced in 0.9.6-RC5.
 
 After adding a scala-async to your classpath, write your first `async` block:
 
