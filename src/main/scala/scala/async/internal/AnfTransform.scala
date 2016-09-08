@@ -68,7 +68,7 @@ private[async] trait AnfTransform {
         def transformToBlock(tree: Tree): Block = listToBlock(transformToList(tree))
 
         def _transformToList(tree: Tree): List[Tree] = trace(tree) {
-          val stats :+ expr = anf.transformToList(tree)
+          val stats :+ expr = _anf.transformToList(tree)
           def statsExprUnit =
             stats :+ expr :+ api.typecheck(atPos(expr.pos)(Literal(Constant(()))))
           def statsExprThrow =
@@ -163,7 +163,7 @@ private[async] trait AnfTransform {
         internal.valDef(sym, internal.changeOwner(lhs, api.currentOwner, sym)).setType(NoType).setPos(pos)
       }
 
-      object anf {
+      object _anf {
         def transformToList(tree: Tree): List[Tree] = {
           mode = Anf; blockToList(api.recur(tree))
         }
@@ -385,7 +385,7 @@ private[async] trait AnfTransform {
 
       def anfLinearize(tree: Tree): Block = {
         val trees: List[Tree] = mode match {
-          case Anf         => anf._transformToList(tree)
+          case Anf         => _anf._transformToList(tree)
           case Linearizing => linearize._transformToList(tree)
         }
         listToBlock(trees)

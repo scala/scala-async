@@ -11,10 +11,16 @@ env:
 script: 
   - admin/build.sh
 scala:
-  - 2.11.4
+  - 2.11.8
+  - 2.12.0-RC1 # !!! Duplicated below, edit with care
 jdk:
   - openjdk6
-  - openjdk7
+  - oraclejdk8
+matrix:
+  exclude:
+
+  - scala: 2.12.0-RC1 # !!! Duplicated above, edit with care  
+    jdk: openjdk6
 notifications:
   email:
     - jason.zaugg@typesafe.com

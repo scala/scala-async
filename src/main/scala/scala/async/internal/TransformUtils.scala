@@ -480,6 +480,14 @@ private[async] trait TransformUtils {
     typingTransform(t, owner) {
       (tree, api) =>
         tree match {
+          case LabelDef(name, params, rhs) =>
+            val rhs1 = api.recur(rhs)
+            if (rhs1.tpe =:= UnitTpe) {
+              internal.setInfo(tree.symbol, internal.methodType(tree.symbol.info.paramLists.head, UnitTpe))
+              treeCopy.LabelDef(tree, name, params, rhs1)
+            } else {
+              treeCopy.LabelDef(tree, name, params, rhs1)
+            }
           case Block(stats, expr) =>
             val stats1 = stats map api.recur
             val expr1 = api.recur(expr)

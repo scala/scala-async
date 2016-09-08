@@ -62,6 +62,8 @@ trait AsyncAnalysis {
           c.abort(tree.pos, "return is illegal within a async block")
         case DefDef(mods, _, _, _, _, _) if mods.hasFlag(Flag.LAZY) && containsAwait(tree) =>
           reportUnsupportedAwait(tree, "lazy val initializer")
+        case ValDef(mods, _, _, _) if mods.hasFlag(Flag.LAZY) && containsAwait(tree) =>
+          reportUnsupportedAwait(tree, "lazy val initializer")
         case CaseDef(_, guard, _) if guard exists isAwait     =>
           // TODO lift this restriction
           reportUnsupportedAwait(tree, "pattern guard")

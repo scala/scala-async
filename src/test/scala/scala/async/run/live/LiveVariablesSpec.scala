@@ -266,7 +266,6 @@ class LiveVariablesSpec {
 
   // https://github.com/scala/async/issues/104
   @Test def dontNullOutVarsOfTypeNothing_t104(): Unit = {
-    implicit val ec: scala.concurrent.ExecutionContext = null
     import scala.async.Async._
     import scala.concurrent.duration.Duration
     import scala.concurrent.{Await, Future}

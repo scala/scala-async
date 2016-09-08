@@ -1,4 +1,6 @@
-scalaVersion := "2.11.6"
+crossScalaVersions := List("2.11.8", "2.12.0-RC1")
+
+scalaVersion := crossScalaVersions.value.head
 
 // Uncomment to test with a locally built copy of Scala.
 // scalaHome := Some(file("/code/scala2/build/pack"))
