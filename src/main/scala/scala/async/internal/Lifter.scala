@@ -92,7 +92,7 @@ trait Lifter {
 
           // Only mark transitive references of defs, modules and classes. The RHS of lifted vals/vars
           // stays in its original location, so things that it refers to need not be lifted.
-          if (!(sym.isTerm && (sym.asTerm.isVal || sym.asTerm.isVar)))
+          if (!(sym.isTerm && !sym.asTerm.isLazy && (sym.asTerm.isVal || sym.asTerm.isVar)))
             defSymToReferenced(sym).foreach(sym2 => markForLift(sym2))
         }
       }
@@ -117,7 +117,8 @@ trait Lifter {
             sym.setFlag(MUTABLE | STABLE | PRIVATE | LOCAL)
             sym.setName(name.fresh(sym.name.toTermName))
             sym.setInfo(deconst(sym.info))
-            treeCopy.ValDef(vd, Modifiers(sym.flags), sym.name, TypeTree(tpe(sym)).setPos(t.pos), EmptyTree)
+            val rhs1 = if (sym.asTerm.isLazy) rhs else EmptyTree
+            treeCopy.ValDef(vd, Modifiers(sym.flags), sym.name, TypeTree(tpe(sym)).setPos(t.pos), rhs1)
           case dd@DefDef(_, _, tparams, vparamss, tpt, rhs) =>
             sym.setName(this.name.fresh(sym.name.toTermName))
             sym.setFlag(PRIVATE | LOCAL)

@@ -159,10 +159,13 @@ trait AsyncTransform {
       case ValDef(_, _, _, rhs) if liftedSyms(tree.symbol) =>
         api.atOwner(api.currentOwner) {
           val fieldSym = tree.symbol
-          val lhs = atPos(tree.pos) {
-            gen.mkAttributedStableRef(thisType(fieldSym.owner.asClass), fieldSym)
+          if (fieldSym.asTerm.isLazy) Literal(Constant(()))
+          else {
+            val lhs = atPos(tree.pos) {
+              gen.mkAttributedStableRef(thisType(fieldSym.owner.asClass), fieldSym)
+            }
+            treeCopy.Assign(tree, lhs, api.recur(rhs)).setType(definitions.UnitTpe).changeOwner(fieldSym, api.currentOwner)
           }
-          treeCopy.Assign(tree, lhs, api.recur(rhs)).setType(definitions.UnitTpe).changeOwner(fieldSym, api.currentOwner)
         }
       case _: DefTree if liftedSyms(tree.symbol)           =>
         EmptyTree
@@ -176,7 +179,7 @@ trait AsyncTransform {
     }
 
     val liftablesUseFields = liftables.map {
-      case vd: ValDef => vd
+      case vd: ValDef if !vd.symbol.asTerm.isLazy => vd
       case x          => typingTransform(x, stateMachineClass)(useFields)
     }
 
