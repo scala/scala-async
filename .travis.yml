@@ -7,7 +7,7 @@ env:
 # (See http://docs.travis-ci.com/user/environment-variables/#Secure-Variables.)
     - secure: "YO/7YiWEirzz0EAy7oVNmAKroj4qCLZNMkPS+xW/VgeGjuEV+Nk1S7pwxF0o2OggSxIQ+a0lWSrOPQqSXMjOstDIzzGeYfuAt0+0fupXtDDge0mXpCCMadrvYzff1/5XYX0dJ+pjJmz6IgF1hliPJHIuddhhdqPxdHWTHAKm9ME="
 
-script: 
+script:
   - admin/build.sh
 matrix:
   include:
@@ -16,7 +16,7 @@ matrix:
     env: IS_PUBLISH_JDK=true
   - scala: 2.11.8
     jdk: oraclejdk8
-  - scala: 2.12.0-RC1
+  - scala: 2.12.0-RC2
     jdk: oraclejdk8
     env: IS_PUBLISH_JDK=true
 notifications:
