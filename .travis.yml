@@ -16,7 +16,7 @@ matrix:
     env: IS_PUBLISH_JDK=true
   - scala: 2.11.8
     jdk: oraclejdk8
-  - scala: 2.12.0-RC2
+  - scala: 2.12.0
     jdk: oraclejdk8
     env: IS_PUBLISH_JDK=true
 notifications:
