@@ -1,4 +1,4 @@
-crossScalaVersions := List("2.11.8", "2.12.0-RC2")
+crossScalaVersions := List("2.11.8", "2.12.0")
 
 scalaVersion := crossScalaVersions.value.head
 
