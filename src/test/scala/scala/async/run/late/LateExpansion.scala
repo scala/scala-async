@@ -390,7 +390,7 @@ class LateExpansion {
     val reporter = new StoreReporter
     val settings = new Settings(println(_))
     // settings.processArgumentString("-Xprint:patmat,postpatmat,jvm -Ybackend:GenASM -nowarn")
-    settings.outdir.value = "/tmp"
+    settings.outdir.value = sys.props("java.io.tmpdir")
     settings.embeddedDefaults(getClass.getClassLoader)
     val isInSBT = !settings.classpath.isSetByUser
     if (isInSBT) settings.usejavacp.value = true
