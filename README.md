@@ -155,7 +155,7 @@ difficult to understand.
    - an `apply(): Unit` method that starts the computation.
 
 ## Limitations
- - See the [neg](https://github.com/scala/async/tree/master/src/test/scala/scala/async/neg) test cases for
+ - See the [neg](https://github.com/scala/async/tree/master/src/test/scala/scala/async/neg) test cases
    for constructs that are not allowed in a async block
  - See the [issue list](https://github.com/scala/async/issues?state=open) for which of these restrictions are planned
    to be dropped in the future.
