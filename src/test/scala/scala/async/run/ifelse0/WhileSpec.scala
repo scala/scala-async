@@ -116,4 +116,38 @@ class WhileSpec {
     }
     result mustBe false
   }
+
+  @Test
+  def stackOverflow(): Unit = {
+    import AsyncId._
+
+    async {
+      var i = 10000
+      while (i > 0) {
+        while(i > 50000) i -= 1 // if we remove this line, everything is fine
+        if (i % 2 == 0) {
+          await(())
+        }
+        i -= 1
+      }
+    }
+  }
+
+  @Test
+  def stackOverflow1(): Unit = {
+    import AsyncId._
+
+    async {
+      var i = 10000
+      while (i > 0) {
+        while(i > 50000) {
+          i -= await(1)
+        }
+        if (i % 2 == 0) {
+          await(())
+        }
+        i -= 1
+      }
+    }
+  }
 }
