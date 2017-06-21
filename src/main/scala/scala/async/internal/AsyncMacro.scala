@@ -24,7 +24,7 @@ private[async] trait AsyncMacro
   val body: c.Tree
   var containsAwait: c.Tree => Boolean
 
-  lazy val macroPos = c.macroApplication.pos.makeTransparent
-  def atMacroPos(t: c.Tree) = c.universe.atPos(macroPos)(t)
+  lazy val macroPos: c.universe.Position = c.macroApplication.pos.makeTransparent
+  def atMacroPos(t: c.Tree): c.Tree = c.universe.atPos(macroPos)(t)
 
 }

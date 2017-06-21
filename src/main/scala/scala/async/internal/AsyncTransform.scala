@@ -66,11 +66,12 @@ trait AsyncTransform {
 
     val stateMachineClass = stateMachine.symbol
     val asyncBlock: AsyncBlock = {
-      val symLookup = new SymLookup(stateMachineClass, applyDefDefDummyBody.vparamss.head.head.symbol)
+      val symLookup = SymLookup(stateMachineClass, applyDefDefDummyBody.vparamss.head.head.symbol)
       buildAsyncBlock(anfTree, symLookup)
     }
 
-    logDiagnostics(anfTree, asyncBlock.asyncStates.map(_.toString))
+    if(AsyncUtils.verbose)
+      logDiagnostics(anfTree, asyncBlock.asyncStates.map(_.toString))
 
     val liftedFields: List[Tree] = liftables(asyncBlock.asyncStates)
 

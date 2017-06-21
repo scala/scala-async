@@ -10,7 +10,7 @@ class SyncOptimizationSpec {
   @Test
   def awaitOnCompletedFutureRunsOnSameThread: Unit = {
 
-    def stackDepth = Thread.currentThread().getStackTrace.size
+    def stackDepth = Thread.currentThread().getStackTrace.length
 
     val future = async {
       val thread1 = Thread.currentThread

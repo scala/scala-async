@@ -217,7 +217,7 @@ class AnfTransformSpec {
     val result = async {
       var i = 0
       def next() = {
-        i += 1;
+        i += 1
         i
       }
       foo(next(), await(next()))
@@ -298,7 +298,7 @@ class AnfTransformSpec {
     val result = async {
       var i = 0
       def next() = {
-        i += 1;
+        i += 1
         i
       }
       foo(b = next(), a = await(next()))
@@ -311,7 +311,7 @@ class AnfTransformSpec {
     import AsyncId.{async, await}
     var i = 0
     def next() = {
-      i += 1;
+      i += 1
       i
     }
     def foo(a: Int = next(), b: Int = next()) = (a, b)
