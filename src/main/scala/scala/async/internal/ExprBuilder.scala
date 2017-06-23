@@ -4,10 +4,7 @@
 package scala.async.internal
 
 import scala.collection.mutable.ListBuffer
-import collection.mutable
 import language.existentials
-import scala.reflect.api.Universe
-import scala.reflect.api
 
 trait ExprBuilder {
   builder: AsyncMacro =>
@@ -370,11 +367,11 @@ trait ExprBuilder {
             c.Expr[futureSystem.Prom[T]](symLookup.memberRef(name.result)), lastStateBody)
           mkHandlerCase(lastState.state, Block(rhs.tree, Return(literalUnit)))
         }
-        asyncStates.toList match {
+        asyncStates match {
           case s :: Nil =>
             List(caseForLastState)
           case _        =>
-            val initCases = for (state <- asyncStates.toList.init) yield state.mkHandlerCaseForState[T]
+            val initCases = for (state <- asyncStates.init) yield state.mkHandlerCaseForState[T]
             initCases :+ caseForLastState
         }
       }
@@ -442,7 +439,7 @@ trait ExprBuilder {
        *     }
        */
       def onCompleteHandler[T: WeakTypeTag]: Tree = {
-        val onCompletes = initStates.flatMap(_.mkOnCompleteHandler[T]).toList
+        val onCompletes = initStates.flatMap(_.mkOnCompleteHandler[T])
         forever {
           adaptToUnit(toList(resumeFunTree))
         }

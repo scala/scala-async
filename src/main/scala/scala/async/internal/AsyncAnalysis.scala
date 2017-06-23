@@ -5,8 +5,6 @@
 package scala.async.internal
 
 import scala.collection.mutable.ListBuffer
-import scala.reflect.macros.Context
-import scala.collection.mutable
 
 trait AsyncAnalysis {
   self: AsyncMacro =>
@@ -30,7 +28,7 @@ trait AsyncAnalysis {
 
     override def nestedClass(classDef: ClassDef) {
       val kind = if (classDef.symbol.asClass.isTrait) "trait" else "class"
-      reportUnsupportedAwait(classDef, s"nested ${kind}")
+      reportUnsupportedAwait(classDef, s"nested $kind")
     }
 
     override def nestedModule(module: ModuleDef) {

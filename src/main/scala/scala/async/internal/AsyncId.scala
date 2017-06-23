@@ -25,10 +25,10 @@ object AsyncTestLV extends AsyncBase {
 
   def asyncIdImpl[T: c.WeakTypeTag](c: Context)(body: c.Expr[T]): c.Expr[T] = asyncImpl[T](c)(body)(c.literalUnit)
 
-  var log: List[(String, Any)] = List()
+  var log: List[(String, Any)] = Nil
   def assertNulledOut(a: Any): Unit = assert(log.exists(_._2 == a), AsyncTestLV.log)
   def assertNotNulledOut(a: Any): Unit = assert(!log.exists(_._2 == a), AsyncTestLV.log)
-  def clear() = log = Nil
+  def clear(): Unit = log = Nil
 
   def apply(name: String, v: Any): Unit =
     log ::= (name -> v)

@@ -73,7 +73,7 @@ class MatchSpec {
       val x = 1
       Option(x) match {
         case op @ Some(x) =>
-          assert(op == Some(1))
+          assert(op.contains(1))
           x + AsyncId.await(x)
         case None => AsyncId.await(0)
       }
