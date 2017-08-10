@@ -3,6 +3,7 @@
  */
 package scala.async.internal
 
+import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import language.existentials
 
@@ -407,9 +408,10 @@ trait ExprBuilder {
         val stateMemberSymbol = symLookup.stateMachineMember(name.state)
         val stateMemberRef = symLookup.memberRef(name.state)
         val body = Match(stateMemberRef, mkCombinedHandlerCases[T] ++ initStates.flatMap(_.mkOnCompleteHandler[T]) ++ List(CaseDef(Ident(nme.WILDCARD), EmptyTree, Throw(Apply(Select(New(Ident(defn.IllegalStateExceptionClass)), termNames.CONSTRUCTOR), List())))))
+        val body1 = eliminateDeadStates(body)
 
         maybeTry(
-          body,
+          body1,
           List(
             CaseDef(
             Bind(name.t, Typed(Ident(nme.WILDCARD), Ident(defn.ThrowableClass))),
@@ -423,8 +425,67 @@ trait ExprBuilder {
               If(Apply(Ident(defn.NonFatalClass), List(Ident(name.t))), then, Throw(Ident(name.t)))
               then
             })), EmptyTree)
+      }
 
-        //body
+      // Identify dead states: `case <id> => { state = nextId; (); (); ... }, eliminated, and compact state ids to
+      // enable emission of a tableswitch.
+      private def eliminateDeadStates(m: Match): Tree = {
+        object DeadState {
+          private val liveStates = mutable.AnyRefMap[Integer, Integer]()
+          private val deadStates = mutable.AnyRefMap[Integer, Integer]()
+          private var compactedStateId = 1
+          for (CaseDef(Literal(Constant(stateId: Integer)), EmptyTree, body) <- m.cases) {
+            body match {
+              case _ if (stateId == 0) => liveStates(stateId) = stateId
+              case Block(Assign(_, Literal(Constant(nextState: Integer))) :: rest, expr) if (expr :: rest).forall(t => isLiteralUnit(t)) =>
+                deadStates(stateId) = nextState
+              case _ =>
+                liveStates(stateId) = compactedStateId
+                compactedStateId += 1
+            }
+          }
+          if (deadStates.nonEmpty)
+            AsyncUtils.vprintln(s"${deadStates.size} dead states eliminated")
+          def isDead(i: Integer) = deadStates.contains(i)
+          def translatedStateId(i: Integer, tree: Tree): Integer = {
+            def chaseDead(i: Integer): Integer = {
+              val replacement = deadStates.getOrNull(i)
+              if (replacement == null) i
+              else chaseDead(replacement)
+            }
+
+            val live = chaseDead(i)
+            liveStates.get(live) match {
+              case Some(x) => x
+              case None => sys.error(s"$live, $liveStates \n$deadStates\n$m\n\n====\n$tree")
+            }
+          }
+        }
+        val stateMemberSymbol = symLookup.stateMachineMember(name.state)
+        // - remove CaseDef-s for dead states
+        // - rewrite state transitions to dead states to instead transition to the
+        //   non-dead successor.
+        val elimDeadStateTransform = new Transformer {
+          override def transform(tree: Tree): Tree = tree match {
+            case as @ Assign(lhs, Literal(Constant(i: Integer))) if lhs.symbol == stateMemberSymbol =>
+              val replacement = DeadState.translatedStateId(i, as)
+              treeCopy.Assign(tree, lhs, Literal(Constant(replacement)))
+            case _: Match | _: CaseDef | _: Block | _: If =>
+              super.transform(tree)
+            case _ => tree
+          }
+        }
+        val cases1 = m.cases.flatMap {
+          case cd @ CaseDef(Literal(Constant(i: Integer)), EmptyTree, rhs) =>
+            if (DeadState.isDead(i)) Nil
+            else {
+              val replacement = DeadState.translatedStateId(i, cd)
+              val rhs1 = elimDeadStateTransform.transform(rhs)
+              treeCopy.CaseDef(cd, Literal(Constant(replacement)), EmptyTree, rhs1) :: Nil
+            }
+          case x => x :: Nil
+        }
+        treeCopy.Match(m, m.selector, cases1)
       }
 
       def forever(t: Tree): Tree = {
