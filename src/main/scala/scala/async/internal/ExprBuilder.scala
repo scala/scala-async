@@ -117,16 +117,22 @@ trait ExprBuilder {
      *   <mkResumeApply>
      * }
      */
-    def ifIsFailureTree[T: WeakTypeTag](tryReference: => Tree) =
-      If(futureSystemOps.tryyIsFailure(c.Expr[futureSystem.Tryy[T]](tryReference)).tree,
-        Block(toList(futureSystemOps.completeProm[T](
-          c.Expr[futureSystem.Prom[T]](symLookup.memberRef(name.result)),
-          c.Expr[futureSystem.Tryy[T]](
-            TypeApply(Select(tryReference, newTermName("asInstanceOf")),
-              List(TypeTree(futureSystemOps.tryType[T]))))).tree),
-          Return(literalUnit)),
-        Block(List(tryGetTree(tryReference)), mkStateTree(nextState, symLookup))
-      )
+    def ifIsFailureTree[T: WeakTypeTag](tryReference: => Tree) = {
+      val getAndUpdateState = Block(List(tryGetTree(tryReference)), mkStateTree(nextState, symLookup))
+      if (asyncBase.futureSystem.emitTryCatch) {
+        If(futureSystemOps.tryyIsFailure(c.Expr[futureSystem.Tryy[T]](tryReference)).tree,
+          Block(toList(futureSystemOps.completeProm[T](
+            c.Expr[futureSystem.Prom[T]](symLookup.memberRef(name.result)),
+            c.Expr[futureSystem.Tryy[T]](
+              TypeApply(Select(tryReference, newTermName("asInstanceOf")),
+                List(TypeTree(futureSystemOps.tryType[T]))))).tree),
+            Return(literalUnit)),
+          getAndUpdateState
+        )
+      } else {
+        getAndUpdateState
+      }
+    }
 
     override def mkOnCompleteHandler[T: WeakTypeTag]: Option[CaseDef] = {
       Some(mkHandlerCase(onCompleteState, List(ifIsFailureTree[T](Ident(symLookup.applyTrParam)))))
@@ -402,7 +408,7 @@ trait ExprBuilder {
         val stateMemberRef = symLookup.memberRef(name.state)
         val body = Match(stateMemberRef, mkCombinedHandlerCases[T] ++ initStates.flatMap(_.mkOnCompleteHandler[T]) ++ List(CaseDef(Ident(nme.WILDCARD), EmptyTree, Throw(Apply(Select(New(Ident(defn.IllegalStateExceptionClass)), termNames.CONSTRUCTOR), List())))))
 
-        Try(
+        maybeTry(
           body,
           List(
             CaseDef(

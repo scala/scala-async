@@ -56,6 +56,8 @@ private[async] trait TransformUtils {
     def fresh(name: String): String = c.freshName(name)
   }
 
+  def maybeTry(block: Tree, catches: List[CaseDef], finalizer: Tree) = if (asyncBase.futureSystem.emitTryCatch) Try(block, catches, finalizer) else block
+
   def isAsync(fun: Tree) =
     fun.symbol == defn.Async_async
 
