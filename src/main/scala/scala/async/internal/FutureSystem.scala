@@ -74,6 +74,8 @@ trait FutureSystem {
   }
 
   def mkOps(c0: Context): Ops { val c: c0.type }
+
+  def freshenAllNames: Boolean = false
 }
 
 object ScalaConcurrentFutureSystem extends FutureSystem {
