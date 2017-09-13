@@ -77,6 +77,7 @@ trait FutureSystem {
 
   def freshenAllNames: Boolean = false
   def emitTryCatch: Boolean = true
+  def resultFieldName: String = "result"
 }
 
 object ScalaConcurrentFutureSystem extends FutureSystem {

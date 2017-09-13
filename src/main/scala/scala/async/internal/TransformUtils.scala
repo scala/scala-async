@@ -25,7 +25,7 @@ private[async] trait TransformUtils {
     val completed = newTermName("completed")
 
     val state = newTermName("state")
-    val result = newTermName("result")
+    val result = newTermName(self.futureSystem.resultFieldName)
     val execContext = newTermName("execContext")
     val tr = newTermName("tr")
     val t = newTermName("throwable")
@@ -38,7 +38,7 @@ private[async] trait TransformUtils {
     def completed     = maybeFresh(baseNames.completed) 
 
     val state         = maybeFresh(baseNames.state)
-    val result        = maybeFresh(baseNames.result)
+    val result        = baseNames.result
     val execContext   = maybeFresh(baseNames.execContext)
     val tr            = maybeFresh(baseNames.tr)
     val t             = maybeFresh(baseNames.t)
