@@ -74,6 +74,10 @@ trait FutureSystem {
   }
 
   def mkOps(c0: Context): Ops { val c: c0.type }
+
+  def freshenAllNames: Boolean = false
+  def emitTryCatch: Boolean = true
+  def resultFieldName: String = "result"
 }
 
 object ScalaConcurrentFutureSystem extends FutureSystem {

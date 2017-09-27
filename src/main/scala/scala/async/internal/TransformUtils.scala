@@ -17,27 +17,46 @@ private[async] trait TransformUtils {
   import c.internal._
   import decorators._
 
-  object name {
-    val resume        = newTermName("resume")
-    val apply         = newTermName("apply")
-    val matchRes      = "matchres"
-    val ifRes         = "ifres"
-    val await         = "await"
-    val bindSuffix    = "$bind"
-    val completed     = newTermName("completed")
+  private object baseNames {
 
-    val state         = newTermName("state")
-    val result        = newTermName("result")
-    val execContext   = newTermName("execContext")
+    val matchRes = "matchres"
+    val ifRes = "ifres"
+    val bindSuffix = "$bind"
+    val completed = newTermName("completed")
+
+    val state = newTermName("state")
+    val result = newTermName(self.futureSystem.resultFieldName)
+    val execContext = newTermName("execContext")
+    val tr = newTermName("tr")
+    val t = newTermName("throwable")
+  }
+  
+  object name {
+    def matchRes      = maybeFresh(baseNames.matchRes)
+    def ifRes         = maybeFresh(baseNames.ifRes) 
+    def bindSuffix    = maybeFresh(baseNames.bindSuffix)
+    def completed     = maybeFresh(baseNames.completed) 
+
+    val state         = maybeFresh(baseNames.state)
+    val result        = baseNames.result
+    val execContext   = maybeFresh(baseNames.execContext)
+    val tr            = maybeFresh(baseNames.tr)
+    val t             = maybeFresh(baseNames.t)
+
+    val await = "await"
+    val resume = newTermName("resume")
+    val apply = newTermName("apply")
     val stateMachine  = newTermName(fresh("stateMachine"))
     val stateMachineT = stateMachine.toTypeName
-    val tr            = newTermName("tr")
-    val t             = newTermName("throwable")
 
+    def maybeFresh(name: TermName): TermName = if (self.asyncBase.futureSystem.freshenAllNames) fresh(name) else name
+    def maybeFresh(name: String): String = if (self.asyncBase.futureSystem.freshenAllNames) fresh(name) else name
     def fresh(name: TermName): TermName = c.freshName(name)
 
     def fresh(name: String): String = c.freshName(name)
   }
+
+  def maybeTry(block: Tree, catches: List[CaseDef], finalizer: Tree) = if (asyncBase.futureSystem.emitTryCatch) Try(block, catches, finalizer) else block
 
   def isAsync(fun: Tree) =
     fun.symbol == defn.Async_async
