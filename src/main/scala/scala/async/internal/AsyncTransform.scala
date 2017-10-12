@@ -50,7 +50,7 @@ trait AsyncTransform {
       }
 
       val customParents = futureSystemOps.stateMachineClassParents
-      val tycon = if (customParents.exists(!_.typeSymbol.asClass.isTrait)) {
+      val tycon = if (customParents.forall(_.typeSymbol.asClass.isTrait)) {
         // prefer extending a class to reduce the class file size of the state machine.
         symbolOf[scala.runtime.AbstractFunction1[Any, Any]]
       } else {
