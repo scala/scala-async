@@ -247,6 +247,7 @@ class LateExpansion {
   @Test def testGenericTypeBoundaryIssue(): Unit = {
     val result = run(
       """
+
       import scala.async.run.late.{autoawait,lateasync}
       trait InstrumentOfValue
       trait Security[T <: InstrumentOfValue] extends InstrumentOfValue
@@ -263,6 +264,7 @@ class LateExpansion {
           }
         }
       }
+      object Test { @lateasync def test: Unit = TestGenericTypeBoundIssue.doStuff(new Bound) }
       """.stripMargin)
   }
 
@@ -281,6 +283,7 @@ class LateExpansion {
           42 // type mismatch;   found   : AnyVal   required: Int
         }
       }
+      object Test { @lateasync def test: Unit = new TestReturnExprIssue("").doStuff }
       """.stripMargin)
   }
 
@@ -386,39 +389,45 @@ class LateExpansion {
       }
       """)
   }
+  private def createTempDir(): File = {
+    val f = File.createTempFile("output", "")
+    f.delete()
+    f.mkdirs()
+    f
+  }
   def run(code: String): Any = {
-    val reporter = new StoreReporter
-    val settings = new Settings(println(_))
     // settings.processArgumentString("-Xprint:patmat,postpatmat,jvm -Ybackend:GenASM -nowarn")
-    settings.outdir.value = sys.props("java.io.tmpdir")
-    settings.embeddedDefaults(getClass.getClassLoader)
-    val isInSBT = !settings.classpath.isSetByUser
-    if (isInSBT) settings.usejavacp.value = true
-    val global = new Global(settings, reporter) {
-      self =>
+    val out = createTempDir()
+    try {
+      val reporter = new StoreReporter
+      val settings = new Settings(println(_))
+      settings.outdir.value = out.getAbsolutePath
+      settings.embeddedDefaults(getClass.getClassLoader)
+      val isInSBT = !settings.classpath.isSetByUser
+      if (isInSBT) settings.usejavacp.value = true
+      val global = new Global(settings, reporter) {
+        self =>
 
-      object late extends {
-        val global: self.type = self
-      } with LatePlugin
+        object late extends {
+          val global: self.type = self
+        } with LatePlugin
 
-      override protected def loadPlugins(): List[Plugin] = late :: Nil
-    }
-    import global._
+        override protected def loadPlugins(): List[Plugin] = late :: Nil
+      }
+      import global._
 
-    val run = new Run
-    val source = newSourceFile(code)
-//    TreeInterrogation.withDebug {
+      val run = new Run
+      val source = newSourceFile(code)
+      //    TreeInterrogation.withDebug {
       run.compileSources(source :: Nil)
-//    }
-    Assert.assertTrue(reporter.infos.mkString("\n"), !reporter.hasErrors)
-    val loader = new URLClassLoader(Seq(new File(settings.outdir.value).toURI.toURL), global.getClass.getClassLoader)
-    val cls = try {
-      loader.loadClass("Test")
-    } catch {
-      case ex: ClassNotFoundException =>
-        throw new ClassNotFoundException(new File(settings.outdir.value).list().mkString(", "), ex)
+      //    }
+      Assert.assertTrue(reporter.infos.mkString("\n"), !reporter.hasErrors)
+      val loader = new URLClassLoader(Seq(new File(settings.outdir.value).toURI.toURL), global.getClass.getClassLoader)
+      val cls = loader.loadClass("Test")
+      cls.getMethod("test").invoke(null)
+    } finally {
+      scala.reflect.io.Path.apply(out).deleteRecursively()
     }
-    cls.getMethod("test").invoke(null)
   }
 }
 
