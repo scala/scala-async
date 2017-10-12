@@ -412,7 +412,12 @@ class LateExpansion {
 //    }
     Assert.assertTrue(reporter.infos.mkString("\n"), !reporter.hasErrors)
     val loader = new URLClassLoader(Seq(new File(settings.outdir.value).toURI.toURL), global.getClass.getClassLoader)
-    val cls = loader.loadClass("Test")
+    val cls = try {
+      loader.loadClass("Test")
+    } catch {
+      case ex: ClassNotFoundException =>
+        throw new ClassNotFoundException(new File(settings.outdir.value).list().mkString(", "), ex)
+    }
     cls.getMethod("test").invoke(null)
   }
 }
