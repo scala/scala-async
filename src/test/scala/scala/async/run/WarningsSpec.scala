@@ -15,7 +15,7 @@ class WarningsSpec {
 
   @Test
   // https://github.com/scala/async/issues/74
-  def noPureExpressionInStatementPositionWarning_t74() {
+  def noPureExpressionInStatementPositionWarning_t74(): Unit = {
     val tb = mkToolbox(s"-cp ${toolboxClasspath} -Xfatal-warnings")
     // was: "a pure expression does nothing in statement position; you may be omitting necessary parentheses"
     tb.eval(tb.parse {

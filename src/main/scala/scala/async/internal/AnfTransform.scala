@@ -110,13 +110,19 @@ private[async] trait AnfTransform {
                 statsExprThrow
               } else {
                 val varDef = defineVar(name.ifRes, expr.tpe, tree.pos)
-                def branchWithAssign(orig: Tree) = api.typecheck(atPos(orig.pos) {
-                  def cast(t: Tree) = mkAttributedCastPreservingAnnotations(t, tpe(varDef.symbol))
-                  orig match {
-                    case Block(thenStats, thenExpr) => newBlock(thenStats, Assign(Ident(varDef.symbol), cast(thenExpr)))
-                    case _                          => Assign(Ident(varDef.symbol), cast(orig))
+                def typedAssign(lhs: Tree) =
+                  api.typecheck(atPos(lhs.pos)(Assign(Ident(varDef.symbol), mkAttributedCastPreservingAnnotations(lhs, tpe(varDef.symbol)))))
+
+                def branchWithAssign(t: Tree): Tree = {
+                  t match {
+                    case MatchEnd(ld) =>
+                      deriveLabelDef(ld, branchWithAssign)
+                    case blk @ Block(thenStats, thenExpr) =>
+                      treeCopy.Block(blk, thenStats, typedAssign(thenExpr)).setType(definitions.UnitTpe)
+                    case _ =>
+                      typedAssign(t)
                   }
-                })
+                }
                 val ifWithAssign = treeCopy.If(tree, cond, branchWithAssign(thenp), branchWithAssign(elsep)).setType(definitions.UnitTpe)
                 stats :+ varDef :+ ifWithAssign :+ atPos(tree.pos)(gen.mkAttributedStableRef(varDef.symbol)).setType(tree.tpe)
               }
@@ -139,11 +145,14 @@ private[async] trait AnfTransform {
                   api.typecheck(atPos(lhs.pos)(Assign(Ident(varDef.symbol), mkAttributedCastPreservingAnnotations(lhs, tpe(varDef.symbol)))))
                 val casesWithAssign = cases map {
                   case cd@CaseDef(pat, guard, body) =>
-                    val newBody = body match {
-                      case b@Block(caseStats, caseExpr) => treeCopy.Block(b, caseStats, typedAssign(caseExpr)).setType(definitions.UnitTpe)
-                      case _                            => typedAssign(body)
+                    def bodyWithAssign(t: Tree): Tree = {
+                      t match {
+                        case MatchEnd(ld) => deriveLabelDef(ld, bodyWithAssign)
+                        case b@Block(caseStats, caseExpr) => treeCopy.Block(b, caseStats, bodyWithAssign(caseExpr)).setType(definitions.UnitTpe)
+                        case _ => typedAssign(t)
+                      }
                     }
-                    treeCopy.CaseDef(cd, pat, guard, newBody).setType(definitions.UnitTpe)
+                    treeCopy.CaseDef(cd, pat, guard, bodyWithAssign(body)).setType(definitions.UnitTpe)
                 }
                 val matchWithAssign = treeCopy.Match(tree, scrut, casesWithAssign).setType(definitions.UnitTpe)
                 require(matchWithAssign.tpe != null, matchWithAssign)
@@ -228,11 +237,6 @@ private[async] trait AnfTransform {
               val stats1 = stats.flatMap(linearize.transformToList).filterNot(isLiteralUnit)
               val exprs1 = linearize.transformToList(expr)
               val trees = stats1 ::: exprs1
-              def isMatchEndLabel(t: Tree): Boolean = t match {
-                case ValDef(_, _, _, t) if isMatchEndLabel(t) => true
-                case ld: LabelDef if ld.name.toString.startsWith("matchEnd") => true
-                case _ => false
-              }
               def groupsEndingWith[T](ts: List[T])(f: T => Boolean): List[List[T]] = if (ts.isEmpty) Nil else {
                 ts.indexWhere(f) match {
                   case -1 => List(ts)
@@ -241,7 +245,7 @@ private[async] trait AnfTransform {
                     ts1 :: groupsEndingWith(ts2)(f)
                 }
               }
-              val matchGroups = groupsEndingWith(trees)(isMatchEndLabel)
+              val matchGroups = groupsEndingWith(trees){ case MatchEnd(_) => true; case _ => false }
               val trees1 = matchGroups.flatMap(eliminateMatchEndLabelParameter)
               val result = trees1 flatMap {
                 case Block(stats, expr) => stats :+ expr

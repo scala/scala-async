@@ -544,6 +544,27 @@ private[async] trait TransformUtils {
       result :: Nil
     }
   }
+
+  def deriveLabelDef(ld: LabelDef, applyToRhs: Tree => Tree): LabelDef = {
+    val rhs2 = applyToRhs(ld.rhs)
+    val ld2 = treeCopy.LabelDef(ld, ld.name, ld.params, rhs2)
+    if (ld eq ld2) ld
+    else {
+      val info2 = ld2.symbol.info match {
+        case MethodType(params, p) => internal.methodType(params, rhs2.tpe)
+        case t => t
+      }
+      internal.setInfo(ld2.symbol, info2)
+      ld2
+    }
+  }
+  object MatchEnd {
+    def unapply(t: Tree): Option[LabelDef] = t match {
+      case ValDef(_, _, _, t) => unapply(t)
+      case ld: LabelDef if ld.name.toString.startsWith("matchEnd") => Some(ld)
+      case _ => None
+    }
+  }
 }
 
 case object ContainsAwait
