@@ -118,7 +118,7 @@ private[async] trait AnfTransform {
                     case MatchEnd(ld) =>
                       deriveLabelDef(ld, branchWithAssign)
                     case blk @ Block(thenStats, thenExpr) =>
-                      treeCopy.Block(blk, thenStats, typedAssign(thenExpr)).setType(definitions.UnitTpe)
+                      treeCopy.Block(blk, thenStats, branchWithAssign(thenExpr)).setType(definitions.UnitTpe)
                     case _ =>
                       typedAssign(t)
                   }
