@@ -57,7 +57,7 @@ def combined: Future[Int] = async {               // 02
 val x: Int = Await.result(combined, 10.seconds)   // 05
 ```
 
-Lines 1 defines an asynchronous method: it returns a `Future`.
+Line 1 defines an asynchronous method: it returns a `Future`.
 
 Line 2 begins an `async` block. During compilation,
 the contents of this block will be analyzed to identify
@@ -69,14 +69,14 @@ computation in the `async` block is not executed
 on the caller's thread.
 
 Line 3 begins by triggering `slowCalcFuture`, and then
-suspending until it has been calculating. Only after it
+suspending until it has been calculated. Only after it
 has finished, we trigger it again, and suspend again.
 Finally, we add the results and complete `combined`, which
 in turn will release line 5 (unless it had already timed out).
 
-It is important to note that while line 1-4 is non-blocking,
-it is not parallel. If we wanted to parallelize the two computations,
-we could rearrange the code as follows.
+It is important to note that while lines 1-4 are non-blocking,
+they are not parallel. If we wanted to parallelize the two computations,
+we could rearrange the code as follows:
 
 ```scala
 def combined: Future[Int] = async {
@@ -102,8 +102,8 @@ def combined: Future[Int] = for {
 ```
 
 The `async` approach has two advantages over the use of
-`map` and `flatMap`.
-  1. The code more directly reflects the programmers intent,
+`map` and `flatMap`:
+  1. The code more directly reflects the programmer's intent,
      and does not require us to name the results `r1` and `r2`.
      This advantage is even more pronounced when we mix control
      structures in `async` blocks.
@@ -126,8 +126,8 @@ difficult to understand.
 
 ## How it works
 
- - The async macro analyses the block of code, looking for control
-   structures and locations of await calls. It then breaks the code
+ - The `async` macro analyses the block of code, looking for control
+   structures and locations of `await` calls. It then breaks the code
    into 'chunks'. Each chunk contains a linear sequence of statements
    that concludes with a branching decision, or with the registration
    of a subsequent state handler as the continuation.
@@ -136,13 +136,13 @@ difficult to understand.
    "A Normal Form" (ANF), and roughly means that:
      - `if` and `match` constructs are only used as statements;
        they cannot be used as an expression.
-     - calls to await are not allowed in compound expressions.
+     - calls to `await` are not allowed in compound expressions.
  - Identify vals, vars and defs that are accessed from multiple
    states. These will be lifted out to fields in the state machine
    object.
  - Synthesize a class that holds:
-   - an integer representing the current state ID
-   - the lifted definitions
+   - an integer representing the current state ID.
+   - the lifted definitions.
    - an `apply(value: Try[Any]): Unit` method that will be
      called on completion of each future. The behavior of
      this method is determined by the current state. It records
@@ -151,12 +151,12 @@ difficult to understand.
    - the `resume(): Unit` method that switches on the current state
      and runs the users code for one 'chunk', and either:
        a) registers the state machine as the handler for the next future
-       b) completes the result Promise of the async block, if at the terminal state.
+       b) completes the result Promise of the `async` block, if at the terminal state.
    - an `apply(): Unit` method that starts the computation.
 
 ## Limitations
  - See the [neg](https://github.com/scala/async/tree/master/src/test/scala/scala/async/neg) test cases
-   for constructs that are not allowed in a async block
+   for constructs that are not allowed in an `async` block.
  - See the [issue list](https://github.com/scala/async/issues?state=open) for which of these restrictions are planned
    to be dropped in the future.
  - See [#13](https://github.com/scala/async/issues/13) for why `await` is not possible in closures, and for suggestions on
