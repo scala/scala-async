@@ -528,7 +528,7 @@ private[async] trait TransformUtils {
             def addUncheckedBounds(t: Tree) = {
               typingTransform(t, owner) {
                 (tree, api) =>
-                  internal.setType(api.default(tree), uncheckedBoundsIfNeeded(tree.tpe))
+                  if (tree.tpe == null) tree else internal.setType(api.default(tree), uncheckedBoundsIfNeeded(tree.tpe))
               }
 
             }
