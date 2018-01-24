@@ -64,7 +64,7 @@ package object async {
   }
 
   def scalaBinaryVersion: String = {
-    val PreReleasePattern = """.*-(M|RC).*""".r
+    val PreReleasePattern = """.*-(M|RC|pre-).*""".r
     val Pattern = """(\d+\.\d+)\..*""".r
     val SnapshotPattern = """(\d+\.\d+\.\d+)-\d+-\d+-.*""".r
     scala.util.Properties.versionNumberString match {
