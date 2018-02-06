@@ -3,9 +3,9 @@ import ScalaModulePlugin._
 scalaModuleSettings
 
 scalaVersionsByJvm in ThisBuild := {
-  val v211 = "2.11.11"
-  val v212 = "2.12.3"
-  val v213 = "2.13.0-M2"
+  val v211 = "2.11.12"
+  val v212 = "2.12.4"
+  val v213 = "2.13.0-M3"
 
   Map(
     6 -> List(v211 -> true),
@@ -17,12 +17,12 @@ scalaVersionsByJvm in ThisBuild := {
 name := "scala-async"
 repoName := "async"
 
-version := "0.9.7-SNAPSHOT"
+version := "0.9.8-SNAPSHOT"
 
 libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value % "provided"
 libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value % "test" // for ToolBox
-libraryDependencies += "junit" % "junit-dep" % "4.10" % "test"
-libraryDependencies += "com.novocode" % "junit-interface" % "0.10" % "test"
+libraryDependencies += "junit" % "junit" % "4.12" % "test"
+libraryDependencies += "com.novocode" % "junit-interface" % "0.11" % "test"
 
 enableOptimizer
 testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v", "-s")

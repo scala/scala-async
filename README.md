@@ -1,6 +1,10 @@
-# scala-async [<img src="https://img.shields.io/travis/scala/async.svg"/>](https://travis-ci.org/scala/async) [<img src="https://img.shields.io/maven-central/v/org.scala-lang.modules/scala-async_2.10.svg?label=latest%20release%20for%202.10"/>](http://search.maven.org/#search%7Cga%7C1%7Cg%3Aorg.scala-lang.modules%20a%3Ascala-async_2.10) [<img src="https://img.shields.io/maven-central/v/org.scala-lang.modules/scala-async_2.11.svg?label=latest%20release%20for%202.11"/>](http://search.maven.org/#search%7Cga%7C1%7Cg%3Aorg.scala-lang.modules%20a%3Ascala-async_2.11) [<img src="https://img.shields.io/maven-central/v/org.scala-lang.modules/scala-async_2.12.svg?label=latest%20release%20for%202.12"/>](http://search.maven.org/#search%7Cga%7C1%7Cg%3Aorg.scala-lang.modules%20a%3Ascala-async_2.12)
+# scala-async [<img src="https://img.shields.io/maven-central/v/org.scala-lang.modules/scala-async_2.11.svg?label=latest%20release%20for%202.11"/>](http://search.maven.org/#search%7Cga%7C1%7Cg%3Aorg.scala-lang.modules%20a%3Ascala-async_2.11) [<img src="https://img.shields.io/maven-central/v/org.scala-lang.modules/scala-async_2.12.svg?label=latest%20release%20for%202.12"/>](http://search.maven.org/#search%7Cga%7C1%7Cg%3Aorg.scala-lang.modules%20a%3Ascala-async_2.12)
 
-Note: this branch targets Scala 2.11.x, support for Scala 2.10.x has been moved to [this branch](https://github.com/scala/async/tree/2.10.x).
+## Supported Scala versions
+
+This branch targets Scala 2.11, 2.12, and 2.13.
+
+Support for Scala 2.10 is [on a branch](https://github.com/scala/async/tree/2.10.x).
 
 ## Quick start
 
@@ -8,21 +12,19 @@ To include scala-async in an existing project use the library published on Maven
 For sbt projects add the following to your build definition - build.sbt or project/Build.scala:
 
 ```scala
-libraryDependencies += "org.scala-lang.modules" %% "scala-async" % "0.9.6"
+libraryDependencies += "org.scala-lang.modules" %% "scala-async" % "0.9.7"
 ```
 
-For Maven projects add the following to your <dependencies> (make sure to use the correct Scala version prefix, _2.10 or _2.11,
-to match your project’s Scala version):
+For Maven projects add the following to your <dependencies> (make sure to use the correct Scala version suffix
+to match your project’s Scala binary version):
 
 ```scala
 <dependency>
 	<groupId>org.scala-lang.modules</groupId>
-	<artifactId>scala-async_2.11</artifactId>
-	<version>0.9.6</version>
+	<artifactId>scala-async_2.12</artifactId>
+	<version>0.9.7</version>
 </dependency>
 ```
-
-Scala 2.12 support is introduced in 0.9.6-RC5.
 
 After adding a scala-async to your classpath, write your first `async` block:
 
@@ -155,6 +157,7 @@ difficult to understand.
    - an `apply(): Unit` method that starts the computation.
 
 ## Limitations
+
  - See the [neg](https://github.com/scala/async/tree/master/src/test/scala/scala/async/neg) test cases
    for constructs that are not allowed in an `async` block.
  - See the [issue list](https://github.com/scala/async/issues?state=open) for which of these restrictions are planned
