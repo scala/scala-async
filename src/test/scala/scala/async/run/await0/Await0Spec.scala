@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2014 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2012-2014 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package scala.async
@@ -7,7 +7,7 @@ package run
 package await0
 
 /**
- * Copyright (C) 2012-2014 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2012-2014 Lightbend Inc. <http://www.lightbend.com>
  */
 
 import language.{reflectiveCalls, postfixOps}
