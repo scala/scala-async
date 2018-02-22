@@ -7,7 +7,7 @@ package run
 package ifelse1
 
 import language.{reflectiveCalls, postfixOps}
-import scala.concurrent.{Future, ExecutionContext, future, Await}
+import scala.concurrent.{Future, ExecutionContext, Await}
 import scala.concurrent.duration._
 import scala.async.Async.{async, await}
 import org.junit.Test
@@ -17,7 +17,7 @@ class TestIfElse1Class {
 
   import ExecutionContext.Implicits.global
 
-  def base(x: Int): Future[Int] = future {
+  def base(x: Int): Future[Int] = Future {
     x + 2
   }
 

@@ -21,8 +21,8 @@ object ToughTypeObject {
   class Inner
 
   def m2 = async[(List[_], ToughTypeObject.Inner)] {
-    val y = await(future[List[_]](Nil))
-    val z = await(future[Inner](new Inner))
+    val y = await(Future[List[_]](Nil))
+    val z = await(Future[Inner](new Inner))
     (y, z)
   }
 }
@@ -86,11 +86,11 @@ class ToughTypeSpec {
 
     def m3 = async {
       val p: List[Option[_]] = conjure[List[Option[_]]]
-      await(future(1))
+      await(Future(1))
     }
 
     def m4 = async {
-      await(future[List[_]](Nil))
+      await(Future[List[_]](Nil))
     }
   }
 
@@ -153,7 +153,7 @@ class ToughTypeSpec {
   // Turns out the behaviour stems from `thisMethodType` in `Namers`, which treats type parameter skolem symbols.
   @Test def nestedMethodWithInconsistencyTreeAndInfoParamSymbols() {
     import language.{reflectiveCalls, postfixOps}
-    import scala.concurrent.{Future, ExecutionContext, future, Await}
+    import scala.concurrent.{Future, ExecutionContext, Await}
     import scala.concurrent.duration._
     import scala.async.Async.{async, await}
     import scala.async.internal.AsyncId
