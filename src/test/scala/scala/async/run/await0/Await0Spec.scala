@@ -12,7 +12,7 @@ package await0
 
 import language.{reflectiveCalls, postfixOps}
 
-import scala.concurrent.{Future, ExecutionContext, future, Await}
+import scala.concurrent.{Future, ExecutionContext, Await}
 import scala.concurrent.duration._
 import scala.async.Async.{async, await}
 import org.junit.Test
@@ -21,23 +21,23 @@ class Await0Class {
 
   import ExecutionContext.Implicits.global
 
-  def m1(x: Double): Future[Double] = future {
+  def m1(x: Double): Future[Double] = Future {
     x + 2.0
   }
 
-  def m2(x: Float): Future[Float] = future {
+  def m2(x: Float): Future[Float] = Future {
     x + 2.0f
   }
 
-  def m3(x: Char): Future[Char] = future {
+  def m3(x: Char): Future[Char] = Future {
     (x.toInt + 2).toChar
   }
 
-  def m4(x: Short): Future[Short] = future {
+  def m4(x: Short): Future[Short] = Future {
     (x + 2).toShort
   }
 
-  def m5(x: Byte): Future[Byte] = future {
+  def m5(x: Byte): Future[Byte] = Future {
     (x + 2).toByte
   }
 

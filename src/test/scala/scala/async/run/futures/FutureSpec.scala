@@ -24,7 +24,7 @@ class FutureSpec {
   /* some utils */
   
   def testAsync(s: String)(implicit ec: ExecutionContext): Future[String] = s match {
-    case "Hello"   => future { "World" }
+    case "Hello"   => Future { "World" }
     case "Failure" => Future.failed(new RuntimeException("Expected exception; to test fault-tolerance"))
     case "NoReply" => Promise[String]().future
   }
@@ -42,7 +42,7 @@ class FutureSpec {
       
       class ThrowableTest(m: String) extends Throwable(m)
       
-      val f1 = future[Any] {
+      val f1 = Future[Any] {
         throw new ThrowableTest("test")
       }
       
@@ -51,7 +51,7 @@ class FutureSpec {
       }
       
       val latch = new TestLatch
-      val f2 = future {
+      val f2 = Future {
         Await.ready(latch, 5 seconds)
         "success"
       }
@@ -72,7 +72,7 @@ class FutureSpec {
       
       Await.result(f3, defaultTimeout) mustBe ("SUCCESS")
       
-      val waiting = future {
+      val waiting = Future {
         Thread.sleep(1000)
       }
       Await.ready(waiting, 2000 millis)
@@ -86,8 +86,8 @@ class FutureSpec {
     @Test def `A future with global ExecutionContext should compose with for-comprehensions`() {
       import scala.reflect.ClassTag
       
-      def asyncInt(x: Int) = future { (x * 2).toString }
-      val future0 = future[Any] {
+      def asyncInt(x: Int) = Future { (x * 2).toString }
+      val future0 = Future[Any] {
         "five!".length
       }
       
@@ -100,8 +100,8 @@ class FutureSpec {
       
       val future2 = async {
         val a = await(future0.mapTo[Int])
-        val b = await((future { (a * 2).toString }).mapTo[Int])
-        val c = await(future { (7 * 2).toString })
+        val b = await((Future { (a * 2).toString }).mapTo[Int])
+        val c = await(Future { (7 * 2).toString })
         b + "-" + c
       }
       
@@ -115,8 +115,8 @@ class FutureSpec {
       case class Req[T](req: T)
       case class Res[T](res: T)
       def asyncReq[T](req: Req[T]) = req match {
-        case Req(s: String) => future { Res(s.length) }
-        case Req(i: Int)    => future { Res((i * 2).toString) }
+        case Req(s: String) => Future { Res(s.length) }
+        case Req(i: Int)    => Future { Res((i * 2).toString) }
       }
       
       val future1 = for {
@@ -217,7 +217,7 @@ class FutureSpec {
     @Test def `andThen like a boss`() {
       val q = new java.util.concurrent.LinkedBlockingQueue[Int]
       for (i <- 1 to 1000) {
-        val chained = future {
+        val chained = Future {
           q.add(1); 3
         } andThen {
           case _ => q.add(2)
@@ -244,7 +244,7 @@ class FutureSpec {
     }
     
     @Test def `find`() {
-      val futures = for (i <- 1 to 10) yield future {
+      val futures = for (i <- 1 to 10) yield Future {
         i
       }
       
@@ -279,7 +279,7 @@ class FutureSpec {
     
     @Test def `fold`() {
       val timeout = 10000 millis
-      def async(add: Int, wait: Int) = future {
+      def async(add: Int, wait: Int) = Future {
         Thread.sleep(wait)
         add
       }
@@ -287,19 +287,21 @@ class FutureSpec {
       val futures = (0 to 9) map {
         idx => async(idx, idx * 20)
       }
+      // TODO: change to `foldLeft` after support for 2.11 is dropped
       val folded = Future.fold(futures)(0)(_ + _)
       Await.result(folded, timeout) mustBe (45)
       
       val futuresit = (0 to 9) map {
         idx => async(idx, idx * 20)
       }
+      // TODO: change to `foldLeft` after support for 2.11 is dropped
       val foldedit = Future.fold(futures)(0)(_ + _)
       Await.result(foldedit, timeout) mustBe (45)
     }
     
     @Test def `fold by composing`() {
       val timeout = 10000 millis
-      def async(add: Int, wait: Int) = future {
+      def async(add: Int, wait: Int) = Future {
         Thread.sleep(wait)
         add
       }
@@ -314,7 +316,7 @@ class FutureSpec {
     
     @Test def `fold with an exception`() {
       val timeout = 10000 millis
-      def async(add: Int, wait: Int) = future {
+      def async(add: Int, wait: Int) = Future {
         Thread.sleep(wait)
         if (add == 6) throw new IllegalArgumentException("shouldFoldResultsWithException: expected")
         add
@@ -322,6 +324,7 @@ class FutureSpec {
       def futures = (0 to 9) map {
         idx => async(idx, idx * 10)
       }
+      // TODO: change to `foldLeft` after support for 2.11 is dropped
       val folded = Future.fold(futures)(0)(_ + _)
       intercept[IllegalArgumentException] {
         Await.result(folded, timeout)
@@ -332,6 +335,7 @@ class FutureSpec {
       import scala.collection.mutable.ArrayBuffer
       def test(testNumber: Int) {
         val fs = (0 to 1000) map (i => Future(i))
+        // TODO: change to `foldLeft` after support for 2.11 is dropped
         val f = Future.fold(fs)(ArrayBuffer.empty[AnyRef]) {
           case (l, i) if i % 2 == 0 => l += i.asInstanceOf[AnyRef]
           case (l, _)               => l
@@ -345,28 +349,31 @@ class FutureSpec {
     }
     
     @Test def `return zero value if folding empty list`() {
+      // TODO: change to `foldLeft` after support for 2.11 is dropped
       val zero = Future.fold(List[Future[Int]]())(0)(_ + _)
       Await.result(zero, defaultTimeout) mustBe (0)
     }
     
     @Test def `shouldReduceResults`() {
-      def async(idx: Int) = future {
+      def async(idx: Int) = Future {
         Thread.sleep(idx * 20)
         idx
       }
       val timeout = 10000 millis
       
       val futures = (0 to 9) map { async }
+      // TODO: change to `reduceLeft` after support for 2.11 is dropped
       val reduced = Future.reduce(futures)(_ + _)
       Await.result(reduced, timeout) mustBe (45)
       
       val futuresit = (0 to 9) map { async }
+      // TODO: change to `reduceLeft` after support for 2.11 is dropped
       val reducedit = Future.reduce(futuresit)(_ + _)
       Await.result(reducedit, timeout) mustBe (45)
     }
     
     @Test def `shouldReduceResultsWithException`() {
-      def async(add: Int, wait: Int) = future {
+      def async(add: Int, wait: Int) = Future {
         Thread.sleep(wait)
         if (add == 6) throw new IllegalArgumentException("shouldFoldResultsWithException: expected")
         else add
@@ -375,6 +382,7 @@ class FutureSpec {
       def futures = (1 to 10) map {
         idx => async(idx, idx * 10)
       }
+      // TODO: change to `reduceLeft` after support for 2.11 is dropped
       val failed = Future.reduce(futures)(_ + _)
       intercept[IllegalArgumentException] {
         Await.result(failed, timeout)
@@ -383,6 +391,7 @@ class FutureSpec {
     
     @Test def `shouldReduceThrowNSEEOnEmptyInput`() {
       intercept[java.util.NoSuchElementException] {
+        // TODO: change to `reduceLeft` after support for 2.11 is dropped
         val emptyreduced = Future.reduce(List[Future[Int]]())(_ + _)
         Await.result(emptyreduced, defaultTimeout)
       }
@@ -397,7 +406,7 @@ class FutureSpec {
         }
       }
       
-      val oddFutures = List.fill(100)(future { counter.incAndGet() }).iterator
+      val oddFutures = List.fill(100)(Future { counter.incAndGet() }).iterator
       val traversed = Future.sequence(oddFutures)
       Await.result(traversed, defaultTimeout).sum mustBe (10000)
       
@@ -413,11 +422,11 @@ class FutureSpec {
     @Test def `shouldBlockUntilResult`() {
       val latch = new TestLatch
       
-      val f = future {
+      val f = Future {
         Await.ready(latch, 5 seconds)
         5
       }
-      val f2 = future {
+      val f2 = Future {
         val res = Await.result(f, Inf)
         res + 9
       }
@@ -430,7 +439,7 @@ class FutureSpec {
       
       Await.result(f2, defaultTimeout) mustBe (14)
       
-      val f3 = future {
+      val f3 = Future {
         Thread.sleep(100)
         5
       }
@@ -443,7 +452,7 @@ class FutureSpec {
     @Test def `run callbacks async`() {
       val latch = Vector.fill(10)(new TestLatch)
       
-      val f1 = future {
+      val f1 = Future {
         latch(0).open()
         Await.ready(latch(1), TestLatch.DefaultTimeout)
         "Hello"
@@ -535,7 +544,7 @@ class FutureSpec {
 
     @Test def `should not throw when Await.ready`() {
       val expected = try Success(5 / 0) catch { case a: ArithmeticException => Failure(a) }
-      val f = async { await(future(5)) / 0 }
+      val f = async { await(Future(5)) / 0 }
       Await.ready(f, defaultTimeout).value.get.toString mustBe expected.toString
     }
 }

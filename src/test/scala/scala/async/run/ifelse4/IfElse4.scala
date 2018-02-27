@@ -7,7 +7,7 @@ package run
 package ifelse4
 
 import language.{reflectiveCalls, postfixOps}
-import scala.concurrent.{Future, ExecutionContext, future, Await}
+import scala.concurrent.{Future, ExecutionContext, Await}
 import scala.concurrent.duration._
 import scala.async.Async.{async, await}
 import org.junit.Test
