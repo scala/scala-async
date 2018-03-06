@@ -30,10 +30,6 @@ scalacOptions in Test ++= Seq("-Yrangepos")
 
 parallelExecution in Global := false
 
-enablePlugins(BuildInfoPlugin)
-buildInfoPackage := "scala.async"
-buildInfoKeys := Seq[BuildInfoKey](classDirectory in Compile)
-
 // Uncomment to disable test compilation.
 // (sources in Test) ~= ((xs: Seq[File]) => xs.filter(f => Seq("TreeInterrogation", "package").exists(f.name.contains)))
 
