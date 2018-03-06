@@ -63,23 +63,7 @@ package object async {
     new Global(settings, reporter)
   }
 
-  def scalaBinaryVersion: String = {
-    val PreReleasePattern = """.*-(M|RC|pre-).*""".r
-    val Pattern = """(\d+\.\d+)\..*""".r
-    val SnapshotPattern = """(\d+\.\d+\.\d+)-\d+-\d+-.*""".r
-    scala.util.Properties.versionNumberString match {
-      case s @ PreReleasePattern(_) => s
-      case SnapshotPattern(v) => v + "-SNAPSHOT"
-      case Pattern(v) => v
-      case _          => ""
-    }
-  }
-
-  def toolboxClasspath = {
-    val f = new java.io.File(s"target/scala-${scalaBinaryVersion}/classes")
-    if (!f.exists) sys.error(s"output directory ${f.getAbsolutePath} does not exist.")
-    f.getAbsolutePath
-  }
+  def toolboxClasspath = BuildInfo.classDirectory
 
   def expectError(errorSnippet: String, compileOptions: String = "",
                   baseCompileOptions: String = s"-cp ${toolboxClasspath}")(code: String) {
