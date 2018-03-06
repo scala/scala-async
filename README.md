@@ -162,5 +162,5 @@ difficult to understand.
    for constructs that are not allowed in an `async` block.
  - See the [issue list](https://github.com/scala/async/issues?state=open) for which of these restrictions are planned
    to be dropped in the future.
- - See [#13](https://github.com/scala/async/issues/13) for why `await` is not possible in closures, and for suggestions on
+ - See [#32](https://github.com/scala/async/issues/32) for why `await` is not possible in closures, and for suggestions on
    ways to structure the code to work around this limitation.
