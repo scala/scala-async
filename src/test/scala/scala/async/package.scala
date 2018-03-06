@@ -63,23 +63,15 @@ package object async {
     new Global(settings, reporter)
   }
 
-  def scalaBinaryVersion: String = {
-    val PreReleasePattern = """.*-(M|RC|pre-).*""".r
-    val Pattern = """(\d+\.\d+)\..*""".r
-    val SnapshotPattern = """(\d+\.\d+\.\d+)-\d+-\d+-.*""".r
-    scala.util.Properties.versionNumberString match {
-      case s @ PreReleasePattern(_) => s
-      case SnapshotPattern(v) => v + "-SNAPSHOT"
-      case Pattern(v) => v
-      case _          => ""
-    }
-  }
-
-  def toolboxClasspath = {
-    val f = new java.io.File(s"target/scala-${scalaBinaryVersion}/classes")
-    if (!f.exists) sys.error(s"output directory ${f.getAbsolutePath} does not exist.")
-    f.getAbsolutePath
-  }
+  // returns e.g. target/scala-2.12/classes
+  // implementation is kludgy, but it's just test code. Scala version number formats and their
+  // relation to Scala binary versions are too diverse to attempt to do that mapping ourselves here,
+  // as we learned from experience.  and we could use sbt-buildinfo to have sbt tell us, but that
+  // complicates the build since it does source generation (which may e.g. confuse IntelliJ).
+  // so this is, uh, fine? (crosses fingers)
+  def toolboxClasspath =
+    new java.io.File(this.getClass.getProtectionDomain.getCodeSource.getLocation.toURI)
+      .getParentFile.getParentFile
 
   def expectError(errorSnippet: String, compileOptions: String = "",
                   baseCompileOptions: String = s"-cp ${toolboxClasspath}")(code: String) {
