@@ -10,12 +10,7 @@ env:
     - secure: "Cj4PsumsWL37Pl7V5ZPJw+/xH9esHblG5nN9Op91XcCfG006xHsz2w1iNOqFqCF8wAhgObuA2CmAH3ZuI1jZGGSo2HMt9+f5Z6tpifFzsTHZJtdNIVOpS3/NGhvgtg3UnT5WQQtnVi6zlkKl1xCpAIDNhOJ9dXoL54auAqvxpko="
 script:
   - admin/build.sh
-addons:
-  apt:
-    packages:
-      - openjdk-6-jdk
 jdk:
-  - openjdk6
   - oraclejdk8
 notifications:
   email:
