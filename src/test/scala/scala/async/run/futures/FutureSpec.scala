@@ -61,14 +61,14 @@ class FutureSpec {
       }
       
       f2 foreach { _ => throw new ThrowableTest("dispatcher foreach") }
-      f2 onSuccess { case _ => throw new ThrowableTest("dispatcher receive") }
+      f2 onComplete { case Success(_) => throw new ThrowableTest("dispatcher receive") }
       
       latch.open()
       
       Await.result(f2, defaultTimeout) mustBe ("success")
       
       f2 foreach { _ => throw new ThrowableTest("current thread foreach") }
-      f2 onSuccess { case _ => throw new ThrowableTest("current thread receive") }
+      f2 onComplete { case Success(_) => throw new ThrowableTest("current thread receive") }
       
       Await.result(f3, defaultTimeout) mustBe ("SUCCESS")
       
@@ -251,7 +251,7 @@ class FutureSpec {
       val result = Future.find[Int](futures)(_ == 3)
       Await.result(result, defaultTimeout) mustBe (Some(3))
 
-      val notFound = Future.find[Int](futures.iterator)(_ == 11)
+      val notFound = Future.find[Int](futures)(_ == 11)
       Await.result(notFound, defaultTimeout) mustBe (None)
     }
     
