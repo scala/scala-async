@@ -29,7 +29,7 @@ to match your project’s Scala binary version):
 After adding a scala-async to your classpath, write your first `async` block:
 
 ```scala
-import ExecutionContext.Implicits.global
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.async.Async.{async, await}
 
 val future = async {
