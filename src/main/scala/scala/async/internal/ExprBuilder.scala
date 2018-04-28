@@ -3,6 +3,8 @@
  */
 package scala.async.internal
 
+import java.util.function.IntUnaryOperator
+
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import language.existentials
@@ -23,7 +25,7 @@ trait ExprBuilder {
   trait AsyncState {
     def state: Int
 
-    def nextStates: List[Int]
+    def nextStates: Array[Int]
 
     def mkHandlerCaseForState[T: WeakTypeTag]: CaseDef
 
@@ -55,8 +57,8 @@ trait ExprBuilder {
   final class SimpleAsyncState(var stats: List[Tree], val state: Int, nextState: Int, symLookup: SymLookup)
     extends AsyncState {
 
-    def nextStates: List[Int] =
-      List(nextState)
+    val nextStates: Array[Int] =
+      Array(nextState)
 
     def mkHandlerCaseForState[T: WeakTypeTag]: CaseDef = {
       mkHandlerCase(state, treesThenStats(mkStateTree(nextState, symLookup) :: Nil))
@@ -69,7 +71,7 @@ trait ExprBuilder {
   /** A sequence of statements with a conditional transition to the next state, which will represent
     * a branch of an `if` or a `match`.
     */
-  final class AsyncStateWithoutAwait(var stats: List[Tree], val state: Int, val nextStates: List[Int]) extends AsyncState {
+  final class AsyncStateWithoutAwait(var stats: List[Tree], val state: Int, val nextStates: Array[Int]) extends AsyncState {
     override def mkHandlerCaseForState[T: WeakTypeTag]: CaseDef =
       mkHandlerCase(state, stats)
 
@@ -84,8 +86,8 @@ trait ExprBuilder {
                                   val awaitable: Awaitable, symLookup: SymLookup)
     extends AsyncState {
 
-    def nextStates: List[Int] =
-      List(nextState)
+    val nextStates: Array[Int] =
+      Array(nextState)
 
     override def mkHandlerCaseForState[T: WeakTypeTag]: CaseDef = {
       val fun = This(tpnme.EMPTY)
@@ -191,7 +193,7 @@ trait ExprBuilder {
     def resultWithIf(condTree: Tree, thenState: Int, elseState: Int): AsyncState = {
       def mkBranch(state: Int) = mkStateTree(state, symLookup)
       this += If(condTree, mkBranch(thenState), mkBranch(elseState))
-      new AsyncStateWithoutAwait(stats.toList, state, List(thenState, elseState))
+      new AsyncStateWithoutAwait(stats.toList, state, Array(thenState, elseState))
     }
 
     /**
@@ -204,7 +206,7 @@ trait ExprBuilder {
      * @param caseStates      starting state of the right-hand side of the each case
      * @return                an `AsyncState` representing the match expression
      */
-    def resultWithMatch(scrutTree: Tree, cases: List[CaseDef], caseStates: List[Int], symLookup: SymLookup): AsyncState = {
+    def resultWithMatch(scrutTree: Tree, cases: List[CaseDef], caseStates: Array[Int], symLookup: SymLookup): AsyncState = {
       // 1. build list of changed cases
       val newCases = for ((cas, num) <- cases.zipWithIndex) yield cas match {
         case CaseDef(pat, guard, rhs) =>
@@ -218,7 +220,7 @@ trait ExprBuilder {
 
     def resultWithLabel(startLabelState: Int, symLookup: SymLookup): AsyncState = {
       this += mkStateTree(startLabelState, symLookup)
-      new AsyncStateWithoutAwait(stats.toList, state, List(startLabelState))
+      new AsyncStateWithoutAwait(stats.toList, state, Array(startLabelState))
     }
 
     override def toString: String = {
@@ -299,7 +301,10 @@ trait ExprBuilder {
       case Match(scrutinee, cases) if containsAwait(stat) =>
         checkForUnsupportedAwait(scrutinee)
 
-        val caseStates = cases.map(_ => nextState())
+        val caseStates = new Array[Int](cases.length)
+        java.util.Arrays.setAll(caseStates, new IntUnaryOperator {
+          override def applyAsInt(operand: Int): Int = nextState()
+        })
         val afterMatchState = nextState()
 
         asyncStates +=
