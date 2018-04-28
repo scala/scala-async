@@ -163,13 +163,13 @@ private[async] trait AnfTransform {
           }
         }
 
-        def defineVar(prefix: String, tp: Type, pos: Position): ValDef = {
+        def defineVar(prefix: TermName, tp: Type, pos: Position): ValDef = {
           val sym = api.currentOwner.newTermSymbol(name.fresh(prefix), pos, MUTABLE | SYNTHETIC).setInfo(uncheckedBounds(tp))
           valDef(sym, mkZero(uncheckedBounds(tp))).setType(NoType).setPos(pos)
         }
       }
 
-      def defineVal(prefix: String, lhs: Tree, pos: Position): ValDef = {
+      def defineVal(prefix: TermName, lhs: Tree, pos: Position): ValDef = {
         val sym = api.currentOwner.newTermSymbol(name.fresh(prefix), pos, SYNTHETIC).setInfo(uncheckedBounds(lhs.tpe))
         internal.valDef(sym, internal.changeOwner(lhs, api.currentOwner, sym)).setType(NoType).setPos(pos)
       }
