@@ -32,10 +32,10 @@ private[async] trait TransformUtils {
   }
   
   object name {
-    def matchRes      = maybeFresh(baseNames.matchRes)
-    def ifRes         = maybeFresh(baseNames.ifRes) 
-    def bindSuffix    = maybeFresh(baseNames.bindSuffix)
-    def completed     = maybeFresh(baseNames.completed) 
+    val matchRes      = newTermName(baseNames.matchRes)
+    val ifRes         = newTermName(baseNames.ifRes)
+    def bindSuffix    = baseNames.bindSuffix
+    def completed     = baseNames.completed
 
     val state         = maybeFresh(baseNames.state)
     val result        = baseNames.result
@@ -43,7 +43,7 @@ private[async] trait TransformUtils {
     val tr            = maybeFresh(baseNames.tr)
     val t             = maybeFresh(baseNames.t)
 
-    val await = "await"
+    val await = newTermName("await")
     val resume = newTermName("resume")
     val apply = newTermName("apply")
     val stateMachine  = newTermName(fresh("stateMachine"))
@@ -162,10 +162,10 @@ private[async] trait TransformUtils {
       (i, j) => util.Try(byNamess(i)(j)).getOrElse(false)
     }
   }
-  private def argName(fun: Tree): ((Int, Int) => String) = {
+  private def argName(fun: Tree): ((Int, Int) => TermName) = {
     val paramss = fun.tpe.paramss
-    val namess = paramss.map(_.map(_.name.toString))
-    (i, j) => util.Try(namess(i)(j)).getOrElse(s"arg_${i}_${j}")
+    val namess = paramss.map(_.map(_.name.toTermName))
+    (i, j) => util.Try(namess(i)(j)).getOrElse(TermName(s"arg_${i}_${j}"))
   }
 
   object defn {
@@ -246,7 +246,7 @@ private[async] trait TransformUtils {
     }
   }
 
-  case class Arg(expr: Tree, isByName: Boolean, argName: String)
+  case class Arg(expr: Tree, isByName: Boolean, argName: TermName)
 
   /**
    * Transform a list of argument lists, producing the transformed lists, and lists of auxillary
@@ -261,7 +261,7 @@ private[async] trait TransformUtils {
    */
   def mapArgumentss[A](fun: Tree, argss: List[List[Tree]])(f: Arg => (A, Tree)): (List[List[A]], List[List[Tree]]) = {
     val isByNamess: (Int, Int) => Boolean = isByName(fun)
-    val argNamess: (Int, Int) => String = argName(fun)
+    val argNamess: (Int, Int) => TermName = argName(fun)
     argss.zipWithIndex.map { case (args, i) =>
       mapArguments[A](args) {
         (tree, j) => f(Arg(tree, isByNamess(i, j), argNamess(i, j)))
