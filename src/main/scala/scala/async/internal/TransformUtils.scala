@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2014 Lightbend Inc. <http://www.lightbend.com>
+ * Copyright (C) 2012-2018 Lightbend Inc. <http://www.lightbend.com>
  */
 package scala.async.internal
 
@@ -406,15 +406,12 @@ private[async] trait TransformUtils {
   }
 
   // =====================================
-  // Copy/Pasted from Scala 2.10.3. See SI-7694.
-  private lazy val UncheckedBoundsClass = {
-    try c.mirror.staticClass("scala.reflect.internal.annotations.uncheckedBounds")
-    catch { case _: ScalaReflectionException => NoSymbol }
-  }
-  final def uncheckedBounds(tp: Type): Type = {
-    if ((tp.typeArgs.isEmpty && (tp match { case _: TypeRef => true; case _ => false}))|| UncheckedBoundsClass == NoSymbol) tp
+  // Copy/Pasted from Scala 2.10.3. See scala/bug#7694
+  private lazy val UncheckedBoundsClass =
+    c.mirror.staticClass("scala.reflect.internal.annotations.uncheckedBounds")
+  final def uncheckedBounds(tp: Type): Type =
+    if ((tp.typeArgs.isEmpty && (tp match { case _: TypeRef => true; case _ => false}))) tp
     else withAnnotation(tp, Annotation(UncheckedBoundsClass.asType.toType, Nil, ListMap()))
-  }
   // =====================================
 
   /**

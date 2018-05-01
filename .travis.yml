@@ -15,3 +15,4 @@ jdk:
 notifications:
   email:
     - jason.zaugg@lightbend.com
+    - seth.tisue@lightbend.com
