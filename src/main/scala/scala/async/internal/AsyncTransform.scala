@@ -70,9 +70,6 @@ trait AsyncTransform {
       buildAsyncBlock(anfTree, symLookup)
     }
 
-    if(AsyncUtils.verbose)
-      logDiagnostics(anfTree, asyncBlock.asyncStates.map(_.toString))
-
     val liftedFields: List[Tree] = liftables(asyncBlock.asyncStates)
 
     // live variables analysis
@@ -114,10 +111,14 @@ trait AsyncTransform {
       futureSystemOps.spawn(body, execContext) // generate lean code for the simple case of `async { 1 + 1 }`
     else
       startStateMachine
+
+    if(AsyncUtils.verbose) {
+      logDiagnostics(anfTree, asyncBlock, asyncBlock.asyncStates.map(_.toString))
+    }
     cleanupContainsAwaitAttachments(result)
   }
 
-  def logDiagnostics(anfTree: Tree, states: Seq[String]): Unit = {
+  def logDiagnostics(anfTree: Tree, block: AsyncBlock, states: Seq[String]): Unit = {
     def location = try {
       macroPos.source.path
     } catch {
@@ -129,6 +130,8 @@ trait AsyncTransform {
     AsyncUtils.vprintln(s"${c.macroApplication}")
     AsyncUtils.vprintln(s"ANF transform expands to:\n $anfTree")
     states foreach (s => AsyncUtils.vprintln(s))
+    AsyncUtils.vprintln("===== DOT =====")
+    AsyncUtils.vprintln(block.toDot)
   }
 
   /**

@@ -76,13 +76,13 @@ trait ExprBuilder {
       mkHandlerCase(state, stats)
 
     override val toString: String =
-      s"AsyncStateWithoutAwait #$state, nextStates = $nextStates"
+      s"AsyncStateWithoutAwait #$state, nextStates = ${nextStates.toList}"
   }
 
   /** A sequence of statements that concludes with an `await` call. The `onComplete`
     * handler will unconditionally transition to `nextState`.
     */
-  final class AsyncStateWithAwait(var stats: List[Tree], val state: Int, onCompleteState: Int, nextState: Int,
+  final class AsyncStateWithAwait(var stats: List[Tree], val state: Int, val onCompleteState: Int, nextState: Int,
                                   val awaitable: Awaitable, symLookup: SymLookup)
     extends AsyncState {
 
@@ -268,11 +268,11 @@ trait ExprBuilder {
     }
 
     // populate asyncStates
-    def add(stat: Tree): Unit = stat match {
+    def add(stat: Tree, afterState: Option[Int] = None): Unit = stat match {
       // the val name = await(..) pattern
       case vd @ ValDef(mods, name, tpt, Apply(fun, arg :: Nil)) if isAwait(fun) =>
         val onCompleteState = nextState()
-        val afterAwaitState = nextState()
+        val afterAwaitState = afterState.getOrElse(nextState())
         val awaitable = Awaitable(arg, stat.symbol, tpt.tpe, vd)
         asyncStates += stateBuilder.resultWithAwait(awaitable, onCompleteState, afterAwaitState) // complete with await
         currState = afterAwaitState
@@ -283,7 +283,7 @@ trait ExprBuilder {
 
         val thenStartState = nextState()
         val elseStartState = nextState()
-        val afterIfState = nextState()
+        val afterIfState = afterState.getOrElse(nextState())
 
         asyncStates +=
           // the two Int arguments are the start state of the then branch and the else branch, respectively
@@ -305,7 +305,7 @@ trait ExprBuilder {
         java.util.Arrays.setAll(caseStates, new IntUnaryOperator {
           override def applyAsInt(operand: Int): Int = nextState()
         })
-        val afterMatchState = nextState()
+        val afterMatchState = afterState.getOrElse(nextState())
 
         asyncStates +=
           stateBuilder.resultWithMatch(scrutinee, cases, caseStates, symLookup)
@@ -323,7 +323,7 @@ trait ExprBuilder {
         if containsAwait(rhs) || directlyAdjacentLabelDefs(ld).exists(containsAwait) =>
 
         val startLabelState = stateIdForLabel(ld.symbol)
-        val afterLabelState = nextState()
+        val afterLabelState = afterState.getOrElse(nextState())
         asyncStates += stateBuilder.resultWithLabel(startLabelState, symLookup)
         labelDefStates(ld.symbol) = startLabelState
         val builder = nestedBlockBuilder(rhs, startLabelState, afterLabelState)
@@ -331,7 +331,8 @@ trait ExprBuilder {
         currState = afterLabelState
         stateBuilder = new AsyncStateBuilder(currState, symLookup)
       case b @ Block(stats, expr) =>
-        (stats :+ expr) foreach (add)
+        for (stat <- stats) add(stat)
+        add(expr, afterState = Some(endState))
       case _ =>
         checkForUnsupportedAwait(stat)
         stateBuilder += stat
@@ -345,6 +346,8 @@ trait ExprBuilder {
     def asyncStates: List[AsyncState]
 
     def onCompleteHandler[T: WeakTypeTag]: Tree
+
+    def toDot: String
   }
 
   case class SymLookup(stateMachineClass: Symbol, applyTrParam: Symbol) {
@@ -369,7 +372,78 @@ trait ExprBuilder {
     val blockBuilder = new AsyncBlockBuilder(stats, expr, startState, endState, symLookup)
 
     new AsyncBlock {
-      def asyncStates = blockBuilder.asyncStates.toList
+      val switchIds = mutable.AnyRefMap[Integer, Integer]()
+
+      // render with http://graphviz.it/#/new
+      def toDot: String = {
+        val states = asyncStates
+        def toHtmlLabel(label: String, preText: String, builder: StringBuilder): Unit = {
+          builder.append("<b>").append(label).append("</b>").append("<br/>")
+          builder.append("<font face=\"Courier\">")
+          preText.split("\n").foreach {
+            (line: String) =>
+              builder.append("<br/>")
+              builder.append(line.replaceAllLiterally("\"", "&quot;").replaceAllLiterally("<", "&lt;").replaceAllLiterally(">", "&gt;"))
+          }
+          builder.append("</font>")
+        }
+        val dotBuilder = new StringBuilder()
+        dotBuilder.append("digraph {\n")
+        def stateLabel(s: Int) = {
+          if (s == 0) "INITIAL" else if (s == Int.MaxValue) "TERMINAL" else switchIds.getOrElse(s, s).toString
+        }
+        val length = asyncStates.size
+        for ((state, i) <- asyncStates.zipWithIndex) {
+          dotBuilder.append(s"""${stateLabel(state.state)} [label=""").append("<")
+          if (i != length - 1) {
+            val CaseDef(_, _, body) = state.mkHandlerCaseForState
+            toHtmlLabel(stateLabel(state.state), showCode(body), dotBuilder)
+          } else {
+            toHtmlLabel(stateLabel(state.state), state.allStats.map(showCode(_)).mkString("\n"), dotBuilder)
+          }
+          dotBuilder.append("> ]\n")
+        }
+        for (state <- states; succ <- state.nextStates) {
+          dotBuilder.append(s"""${stateLabel(state.state)} -> ${stateLabel(succ)}""")
+          dotBuilder.append("\n")
+        }
+        dotBuilder.append("}\n")
+        dotBuilder.toString
+      }
+
+      lazy val asyncStates: List[AsyncState] = filterStates
+
+      def filterStates = {
+        val all = blockBuilder.asyncStates.toList
+        val (initial :: rest) = all
+        val map = all.iterator.map(x => (x.state, x)).toMap
+        var seen = mutable.HashSet[Int]()
+        def loop(state: AsyncState): Unit = {
+          seen.add(state.state)
+          for (i <- state.nextStates) {
+            if (i != Int.MaxValue && !seen.contains(i)) {
+              loop(map(i))
+            }
+          }
+        }
+        loop(initial)
+        val live = rest.filter(state => seen(state.state))
+        var nextSwitchId = 0
+        (initial :: live).foreach { state =>
+          val switchId = nextSwitchId
+          switchIds(state.state) = switchId
+          nextSwitchId += 1
+          state match {
+            case state: AsyncStateWithAwait =>
+              val switchId = nextSwitchId
+              switchIds(state.onCompleteState) = switchId
+              nextSwitchId += 1
+            case _ =>
+          }
+        }
+        initial :: live
+
+      }
 
       def mkCombinedHandlerCases[T: WeakTypeTag]: List[CaseDef] = {
         val caseForLastState: CaseDef = {
@@ -413,7 +487,7 @@ trait ExprBuilder {
         val stateMemberSymbol = symLookup.stateMachineMember(name.state)
         val stateMemberRef = symLookup.memberRef(name.state)
         val body = Match(stateMemberRef, mkCombinedHandlerCases[T] ++ initStates.flatMap(_.mkOnCompleteHandler[T]) ++ List(CaseDef(Ident(nme.WILDCARD), EmptyTree, Throw(Apply(Select(New(Ident(defn.IllegalStateExceptionClass)), termNames.CONSTRUCTOR), List())))))
-        val body1 = eliminateDeadStates(body)
+        val body1 = compactStates(body)
 
         maybeTry(
           body1,
@@ -432,48 +506,12 @@ trait ExprBuilder {
             })), EmptyTree)
       }
 
-      // Identify dead states: `case <id> => { state = nextId; (); (); ... }, eliminated, and compact state ids to
-      // enable emission of a tableswitch.
-      private def eliminateDeadStates(m: Match): Tree = {
-        object DeadState {
-          private val liveStates = mutable.AnyRefMap[Integer, Integer]()
-          private val deadStates = mutable.AnyRefMap[Integer, Integer]()
-          private var compactedStateId = 1
-          for (CaseDef(Literal(Constant(stateId: Integer)), EmptyTree, body) <- m.cases) {
-            body match {
-              case _ if (stateId == 0) => liveStates(stateId) = stateId
-              case Block(Assign(_, Literal(Constant(nextState: Integer))) :: rest, expr) if (expr :: rest).forall(t => isLiteralUnit(t)) =>
-                deadStates(stateId) = nextState
-              case _ =>
-                liveStates(stateId) = compactedStateId
-                compactedStateId += 1
-            }
-          }
-          if (deadStates.nonEmpty)
-            AsyncUtils.vprintln(s"${deadStates.size} dead states eliminated")
-          def isDead(i: Integer) = deadStates.contains(i)
-          def translatedStateId(i: Integer, tree: Tree): Integer = {
-            def chaseDead(i: Integer): Integer = {
-              val replacement = deadStates.getOrNull(i)
-              if (replacement == null) i
-              else chaseDead(replacement)
-            }
-
-            val live = chaseDead(i)
-            liveStates.get(live) match {
-              case Some(x) => x
-              case None => sys.error(s"$live, $liveStates \n$deadStates\n$m\n\n====\n$tree")
-            }
-          }
-        }
+      private def compactStates(m: Match): Tree = {
         val stateMemberSymbol = symLookup.stateMachineMember(name.state)
-        // - remove CaseDef-s for dead states
-        // - rewrite state transitions to dead states to instead transition to the
-        //   non-dead successor.
-        val elimDeadStateTransform = new Transformer {
+        val compactStateTransform = new Transformer {
           override def transform(tree: Tree): Tree = tree match {
             case as @ Assign(lhs, Literal(Constant(i: Integer))) if lhs.symbol == stateMemberSymbol =>
-              val replacement = DeadState.translatedStateId(i, as)
+              val replacement = switchIds(i)
               treeCopy.Assign(tree, lhs, Literal(Constant(replacement)))
             case _: Match | _: CaseDef | _: Block | _: If =>
               super.transform(tree)
@@ -482,12 +520,9 @@ trait ExprBuilder {
         }
         val cases1 = m.cases.flatMap {
           case cd @ CaseDef(Literal(Constant(i: Integer)), EmptyTree, rhs) =>
-            if (DeadState.isDead(i)) Nil
-            else {
-              val replacement = DeadState.translatedStateId(i, cd)
-              val rhs1 = elimDeadStateTransform.transform(rhs)
-              treeCopy.CaseDef(cd, Literal(Constant(replacement)), EmptyTree, rhs1) :: Nil
-            }
+            val replacement = switchIds(i)
+            val rhs1 = compactStateTransform.transform(rhs)
+            treeCopy.CaseDef(cd, Literal(Constant(replacement)), EmptyTree, rhs1) :: Nil
           case x => x :: Nil
         }
         treeCopy.Match(m, m.selector, cases1)
