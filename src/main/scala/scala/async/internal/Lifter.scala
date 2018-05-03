@@ -120,13 +120,13 @@ trait Lifter {
             val rhs1 = if (sym.asTerm.isLazy) rhs else EmptyTree
             treeCopy.ValDef(vd, Modifiers(sym.flags), sym.name, TypeTree(tpe(sym)).setPos(t.pos), rhs1)
           case dd@DefDef(_, _, tparams, vparamss, tpt, rhs) =>
-            sym.setName(this.name.fresh(sym.name.toTermName))
+            sym.setName(this.name.freshen(sym.name.toTermName))
             sym.setFlag(PRIVATE | LOCAL)
             // Was `DefDef(sym, rhs)`, but this ran afoul of `ToughTypeSpec.nestedMethodWithInconsistencyTreeAndInfoParamSymbols`
             // due to the handling of type parameter skolems in `thisMethodType` in `Namers`
             treeCopy.DefDef(dd, Modifiers(sym.flags), sym.name, tparams, vparamss, tpt, rhs)
           case cd@ClassDef(_, _, tparams, impl)             =>
-            sym.setName(newTypeName(name.fresh(sym.name.toString).toString))
+            sym.setName(name.freshen(sym.name.toTypeName))
             companionship.companionOf(cd.symbol) match {
               case NoSymbol     =>
               case moduleSymbol =>
@@ -137,13 +137,13 @@ trait Lifter {
           case md@ModuleDef(_, _, impl)                     =>
             companionship.companionOf(md.symbol) match {
               case NoSymbol    =>
-                sym.setName(name.fresh(sym.name.toTermName))
+                sym.setName(name.freshen(sym.name.toTermName))
                 sym.asModule.moduleClass.setName(sym.name.toTypeName)
               case classSymbol => // will be renamed by `case ClassDef` above.
             }
             treeCopy.ModuleDef(md, Modifiers(sym.flags), sym.name, impl)
           case td@TypeDef(_, _, tparams, rhs)               =>
-            sym.setName(newTypeName(name.fresh(sym.name.toString).toString))
+            sym.setName(name.freshen(sym.name.toTypeName))
             treeCopy.TypeDef(td, Modifiers(sym.flags), sym.name, tparams, rhs)
         }
         atPos(t.pos)(treeLifted)

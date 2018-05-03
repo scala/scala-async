@@ -77,7 +77,7 @@ private[async] trait AnfTransform {
             stats :+ expr :+ api.typecheck(atPos(expr.pos)(Throw(Apply(Select(New(gen.mkAttributedRef(defn.IllegalStateExceptionClass)), nme.CONSTRUCTOR), Nil))))
           expr match {
             case Apply(fun, args) if isAwait(fun) =>
-              val valDef = defineVal(name.await, expr, tree.pos)
+              val valDef = defineVal(name.await(), expr, tree.pos)
               val ref = gen.mkAttributedStableRef(valDef.symbol).setType(tree.tpe)
               val ref1 = if (ref.tpe =:= definitions.UnitTpe)
                 // https://github.com/scala/async/issues/74
@@ -109,7 +109,7 @@ private[async] trait AnfTransform {
               } else if (expr.tpe =:= definitions.NothingTpe) {
                 statsExprThrow
               } else {
-                val varDef = defineVar(name.ifRes, expr.tpe, tree.pos)
+                val varDef = defineVar(name.ifRes(), expr.tpe, tree.pos)
                 def typedAssign(lhs: Tree) =
                   api.typecheck(atPos(lhs.pos)(Assign(Ident(varDef.symbol), mkAttributedCastPreservingAnnotations(lhs, tpe(varDef.symbol)))))
 
@@ -140,7 +140,7 @@ private[async] trait AnfTransform {
               } else if (expr.tpe =:= definitions.NothingTpe) {
                 statsExprThrow
               } else {
-                val varDef = defineVar(name.matchRes, expr.tpe, tree.pos)
+                val varDef = defineVar(name.matchRes(), expr.tpe, tree.pos)
                 def typedAssign(lhs: Tree) =
                   api.typecheck(atPos(lhs.pos)(Assign(Ident(varDef.symbol), mkAttributedCastPreservingAnnotations(lhs, tpe(varDef.symbol)))))
                 val casesWithAssign = cases map {
@@ -163,14 +163,14 @@ private[async] trait AnfTransform {
           }
         }
 
-        def defineVar(prefix: TermName, tp: Type, pos: Position): ValDef = {
-          val sym = api.currentOwner.newTermSymbol(name.fresh(prefix), pos, MUTABLE | SYNTHETIC).setInfo(uncheckedBounds(tp))
+        def defineVar(name: TermName, tp: Type, pos: Position): ValDef = {
+          val sym = api.currentOwner.newTermSymbol(name, pos, MUTABLE | SYNTHETIC).setInfo(uncheckedBounds(tp))
           valDef(sym, mkZero(uncheckedBounds(tp))).setType(NoType).setPos(pos)
         }
       }
 
-      def defineVal(prefix: TermName, lhs: Tree, pos: Position): ValDef = {
-        val sym = api.currentOwner.newTermSymbol(name.fresh(prefix), pos, SYNTHETIC).setInfo(uncheckedBounds(lhs.tpe))
+      def defineVal(name: TermName, lhs: Tree, pos: Position): ValDef = {
+        val sym = api.currentOwner.newTermSymbol(name, pos, SYNTHETIC).setInfo(uncheckedBounds(lhs.tpe))
         internal.valDef(sym, internal.changeOwner(lhs, api.currentOwner, sym)).setType(NoType).setPos(pos)
       }
 
@@ -212,7 +212,7 @@ private[async] trait AnfTransform {
                   case Arg(expr, _, argName)                                    =>
                     linearize.transformToList(expr) match {
                       case stats :+ expr1 =>
-                        val valDef = defineVal(argName, expr1, expr1.pos)
+                        val valDef = defineVal(name.freshen(argName), expr1, expr1.pos)
                         require(valDef.tpe != null, valDef)
                         val stats1 = stats :+ valDef
                         (stats1, atPos(tree.pos.makeTransparent)(gen.stabilize(gen.mkAttributedIdent(valDef.symbol))))
@@ -279,8 +279,9 @@ private[async] trait AnfTransform {
                   // TODO we can move this into ExprBuilder once we get rid of `AsyncDefinitionUseAnalyzer`.
                   val block = linearize.transformToBlock(body)
                   val (valDefs, mappings) = (pat collect {
-                    case b@Bind(name, _) =>
-                      val vd = defineVal(name.toTermName + AnfTransform.this.name.bindSuffix, gen.mkAttributedStableRef(b.symbol).setPos(b.pos), b.pos)
+                    case b@Bind(bindName, _) =>
+                      val vd = defineVal(name.freshen(bindName.toTermName), gen.mkAttributedStableRef(b.symbol).setPos(b.pos), b.pos)
+                      vd.symbol.updateAttachment(SyntheticBindVal)
                       (vd, (b.symbol, vd.symbol))
                   }).unzip
                   val (from, to) = mappings.unzip
@@ -333,7 +334,7 @@ private[async] trait AnfTransform {
             // Otherwise, create the matchres var. We'll callers of the label def below.
             // Remember: we're iterating through the statement sequence in reverse, so we'll get
             // to the LabelDef and mutate `matchResults` before we'll get to its callers.
-            val matchResult = linearize.defineVar(name.matchRes, param.tpe, ld.pos)
+            val matchResult = linearize.defineVar(name.matchRes(), param.tpe, ld.pos)
             matchResults += matchResult
             caseDefToMatchResult(ld.symbol) = matchResult.symbol
             val rhs2 = ld.rhs.substituteSymbols(param.symbol :: Nil, matchResult.symbol :: Nil)
@@ -408,3 +409,5 @@ private[async] trait AnfTransform {
     }).asInstanceOf[Block]
   }
 }
+
+object SyntheticBindVal

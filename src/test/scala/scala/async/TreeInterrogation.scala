@@ -38,7 +38,7 @@ class TreeInterrogation {
     val varDefs = tree1.collect {
       case vd @ ValDef(mods, name, _, _) if mods.hasFlag(Flag.MUTABLE) && vd.symbol.owner.isClass => name
     }
-    varDefs.map(_.decoded.trim).toSet.toList.sorted mustStartWith (List("await$macro$", "await$macro$", "state"))
+    varDefs.map(_.decoded.trim).toSet.toList.sorted mustStartWith (List("await$async$", "await$async", "state$async"))
 
     val defDefs = tree1.collect {
       case t: Template =>
@@ -49,11 +49,11 @@ class TreeInterrogation {
               && !dd.symbol.asTerm.isAccessor && !dd.symbol.asTerm.isSetter => dd.name
         }
     }.flatten
-    defDefs.map(_.decoded.trim) mustStartWith List("foo$macro$", "<init>", "apply", "apply")
+    defDefs.map(_.decoded.trim) mustStartWith List("foo$async$", "<init>", "apply", "apply")
   }
 }
 
-object TreeInterrogation extends App {
+object TreeInterrogationApp extends App {
   def withDebug[T](t: => T): T = {
     def set(level: String, value: Boolean) = System.setProperty(s"scala.async.$level", value.toString)
     val levels = Seq("trace", "debug")
@@ -65,7 +65,7 @@ object TreeInterrogation extends App {
 
   withDebug {
     val cm = reflect.runtime.currentMirror
-    val tb = mkToolbox(s"-cp ${toolboxClasspath} -Xprint:typer -uniqid")
+    val tb = mkToolbox(s"-cp ${toolboxClasspath} -Xprint:typer")
     import scala.async.internal.AsyncId._
     val tree = tb.parse(
       """
@@ -74,6 +74,9 @@ object TreeInterrogation extends App {
         |   var b = true
         |   while(await(b)) {
         |     b = false
+        |   }
+        |   (1, 1) match {
+        |     case (x, y) => await(2); println(x)
         |   }
         |   await(b)
         | }

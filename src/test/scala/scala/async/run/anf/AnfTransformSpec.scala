@@ -403,7 +403,8 @@ class AnfTransformSpec {
       """.stripMargin
     })
     val applyImplicitView = tree.collect { case x if x.getClass.getName.endsWith("ApplyImplicitView") => x }
-    applyImplicitView.map(_.toString) mustStartWith List("view(a$macro$")
+    println(applyImplicitView)
+    applyImplicitView.map(_.toString) mustStartWith List("view(")
   }
 
   @Test

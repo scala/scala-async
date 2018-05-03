@@ -17,42 +17,8 @@ private[async] trait TransformUtils {
   import c.internal._
   import decorators._
 
-  private object baseNames {
-
-    val matchRes = "matchres"
-    val ifRes = "ifres"
-    val bindSuffix = "$bind"
-    val completed = newTermName("completed")
-
-    val state = newTermName("state")
-    val result = newTermName(self.futureSystem.resultFieldName)
-    val execContext = newTermName("execContext")
-    val tr = newTermName("tr")
-    val t = newTermName("throwable")
-  }
-  
-  object name {
-    val matchRes      = newTermName(baseNames.matchRes)
-    val ifRes         = newTermName(baseNames.ifRes)
-    def bindSuffix    = baseNames.bindSuffix
-    def completed     = baseNames.completed
-
-    val state         = maybeFresh(baseNames.state)
-    val result        = baseNames.result
-    val execContext   = maybeFresh(baseNames.execContext)
-    val tr            = maybeFresh(baseNames.tr)
-    val t             = maybeFresh(baseNames.t)
-
-    val await = newTermName("await")
-    val resume = newTermName("resume")
-    val apply = newTermName("apply")
-    val stateMachine  = newTermName(fresh("stateMachine"))
-    val stateMachineT = stateMachine.toTypeName
-
-    def maybeFresh(name: TermName): TermName = if (self.asyncBase.futureSystem.freshenAllNames) fresh(name) else name
-    def maybeFresh(name: String): String = if (self.asyncBase.futureSystem.freshenAllNames) fresh(name) else name
-    def fresh(name: TermName): TermName = c.freshName(name)
-
+  object name extends asyncNames.AsyncName {
+    def fresh(name: TermName): TermName = freshenIfNeeded(name)
     def fresh(name: String): String = c.freshName(name)
   }
 
