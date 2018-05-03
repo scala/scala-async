@@ -95,7 +95,7 @@ trait ExprBuilder {
         c.Expr[futureSystem.Tryy[Any] => Unit](fun), c.Expr[futureSystem.ExecContext](Ident(name.execContext))).tree
       val tryGetOrCallOnComplete: List[Tree] =
         if (futureSystemOps.continueCompletedFutureOnSameThread) {
-          val tempName = name.fresh(name.completed)
+          val tempName = name.completed
           val initTemp = ValDef(NoMods, tempName, TypeTree(futureSystemOps.tryType[Any]), futureSystemOps.getCompleted[Any](c.Expr[futureSystem.Fut[Any]](awaitable.expr)).tree)
           val ifTree = If(Apply(Select(Literal(Constant(null)), TermName("ne")), Ident(tempName) :: Nil),
             adaptToUnit(ifIsFailureTree[T](Ident(tempName)) :: Nil),
@@ -520,7 +520,7 @@ trait ExprBuilder {
   }
 
   private def isSyntheticBindVal(tree: Tree) = tree match {
-    case vd@ValDef(_, lname, _, Ident(rname)) => lname.toString.contains(name.bindSuffix)
+    case vd@ValDef(_, lname, _, Ident(rname)) => attachments(vd.symbol).contains[SyntheticBindVal.type]
     case _                                    => false
   }
 
