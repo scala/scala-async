@@ -40,7 +40,6 @@ env:
 script: admin/build.sh
 
 jdk:
-  - openjdk6
   - oraclejdk8
 
 notifications:
