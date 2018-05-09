@@ -54,21 +54,21 @@ class TestMatchClass {
 
 class MatchSpec {
 
-  @Test def `support await in a simple match expression`() {
+  @Test def `support await in a simple match expression`(): Unit = {
     val o = new TestMatchClass
     val fut = o.m2(10) // matches first case
     val res = Await.result(fut, 2 seconds)
     res mustBe (14)
   }
 
-  @Test def `support await in a simple match expression 2`() {
+  @Test def `support await in a simple match expression 2`(): Unit = {
     val o = new TestMatchClass
     val fut = o.m3(1) // matches second case
     val res = Await.result(fut, 2 seconds)
     res mustBe (5)
   }
 
-  @Test def `support await in a match expression with binds`() {
+  @Test def `support await in a match expression with binds`(): Unit = {
     val result = AsyncId.async {
       val x = 1
       Option(x) match {
@@ -81,7 +81,7 @@ class MatchSpec {
     result mustBe (2)
   }
 
-  @Test def `support await referring to pattern matching vals`() {
+  @Test def `support await referring to pattern matching vals`(): Unit = {
     import AsyncId.{async, await}
     val result = async {
       val x = 1
@@ -99,7 +99,7 @@ class MatchSpec {
     result mustBe ((Some(""), true))
   }
 
-  @Test def `await in scrutinee`() {
+  @Test def `await in scrutinee`(): Unit = {
     import AsyncId.{async, await}
     val result = async {
       await(if ("".isEmpty) await(1) else ???) match {
@@ -110,7 +110,7 @@ class MatchSpec {
     result mustBe (3)
   }
 
-  @Test def duplicateBindName() {
+  @Test def duplicateBindName(): Unit = {
     import AsyncId.{async, await}
     def m4(m: Any) = async {
       m match {
@@ -123,7 +123,7 @@ class MatchSpec {
     m4("") mustBe 0
   }
 
-  @Test def bugCastBoxedUnitToStringMatch() {
+  @Test def bugCastBoxedUnitToStringMatch(): Unit = {
     import scala.async.internal.AsyncId.{async, await}
     def foo = async {
       val p2 = await(5)
@@ -135,7 +135,7 @@ class MatchSpec {
     foo mustBe "5"
   }
 
-  @Test def bugCastBoxedUnitToStringIf() {
+  @Test def bugCastBoxedUnitToStringIf(): Unit = {
     import scala.async.internal.AsyncId.{async, await}
     def foo = async {
       val p2 = await(5)

@@ -11,7 +11,7 @@ import scala.async.internal.AsyncId._
 
 class LazyValSpec {
   @Test
-  def lazyValAllowed() {
+  def lazyValAllowed(): Unit = {
     val result = async {
       var x = 0
       lazy val y = { x += 1; 42 }

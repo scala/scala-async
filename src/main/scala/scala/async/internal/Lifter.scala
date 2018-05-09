@@ -17,12 +17,12 @@ trait Lifter {
     object companionship {
       private val companions = collection.mutable.Map[Symbol, Symbol]()
       private val companionsInverse = collection.mutable.Map[Symbol, Symbol]()
-      private def record(sym1: Symbol, sym2: Symbol) {
+      private def record(sym1: Symbol, sym2: Symbol): Unit = {
         companions(sym1) = sym2
         companions(sym2) = sym1
       }
 
-      def record(defs: List[Tree]) {
+      def record(defs: List[Tree]): Unit = {
         // Keep note of local companions so we rename them consistently
         // when lifting.
         val comps = for {
@@ -86,7 +86,7 @@ trait Lifter {
 
     def liftableSyms: Set[Symbol] = {
       val liftableMutableSet = collection.mutable.Set[Symbol]()
-      def markForLift(sym: Symbol) {
+      def markForLift(sym: Symbol): Unit = {
         if (!liftableMutableSet(sym)) {
           liftableMutableSet += sym
 

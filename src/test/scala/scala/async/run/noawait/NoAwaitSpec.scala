@@ -12,7 +12,7 @@ import org.junit.Test
 
 class NoAwaitSpec {
   @Test
-  def `async block without await`() {
+  def `async block without await`(): Unit = {
     def foo = 1
     async {
       foo
@@ -21,7 +21,7 @@ class NoAwaitSpec {
   }
 
   @Test
-  def `async block without await 2`() {
+  def `async block without await 2`(): Unit = {
     async {
       def x = 0
       if (x > 0) 0 else 1
@@ -29,7 +29,7 @@ class NoAwaitSpec {
   }
 
   @Test
-  def `async expr without await`() {
+  def `async expr without await`(): Unit = {
     def foo = 1
     async(foo) mustBe (foo)
   }

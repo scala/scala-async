@@ -26,32 +26,32 @@ trait AsyncAnalysis {
   private class UnsupportedAwaitAnalyzer extends AsyncTraverser {
     var hasUnsupportedAwaits = false
 
-    override def nestedClass(classDef: ClassDef) {
+    override def nestedClass(classDef: ClassDef): Unit = {
       val kind = if (classDef.symbol.asClass.isTrait) "trait" else "class"
       reportUnsupportedAwait(classDef, s"nested $kind")
     }
 
-    override def nestedModule(module: ModuleDef) {
+    override def nestedModule(module: ModuleDef): Unit = {
       reportUnsupportedAwait(module, "nested object")
     }
 
-    override def nestedMethod(defDef: DefDef) {
+    override def nestedMethod(defDef: DefDef): Unit = {
       reportUnsupportedAwait(defDef, "nested method")
     }
 
-    override def byNameArgument(arg: Tree) {
+    override def byNameArgument(arg: Tree): Unit = {
       reportUnsupportedAwait(arg, "by-name argument")
     }
 
-    override def function(function: Function) {
+    override def function(function: Function): Unit = {
       reportUnsupportedAwait(function, "nested function")
     }
 
-    override def patMatFunction(tree: Match) {
+    override def patMatFunction(tree: Match): Unit = {
       reportUnsupportedAwait(tree, "nested function")
     }
 
-    override def traverse(tree: Tree) {
+    override def traverse(tree: Tree): Unit = {
       tree match {
         case Try(_, _, _) if containsAwait(tree)              =>
           reportUnsupportedAwait(tree, "try/catch")
@@ -94,7 +94,7 @@ trait AsyncAnalysis {
       badAwaits.nonEmpty
     }
 
-    private def reportError(pos: Position, msg: String) {
+    private def reportError(pos: Position, msg: String): Unit = {
       hasUnsupportedAwaits = true
       c.abort(pos, msg)
     }

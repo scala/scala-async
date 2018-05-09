@@ -161,7 +161,7 @@ class TestIfElse1Class {
 class IfElse1Spec {
 
   @Test
-  def `await in a nested if-else expression`() {
+  def `await in a nested if-else expression`(): Unit = {
     val o = new TestIfElse1Class
     val fut = o.m1(10)
     val res = Await.result(fut, 2 seconds)
@@ -169,7 +169,7 @@ class IfElse1Spec {
   }
 
   @Test
-  def `await in a nested if-else expression 2`() {
+  def `await in a nested if-else expression 2`(): Unit = {
     val o = new TestIfElse1Class
     val fut = o.m2(10)
     val res = Await.result(fut, 2 seconds)
@@ -178,7 +178,7 @@ class IfElse1Spec {
 
 
   @Test
-  def `await in a nested if-else expression 3`() {
+  def `await in a nested if-else expression 3`(): Unit = {
     val o = new TestIfElse1Class
     val fut = o.m3(10)
     val res = Await.result(fut, 2 seconds)
@@ -187,7 +187,7 @@ class IfElse1Spec {
 
 
   @Test
-  def `await in a nested if-else expression 4`() {
+  def `await in a nested if-else expression 4`(): Unit = {
     val o = new TestIfElse1Class
     val fut = o.m4(10)
     val res = Await.result(fut, 2 seconds)
@@ -195,7 +195,7 @@ class IfElse1Spec {
   }
 
   @Test
-  def `await in deeply-nested if-else conditions`() {
+  def `await in deeply-nested if-else conditions`(): Unit = {
     val o = new TestIfElse1Class
     val fut = o.m5
     val res = Await.result(fut, 2 seconds)

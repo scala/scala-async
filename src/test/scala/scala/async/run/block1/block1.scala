@@ -32,7 +32,7 @@ class Test1Class {
 
 class Block1Spec {
 
-  @Test def `support a simple await`() {
+  @Test def `support a simple await`(): Unit = {
     val o = new Test1Class
     val fut = o.m4(10)
     val res = Await.result(fut, 2 seconds)

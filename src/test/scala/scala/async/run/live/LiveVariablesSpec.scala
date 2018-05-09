@@ -22,7 +22,7 @@ class LiveVariablesSpec {
   AsyncTestLV.clear()
 
   @Test
-  def `zero out fields of reference type`() {
+  def `zero out fields of reference type`(): Unit = {
     val f = async { Cell(1) }
 
     def m1(x: Cell[Int]): Cell[Int] =
@@ -46,7 +46,7 @@ class LiveVariablesSpec {
   }
 
   @Test
-  def `zero out fields of type Any`() {
+  def `zero out fields of type Any`(): Unit = {
     val f = async { Cell(1) }
 
     def m1(x: Cell[Int]): Cell[Int] =
@@ -70,7 +70,7 @@ class LiveVariablesSpec {
   }
 
   @Test
-  def `do not zero out fields of primitive type`() {
+  def `do not zero out fields of primitive type`(): Unit = {
     val f = async { 1 }
 
     def m1(x: Int): Cell[Int] =
@@ -94,7 +94,7 @@ class LiveVariablesSpec {
   }
 
   @Test
-  def `zero out fields of value class type`() {
+  def `zero out fields of value class type`(): Unit = {
     val f = async { Cell(1) }
 
     def m1(x: Cell[Int]): Meter =
@@ -118,7 +118,7 @@ class LiveVariablesSpec {
   }
 
   @Test
-  def `zero out fields after use in loop`() {
+  def `zero out fields after use in loop`(): Unit = {
     val f = async { MCell(1) }
 
     def m1(x: MCell[Int], y: Int): Int =
@@ -151,7 +151,7 @@ class LiveVariablesSpec {
   }
 
   @Test
-  def `don't zero captured fields captured lambda`() {
+  def `don't zero captured fields captured lambda`(): Unit = {
     val f = async {
       val x = "x"
       val y = "y"
@@ -167,7 +167,7 @@ class LiveVariablesSpec {
   }
 
   @Test
-  def `don't zero captured fields captured by-name`() {
+  def `don't zero captured fields captured by-name`(): Unit = {
     def func0[A](a: => A): () => A =  () => a
     val f = async {
       val x = "x"
@@ -184,7 +184,7 @@ class LiveVariablesSpec {
   }
 
   @Test
-  def `don't zero captured fields nested class`() {
+  def `don't zero captured fields nested class`(): Unit = {
     def func0[A](a: => A): () => A = () => a
     val f = async {
       val x = "x"
@@ -203,7 +203,7 @@ class LiveVariablesSpec {
   }
 
   @Test
-  def `don't zero captured fields nested object`() {
+  def `don't zero captured fields nested object`(): Unit = {
     def func0[A](a: => A): () => A = () => a
     val f = async {
       val x = "x"
@@ -222,7 +222,7 @@ class LiveVariablesSpec {
   }
 
   @Test
-  def `don't zero captured fields nested def`() {
+  def `don't zero captured fields nested def`(): Unit = {
     val f = async {
       val x = "x"
       val y = "y"
@@ -239,7 +239,7 @@ class LiveVariablesSpec {
   }
 
   @Test
-  def `capture bug`() {
+  def `capture bug`(): Unit = {
     sealed trait Base
     case class B1() extends Base
     case class B2() extends Base

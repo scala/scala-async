@@ -81,7 +81,7 @@ trait LiveVariables {
         }
         private def capturingCheck(tree: Tree) = capturing(tree foreach check)
         private var capturing: Boolean = false
-        private def check(tree: Tree) {
+        private def check(tree: Tree): Unit = {
           tree match {
             case Ident(_) if liftedSyms(tree.symbol) =>
               if (capturing)

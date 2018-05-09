@@ -71,7 +71,7 @@ object State {
 class AnfTransformSpec {
 
   @Test
-  def `simple ANF transform`() {
+  def `simple ANF transform`(): Unit = {
     val o = new AnfTestClass
     val fut = o.m(10)
     val res = Await.result(fut, 2 seconds)
@@ -79,7 +79,7 @@ class AnfTransformSpec {
   }
 
   @Test
-  def `simple ANF transform 2`() {
+  def `simple ANF transform 2`(): Unit = {
     val o = new AnfTestClass
     val fut = o.m2(10)
     val res = Await.result(fut, 2 seconds)
@@ -87,7 +87,7 @@ class AnfTransformSpec {
   }
 
   @Test
-  def `simple ANF transform 3`() {
+  def `simple ANF transform 3`(): Unit = {
     val o = new AnfTestClass
     val fut = o.m3(10)
     val res = Await.result(fut, 2 seconds)
@@ -95,7 +95,7 @@ class AnfTransformSpec {
   }
 
   @Test
-  def `ANF transform of assigning the result of an if-else`() {
+  def `ANF transform of assigning the result of an if-else`(): Unit = {
     val o = new AnfTestClass
     val fut = o.m4(10)
     val res = Await.result(fut, 2 seconds)
@@ -103,7 +103,7 @@ class AnfTransformSpec {
   }
 
   @Test
-  def `Unit-typed if-else in tail position`() {
+  def `Unit-typed if-else in tail position`(): Unit = {
     val o = new AnfTestClass
     val fut = o.futureUnitIfElse(10)
     Await.result(fut, 2 seconds)
@@ -111,7 +111,7 @@ class AnfTransformSpec {
   }
 
   @Test
-  def `inlining block does not produce duplicate definition`() {
+  def `inlining block does not produce duplicate definition`(): Unit = {
     AsyncId.async {
       val f = 12
       val x = AsyncId.await(f)
@@ -127,7 +127,7 @@ class AnfTransformSpec {
   }
 
   @Test
-  def `inlining block in tail position does not produce duplicate definition`() {
+  def `inlining block in tail position does not produce duplicate definition`(): Unit = {
     AsyncId.async {
       val f = 12
       val x = AsyncId.await(f)
@@ -140,7 +140,7 @@ class AnfTransformSpec {
   }
 
   @Test
-  def `match as expression 1`() {
+  def `match as expression 1`(): Unit = {
     import ExecutionContext.Implicits.global
     val result = AsyncId.async {
       val x = "" match {
@@ -152,7 +152,7 @@ class AnfTransformSpec {
   }
 
   @Test
-  def `match as expression 2`() {
+  def `match as expression 2`(): Unit = {
     import ExecutionContext.Implicits.global
     val result = AsyncId.async {
       val x = "" match {
@@ -168,7 +168,7 @@ class AnfTransformSpec {
   }
 
   @Test
-  def nestedAwaitAsBareExpression() {
+  def nestedAwaitAsBareExpression(): Unit = {
     import ExecutionContext.Implicits.global
     import AsyncId.{async, await}
     val result = async {
@@ -178,7 +178,7 @@ class AnfTransformSpec {
   }
 
   @Test
-  def nestedAwaitInBlock() {
+  def nestedAwaitInBlock(): Unit = {
     import ExecutionContext.Implicits.global
     import AsyncId.{async, await}
     val result = async {
@@ -189,7 +189,7 @@ class AnfTransformSpec {
   }
 
   @Test
-  def nestedAwaitInIf() {
+  def nestedAwaitInIf(): Unit = {
     import ExecutionContext.Implicits.global
     import AsyncId.{async, await}
     val result = async {
@@ -201,7 +201,7 @@ class AnfTransformSpec {
   }
 
   @Test
-  def byNameExpressionsArentLifted() {
+  def byNameExpressionsArentLifted(): Unit = {
     import AsyncId.{async, await}
     def foo(ignored: => Any, b: Int) = b
     val result = async {
@@ -211,7 +211,7 @@ class AnfTransformSpec {
   }
 
   @Test
-  def evaluationOrderRespected() {
+  def evaluationOrderRespected(): Unit = {
     import AsyncId.{async, await}
     def foo(a: Int, b: Int) = (a, b)
     val result = async {
@@ -226,7 +226,7 @@ class AnfTransformSpec {
   }
 
   @Test
-  def awaitInNonPrimaryParamSection1() {
+  def awaitInNonPrimaryParamSection1(): Unit = {
     import AsyncId.{async, await}
     def foo(a0: Int)(b0: Int) = s"a0 = $a0, b0 = $b0"
     val res = async {
@@ -238,7 +238,7 @@ class AnfTransformSpec {
   }
 
   @Test
-  def awaitInNonPrimaryParamSection2() {
+  def awaitInNonPrimaryParamSection2(): Unit = {
     import AsyncId.{async, await}
     def foo[T](a0: Int)(b0: Int*) = s"a0 = $a0, b0 = ${b0.head}"
     val res = async {
@@ -250,7 +250,7 @@ class AnfTransformSpec {
   }
 
   @Test
-  def awaitInNonPrimaryParamSectionWithLazy1() {
+  def awaitInNonPrimaryParamSectionWithLazy1(): Unit = {
     import AsyncId.{async, await}
     def foo[T](a: => Int)(b: Int) = b
     val res = async {
@@ -261,7 +261,7 @@ class AnfTransformSpec {
   }
 
   @Test
-  def awaitInNonPrimaryParamSectionWithLazy2() {
+  def awaitInNonPrimaryParamSectionWithLazy2(): Unit = {
     import AsyncId.{async, await}
     def foo[T](a: Int)(b: => Int) = a
     val res = async {
@@ -272,7 +272,7 @@ class AnfTransformSpec {
   }
 
   @Test
-  def awaitWithLazy() {
+  def awaitWithLazy(): Unit = {
     import AsyncId.{async, await}
     def foo[T](a: Int, b: => Int) = a
     val res = async {
@@ -283,7 +283,7 @@ class AnfTransformSpec {
   }
 
   @Test
-  def awaitOkInReciever() {
+  def awaitOkInReciever(): Unit = {
     import AsyncId.{async, await}
     class Foo { def bar(a: Int)(b: Int) = a + b }
     async {
@@ -292,7 +292,7 @@ class AnfTransformSpec {
   }
 
   @Test
-  def namedArgumentsRespectEvaluationOrder() {
+  def namedArgumentsRespectEvaluationOrder(): Unit = {
     import AsyncId.{async, await}
     def foo(a: Int, b: Int) = (a, b)
     val result = async {
@@ -307,7 +307,7 @@ class AnfTransformSpec {
   }
 
   @Test
-  def namedAndDefaultArgumentsRespectEvaluationOrder() {
+  def namedAndDefaultArgumentsRespectEvaluationOrder(): Unit = {
     import AsyncId.{async, await}
     var i = 0
     def next() = {
@@ -325,7 +325,7 @@ class AnfTransformSpec {
   }
 
   @Test
-  def repeatedParams1() {
+  def repeatedParams1(): Unit = {
     import AsyncId.{async, await}
     var i = 0
     def foo(a: Int, b: Int*) = b.toList
@@ -336,7 +336,7 @@ class AnfTransformSpec {
   }
 
   @Test
-  def repeatedParams2() {
+  def repeatedParams2(): Unit = {
     import AsyncId.{async, await}
     var i = 0
     def foo(a: Int, b: Int*) = b.toList
@@ -347,7 +347,7 @@ class AnfTransformSpec {
   }
 
   @Test
-  def awaitInThrow() {
+  def awaitInThrow(): Unit = {
     import _root_.scala.async.internal.AsyncId.{async, await}
     intercept[Exception](
       async {
@@ -357,7 +357,7 @@ class AnfTransformSpec {
   }
 
   @Test
-  def awaitInTyped() {
+  def awaitInTyped(): Unit = {
     import _root_.scala.async.internal.AsyncId.{async, await}
     async {
       (("msg: " + await(0)): String).toString
@@ -366,7 +366,7 @@ class AnfTransformSpec {
 
 
   @Test
-  def awaitInAssign() {
+  def awaitInAssign(): Unit = {
     import _root_.scala.async.internal.AsyncId.{async, await}
     async {
       var x = 0
@@ -376,7 +376,7 @@ class AnfTransformSpec {
   }
 
   @Test
-  def caseBodyMustBeTypedAsUnit() {
+  def caseBodyMustBeTypedAsUnit(): Unit = {
     import _root_.scala.async.internal.AsyncId.{async, await}
     val Up = 1
     val Down = 2
@@ -390,7 +390,7 @@ class AnfTransformSpec {
   }
 
   @Test
-  def awaitInImplicitApply() {
+  def awaitInImplicitApply(): Unit = {
     val tb = mkToolbox(s"-cp ${toolboxClasspath}")
     val tree = tb.typeCheck(tb.parse {
       """

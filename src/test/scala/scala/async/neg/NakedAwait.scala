@@ -9,7 +9,7 @@ import org.junit.Test
 
 class NakedAwait {
   @Test
-  def `await only allowed in async neg`() {
+  def `await only allowed in async neg`(): Unit = {
     expectError("`await` must be enclosed in an `async` block") {
       """
         | import _root_.scala.async.Async._
@@ -19,7 +19,7 @@ class NakedAwait {
   }
 
   @Test
-  def `await not allowed in by-name argument`() {
+  def `await not allowed in by-name argument`(): Unit = {
     expectError("await must not be used under a by-name argument.") {
       """
         | import _root_.scala.async.internal.AsyncId._
@@ -30,7 +30,7 @@ class NakedAwait {
   }
 
   @Test
-  def `await not allowed in boolean short circuit argument 1`() {
+  def `await not allowed in boolean short circuit argument 1`(): Unit = {
     expectError("await must not be used under a by-name argument.") {
       """
         | import _root_.scala.async.internal.AsyncId._
@@ -40,7 +40,7 @@ class NakedAwait {
   }
 
   @Test
-  def `await not allowed in boolean short circuit argument 2`() {
+  def `await not allowed in boolean short circuit argument 2`(): Unit = {
     expectError("await must not be used under a by-name argument.") {
       """
         | import _root_.scala.async.internal.AsyncId._
@@ -50,7 +50,7 @@ class NakedAwait {
   }
 
   @Test
-  def nestedObject() {
+  def nestedObject(): Unit = {
     expectError("await must not be used under a nested object.") {
       """
         | import _root_.scala.async.internal.AsyncId._
@@ -60,7 +60,7 @@ class NakedAwait {
   }
 
   @Test
-  def nestedTrait() {
+  def nestedTrait(): Unit = {
     expectError("await must not be used under a nested trait.") {
       """
         | import _root_.scala.async.internal.AsyncId._
@@ -70,7 +70,7 @@ class NakedAwait {
   }
 
   @Test
-  def nestedClass() {
+  def nestedClass(): Unit = {
     expectError("await must not be used under a nested class.") {
       """
         | import _root_.scala.async.internal.AsyncId._
@@ -80,7 +80,7 @@ class NakedAwait {
   }
 
   @Test
-  def nestedFunction() {
+  def nestedFunction(): Unit = {
     expectError("await must not be used under a nested function.") {
       """
         | import _root_.scala.async.internal.AsyncId._
@@ -90,7 +90,7 @@ class NakedAwait {
   }
 
   @Test
-  def nestedPatMatFunction() {
+  def nestedPatMatFunction(): Unit = {
     expectError("await must not be used under a nested class.") { // TODO more specific error message
       """
         | import _root_.scala.async.internal.AsyncId._
@@ -100,7 +100,7 @@ class NakedAwait {
   }
 
   @Test
-  def tryBody() {
+  def tryBody(): Unit = {
     expectError("await must not be used under a try/catch.") {
       """
         | import _root_.scala.async.internal.AsyncId._
@@ -110,7 +110,7 @@ class NakedAwait {
   }
 
   @Test
-  def catchBody() {
+  def catchBody(): Unit = {
     expectError("await must not be used under a try/catch.") {
       """
         | import _root_.scala.async.internal.AsyncId._
@@ -120,7 +120,7 @@ class NakedAwait {
   }
 
   @Test
-  def finallyBody() {
+  def finallyBody(): Unit = {
     expectError("await must not be used under a try/catch.") {
       """
         | import _root_.scala.async.internal.AsyncId._
@@ -130,7 +130,7 @@ class NakedAwait {
   }
 
   @Test
-  def guard() {
+  def guard(): Unit = {
     expectError("await must not be used under a pattern guard.") {
       """
         | import _root_.scala.async.internal.AsyncId._
@@ -140,7 +140,7 @@ class NakedAwait {
   }
 
   @Test
-  def nestedMethod() {
+  def nestedMethod(): Unit = {
     expectError("await must not be used under a nested method.") {
       """
         | import _root_.scala.async.internal.AsyncId._
@@ -150,7 +150,7 @@ class NakedAwait {
   }
 
   @Test
-  def returnIllegal() {
+  def returnIllegal(): Unit = {
     expectError("return is illegal") {
       """
         | import _root_.scala.async.internal.AsyncId._
@@ -162,7 +162,7 @@ class NakedAwait {
   }
 
   @Test
-  def lazyValIllegal() {
+  def lazyValIllegal(): Unit = {
     expectError("await must not be used under a lazy val initializer") {
       """
         | import _root_.scala.async.internal.AsyncId._

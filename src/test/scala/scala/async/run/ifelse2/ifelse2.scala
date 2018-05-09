@@ -38,7 +38,7 @@ class TestIfElse2Class {
 class IfElse2Spec {
 
   @Test
-  def `variables of the same name in different blocks`() {
+  def `variables of the same name in different blocks`(): Unit = {
     val o = new TestIfElse2Class
     val fut = o.m(10)
     val res = Await.result(fut, 2 seconds)

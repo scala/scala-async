@@ -6,7 +6,7 @@ import org.junit.{Test, Assert}
 import scala.async.TreeInterrogation
 
 class UncheckedBoundsSpec {
-  @Test def insufficientLub_SI_7694() {
+  @Test def insufficientLub_SI_7694(): Unit = {
     eval( s"""
       object Test {
         import _root_.scala.async.run.toughtype._
@@ -18,7 +18,7 @@ class UncheckedBoundsSpec {
     """, compileOptions = s"-cp ${toolboxClasspath} ")
   }
 
-  @Test def insufficientLub_SI_7694_ScalaConcurrent() {
+  @Test def insufficientLub_SI_7694_ScalaConcurrent(): Unit = {
     eval( s"""
       object Test {
         import _root_.scala.async.run.toughtype._

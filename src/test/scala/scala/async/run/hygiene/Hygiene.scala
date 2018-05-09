@@ -14,7 +14,7 @@ class HygieneSpec {
   import AsyncId.{async, await}
 
   @Test
-  def `is hygenic`() {
+  def `is hygenic`(): Unit = {
     val state = 23
     val result: Any = "result"
     def resume(): Any = "resume"
@@ -29,7 +29,7 @@ class HygieneSpec {
   }
 
   @Test
-  def `external var as result of await`() {
+  def `external var as result of await`(): Unit = {
     var ext = 0
     async {
       ext = await(12)
@@ -38,7 +38,7 @@ class HygieneSpec {
   }
 
   @Test
-  def `external var as result of await 2`() {
+  def `external var as result of await 2`(): Unit = {
     var ext = 0
     val inp = 10
     async {
@@ -51,7 +51,7 @@ class HygieneSpec {
   }
 
   @Test
-  def `external var as result of await 3`() {
+  def `external var as result of await 3`(): Unit = {
     var ext = 0
     val inp = 10
     async {
@@ -65,7 +65,7 @@ class HygieneSpec {
   }
 
   @Test
-  def `is hygenic nested`() {
+  def `is hygenic nested`(): Unit = {
     val state = 23
     val result: Any = "result"
     def resume(): Any = "resume"

@@ -18,13 +18,13 @@ import org.junit.Test
 class ExceptionsSpec {
 
   @Test
-  def `uncaught exception within async`() {
+  def `uncaught exception within async`(): Unit = {
     val fut = async { throw new Exception("problem") }
     intercept[Exception] { Await.result(fut, 2.seconds) }
   }
 
   @Test
-  def `uncaught exception within async after await`() {
+  def `uncaught exception within async after await`(): Unit = {
     val base = Future { "five!".length }
     val fut = async {
       val len = await(base)
@@ -34,7 +34,7 @@ class ExceptionsSpec {
   }
 
   @Test
-  def `await failing future within async`() {
+  def `await failing future within async`(): Unit = {
     val base = Future[Int] { throw new Exception("problem") }
     val fut = async {
       val x = await(base)
@@ -44,7 +44,7 @@ class ExceptionsSpec {
   }
 
   @Test
-  def `await failing future within async after await`() {
+  def `await failing future within async after await`(): Unit = {
     val base = Future[Any] { "five!".length }
     val fut = async {
       val a = await(base.mapTo[Int])                          // result: 5

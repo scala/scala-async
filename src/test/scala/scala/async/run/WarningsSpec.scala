@@ -33,7 +33,7 @@ class WarningsSpec {
 
   @Test
   // https://github.com/scala/async/issues/74
-  def noDeadCodeWarningForAsyncThrow() {
+  def noDeadCodeWarningForAsyncThrow(): Unit = {
     val global = mkGlobal("-cp ${toolboxClasspath} -Yrangepos -Ywarn-dead-code -Xfatal-warnings -Ystop-after:refchecks")
     // was: "a pure expression does nothing in statement position; you may be omitting necessary parentheses"
     val source =
@@ -51,7 +51,7 @@ class WarningsSpec {
   }
 
   @Test
-  def noDeadCodeWarningInMacroExpansion() {
+  def noDeadCodeWarningInMacroExpansion(): Unit = {
     val global = mkGlobal("-cp ${toolboxClasspath} -Yrangepos -Ywarn-dead-code -Xfatal-warnings -Ystop-after:refchecks")
     val source = """
         | class Test {
@@ -76,7 +76,7 @@ class WarningsSpec {
   }
 
   @Test
-  def ignoreNestedAwaitsInIDE_t1002561() {
+  def ignoreNestedAwaitsInIDE_t1002561(): Unit = {
     // https://www.assembla.com/spaces/scala-ide/tickets/1002561
     val global = mkGlobal("-cp ${toolboxClasspath} -Yrangepos -Ystop-after:typer ")
     val source = """

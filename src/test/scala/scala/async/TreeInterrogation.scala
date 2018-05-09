@@ -11,7 +11,7 @@ import tools.reflect.ToolBox
 
 class TreeInterrogation {
   @Test
-  def `a minimal set of vals are lifted to vars`() {
+  def `a minimal set of vals are lifted to vars`(): Unit = {
     val cm = reflect.runtime.currentMirror
     val tb = mkToolbox(s"-cp $toolboxClasspath")
     val tree = tb.parse(
