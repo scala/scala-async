@@ -12,7 +12,7 @@ import scala.async.internal.AsyncId
 class WhileSpec {
 
   @Test
-  def whiling1() {
+  def whiling1(): Unit = {
     import AsyncId._
 
     val result = async {
@@ -28,7 +28,7 @@ class WhileSpec {
   }
 
   @Test
-  def whiling2() {
+  def whiling2(): Unit = {
     import AsyncId._
 
     val result = async {
@@ -44,7 +44,7 @@ class WhileSpec {
   }
 
   @Test
-  def nestedWhile() {
+  def nestedWhile(): Unit = {
     import AsyncId._
 
     val result = async {
@@ -64,7 +64,7 @@ class WhileSpec {
   }
 
   @Test
-  def whileExpr() {
+  def whileExpr(): Unit = {
     import AsyncId._
 
     val result = async {
@@ -77,7 +77,7 @@ class WhileSpec {
     result mustBe ()
   }
 
-  @Test def doWhile() {
+  @Test def doWhile(): Unit = {
     import AsyncId._
     val result = async {
       var b = 0
@@ -93,7 +93,7 @@ class WhileSpec {
     result mustBe "123123"
   }
 
-  @Test def whileAwaitCondition() {
+  @Test def whileAwaitCondition(): Unit = {
     import AsyncId._
     val result = async {
       var b = true
@@ -105,7 +105,7 @@ class WhileSpec {
     result mustBe false
   }
 
-  @Test def doWhileAwaitCondition() {
+  @Test def doWhileAwaitCondition(): Unit = {
     import AsyncId._
     val result = async {
       var b = true

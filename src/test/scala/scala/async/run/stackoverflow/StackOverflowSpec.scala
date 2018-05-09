@@ -13,7 +13,7 @@ import scala.async.internal.AsyncId
 class StackOverflowSpec {
 
   @Test
-  def stackSafety() {
+  def stackSafety(): Unit = {
     import AsyncId._
     async {
       var i = 100000000

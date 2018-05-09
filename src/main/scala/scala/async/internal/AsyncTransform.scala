@@ -117,7 +117,7 @@ trait AsyncTransform {
     cleanupContainsAwaitAttachments(result)
   }
 
-  def logDiagnostics(anfTree: Tree, states: Seq[String]) {
+  def logDiagnostics(anfTree: Tree, states: Seq[String]): Unit = {
     def location = try {
       macroPos.source.path
     } catch {

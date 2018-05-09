@@ -8,7 +8,7 @@ import scala.async.internal.AsyncId
 class NestedDef {
 
   @Test
-  def nestedDef() {
+  def nestedDef(): Unit = {
     import AsyncId._
     val result = async {
       val a = 0
@@ -23,7 +23,7 @@ class NestedDef {
 
 
   @Test
-  def nestedFunction() {
+  def nestedFunction(): Unit = {
     import AsyncId._
     val result = async {
       val a = 0
@@ -38,7 +38,7 @@ class NestedDef {
 
   // We must lift `foo` and `bar` in the next two tests.
   @Test
-  def nestedDefTransitive1() {
+  def nestedDefTransitive1(): Unit = {
     import AsyncId._
     val result = async {
       val a = 0
@@ -51,7 +51,7 @@ class NestedDef {
   }
 
   @Test
-  def nestedDefTransitive2() {
+  def nestedDefTransitive2(): Unit = {
     import AsyncId._
     val result = async {
       val a = 0
@@ -66,7 +66,7 @@ class NestedDef {
 
   // checking that our use/definition analysis doesn't cycle.
   @Test
-  def mutuallyRecursive1() {
+  def mutuallyRecursive1(): Unit = {
     import AsyncId._
     val result = async {
       val a = 0
@@ -80,7 +80,7 @@ class NestedDef {
 
   // checking that our use/definition analysis doesn't cycle.
   @Test
-  def mutuallyRecursive2() {
+  def mutuallyRecursive2(): Unit = {
     import AsyncId._
     val result = async {
       val a = 0

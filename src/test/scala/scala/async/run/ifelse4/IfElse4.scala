@@ -54,7 +54,7 @@ class TestIfElse4Class {
 class IfElse4Spec {
 
   @Test
-  def `await result with complex type containing skolem`() {
+  def `await result with complex type containing skolem`(): Unit = {
     val o = new TestIfElse4Class
     val fut = o.run(o.K(null))
     val res = Await.result(fut, 2 seconds)

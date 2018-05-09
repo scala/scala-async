@@ -289,25 +289,25 @@ private[async] trait TransformUtils {
     * and `nestedClass` etc are invoked.
     */
   trait AsyncTraverser extends Traverser {
-    def nestedClass(classDef: ClassDef) {
+    def nestedClass(classDef: ClassDef): Unit = {
     }
 
-    def nestedModule(module: ModuleDef) {
+    def nestedModule(module: ModuleDef): Unit = {
     }
 
-    def nestedMethod(defdef: DefDef) {
+    def nestedMethod(defdef: DefDef): Unit = {
     }
 
-    def byNameArgument(arg: Tree) {
+    def byNameArgument(arg: Tree): Unit = {
     }
 
-    def function(function: Function) {
+    def function(function: Function): Unit = {
     }
 
-    def patMatFunction(tree: Match) {
+    def patMatFunction(tree: Match): Unit = {
     }
 
-    override def traverse(tree: Tree) {
+    override def traverse(tree: Tree): Unit = {
       tree match {
         case _ if isAsync(tree) =>
           // Under -Ymacro-expand:discard, used in the IDE, nested async blocks will be visible to the outer blocks

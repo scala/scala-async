@@ -10,7 +10,7 @@ import scala.async.internal.AsyncId
 
 class LocalClasses0Spec {
   @Test
-  def localClassCrashIssue16() {
+  def localClassCrashIssue16(): Unit = {
     import AsyncId.{async, await}
     async {
       class B { def f = 1 }
@@ -19,7 +19,7 @@ class LocalClasses0Spec {
   }
 
   @Test
-  def nestedCaseClassAndModuleAllowed() {
+  def nestedCaseClassAndModuleAllowed(): Unit = {
     import AsyncId.{await, async}
     async {
       trait Base { def base = 0}

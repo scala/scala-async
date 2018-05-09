@@ -74,7 +74,7 @@ package object async {
       .getParentFile.getParentFile
 
   def expectError(errorSnippet: String, compileOptions: String = "",
-                  baseCompileOptions: String = s"-cp ${toolboxClasspath}")(code: String) {
+                  baseCompileOptions: String = s"-cp ${toolboxClasspath}")(code: String): Unit = {
     intercept[ToolBoxError] {
       eval(code, compileOptions + " " + baseCompileOptions)
     }.getMessage mustContain errorSnippet

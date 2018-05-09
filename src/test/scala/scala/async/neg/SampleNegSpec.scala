@@ -9,7 +9,7 @@ import org.junit.Test
 
 class SampleNegSpec {
   @Test
-  def `missing symbol`() {
+  def `missing symbol`(): Unit = {
     expectError("not found: value kaboom") {
       """
         | kaboom

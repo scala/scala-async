@@ -29,13 +29,13 @@ object ToughTypeObject {
 
 class ToughTypeSpec {
 
-  @Test def `propogates tough types`() {
+  @Test def `propogates tough types`(): Unit = {
     val fut = ToughTypeObject.m2
     val res: (List[_], scala.async.run.toughtype.ToughTypeObject.Inner) = Await.result(fut, 2 seconds)
     res._1 mustBe (Nil)
   }
 
-  @Test def patternMatchingPartialFunction() {
+  @Test def patternMatchingPartialFunction(): Unit = {
     import AsyncId.{await, async}
     async {
       await(1)
@@ -45,7 +45,7 @@ class ToughTypeSpec {
     } mustBe 3
   }
 
-  @Test def patternMatchingPartialFunctionNested() {
+  @Test def patternMatchingPartialFunctionNested(): Unit = {
     import AsyncId.{await, async}
     async {
       await(1)
@@ -56,7 +56,7 @@ class ToughTypeSpec {
     } mustBe -3
   }
 
-  @Test def patternMatchingFunction() {
+  @Test def patternMatchingFunction(): Unit = {
     import AsyncId.{await, async}
     async {
       await(1)
@@ -66,7 +66,7 @@ class ToughTypeSpec {
     } mustBe 3
   }
 
-  @Test def existentialBindIssue19() {
+  @Test def existentialBindIssue19(): Unit = {
     import AsyncId.{await, async}
     def m7(a: Any) = async {
       a match {
@@ -80,7 +80,7 @@ class ToughTypeSpec {
     m7(Nil) mustBe 0
   }
 
-  @Test def existentialBind2Issue19() {
+  @Test def existentialBind2Issue19(): Unit = {
     import scala.async.Async._, scala.concurrent.ExecutionContext.Implicits.global
     def conjure[T]: T = null.asInstanceOf[T]
 
@@ -94,7 +94,7 @@ class ToughTypeSpec {
     }
   }
 
-  @Test def singletonTypeIssue17() {
+  @Test def singletonTypeIssue17(): Unit = {
     import AsyncId.{async, await}
     class A { class B }
     async {
@@ -104,7 +104,7 @@ class ToughTypeSpec {
     }
   }
 
-  @Test def existentialMatch() {
+  @Test def existentialMatch(): Unit = {
     import AsyncId.{async, await}
     trait Container[+A]
     case class ContainerImpl[A](value: A) extends Container[A]
@@ -120,7 +120,7 @@ class ToughTypeSpec {
     foo
   }
 
-  @Test def existentialIfElse0() {
+  @Test def existentialIfElse0(): Unit = {
     import AsyncId.{async, await}
     trait Container[+A]
     case class ContainerImpl[A](value: A) extends Container[A]
@@ -151,7 +151,7 @@ class ToughTypeSpec {
   // We compensated in `Lifter` by copying `ValDef` parameter symbols directly across.
   //
   // Turns out the behaviour stems from `thisMethodType` in `Namers`, which treats type parameter skolem symbols.
-  @Test def nestedMethodWithInconsistencyTreeAndInfoParamSymbols() {
+  @Test def nestedMethodWithInconsistencyTreeAndInfoParamSymbols(): Unit = {
     import language.{reflectiveCalls, postfixOps}
     import scala.concurrent.{Future, ExecutionContext, Await}
     import scala.concurrent.duration._
@@ -214,7 +214,7 @@ class ToughTypeSpec {
 
   }
 
-  @Test def ticket66Nothing() {
+  @Test def ticket66Nothing(): Unit = {
     import scala.concurrent.Future
     import scala.concurrent.ExecutionContext.Implicits.global
     val e = new Exception()
@@ -229,7 +229,7 @@ class ToughTypeSpec {
     }
   }
 
-  @Test def ticket83ValueClass() {
+  @Test def ticket83ValueClass(): Unit = {
     import scala.async.Async._
     import scala.concurrent._, duration._, ExecutionContext.Implicits.global
     val f = async {
@@ -240,7 +240,7 @@ class ToughTypeSpec {
     result mustEqual (new IntWrapper("foo"))
   }
 
-  @Test def ticket86NestedValueClass() {
+  @Test def ticket86NestedValueClass(): Unit = {
     import ExecutionContext.Implicits.global
 
     val f = async {

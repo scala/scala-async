@@ -39,14 +39,14 @@ class TestIfElseClass {
 
 class IfElseSpec {
 
-  @Test def `support await in a simple if-else expression`() {
+  @Test def `support await in a simple if-else expression`(): Unit = {
     val o = new TestIfElseClass
     val fut = o.m2(10)
     val res = Await.result(fut, 2 seconds)
     res mustBe (14)
   }
 
-  @Test def `await in condition`() {
+  @Test def `await in condition`(): Unit = {
     import AsyncId.{async, await}
     val result = async {
       if ({await(true); await(true)}) await(1) else ???

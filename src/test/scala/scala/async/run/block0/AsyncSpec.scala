@@ -40,7 +40,7 @@ class Test1Class {
 class AsyncSpec {
 
   @Test
-  def `simple await`() {
+  def `simple await`(): Unit = {
     val o = new Test1Class
     val fut = o.m2(10)
     val res = Await.result(fut, 2 seconds)
@@ -48,7 +48,7 @@ class AsyncSpec {
   }
 
   @Test
-  def `several awaits in sequence`() {
+  def `several awaits in sequence`(): Unit = {
     val o = new Test1Class
     val fut = o.m3(10)
     val res = Await.result(fut, 4 seconds)
