@@ -1,5 +1,10 @@
 package scala.async.internal
 
+import java.util
+import java.util.function.{IntConsumer, IntPredicate}
+
+import scala.collection.immutable.IntMap
+
 trait LiveVariables {
   self: AsyncMacro =>
   import c.universe._
@@ -17,19 +22,22 @@ trait LiveVariables {
   def fieldsToNullOut(asyncStates: List[AsyncState], liftables: List[Tree]): Map[Int, List[Tree]] = {
     // live variables analysis:
     // the result map indicates in which states a given field should be nulled out
-    val liveVarsMap: Map[Tree, Set[Int]] = liveVars(asyncStates, liftables)
+    val liveVarsMap: Map[Tree, StateSet] = liveVars(asyncStates, liftables)
 
     var assignsOf = Map[Int, List[Tree]]()
 
-    for ((fld, where) <- liveVarsMap; state <- where)
-      assignsOf get state match {
-        case None =>
-          assignsOf += (state -> List(fld))
-        case Some(trees) if !trees.exists(_.symbol == fld.symbol) =>
-          assignsOf += (state -> (fld +: trees))
-        case _ =>
-          /* do nothing */
-      }
+    for ((fld, where) <- liveVarsMap) {
+      where.foreach { new IntConsumer { def accept(state: Int): Unit = {
+        assignsOf get state match {
+          case None =>
+            assignsOf += (state -> List(fld))
+          case Some(trees) if !trees.exists(_.symbol == fld.symbol) =>
+            assignsOf += (state -> (fld +: trees))
+          case _ =>
+            // do nothing
+        }
+      }}}
+    }
 
     assignsOf
   }
@@ -46,9 +54,9 @@ trait LiveVariables {
    *  @param   liftables   the lifted fields
    *  @return              a map which indicates for a given field (the key) the states in which it should be nulled out
    */
-  def liveVars(asyncStates: List[AsyncState], liftables: List[Tree]): Map[Tree, Set[Int]] = {
+  def liveVars(asyncStates: List[AsyncState], liftables: List[Tree]): Map[Tree, StateSet] = {
     val liftedSyms: Set[Symbol] = // include only vars
-      liftables.filter {
+      liftables.iterator.filter {
         case ValDef(mods, _, _, _) => mods.hasFlag(MUTABLE)
         case _ => false
       }.map(_.symbol).toSet
@@ -122,20 +130,30 @@ trait LiveVariables {
      * A state `i` is contained in the list that is the value to which
      * key `j` maps iff control can flow from state `j` to state `i`.
      */
-    val cfg: Map[Int, List[Int]] = asyncStates.map(as => as.state -> as.nextStates).toMap
+    val cfg: Map[Int, Array[Int]] = {
+      var res = IntMap.empty[Array[Int]]
+
+      for (as <- asyncStates) res = res.updated(as.state, as.nextStates)
+      res
+    }
 
     /** Tests if `state1` is a predecessor of `state2`.
      */
     def isPred(state1: Int, state2: Int): Boolean = {
-      val seen = scala.collection.mutable.HashSet[Int]()
+      val seen = new StateSet()
 
       def isPred0(state1: Int, state2: Int): Boolean = 
         if(state1 == state2) false
-        else if (seen(state1)) false  // breaks cycles in the CFG
+        else if (seen.contains(state1)) false  // breaks cycles in the CFG
         else cfg get state1 match {
           case Some(nextStates) =>
             seen += state1
-            nextStates.contains(state2) || nextStates.exists(isPred0(_, state2))
+            var i = 0
+            while (i < nextStates.length) {
+              if (nextStates(i) == state2 || isPred0(nextStates(i), state2)) return true
+              i += 1
+            }
+            false
           case None =>
             false
         }
@@ -164,8 +182,8 @@ trait LiveVariables {
      * 7. repeat if something has changed
      */
 
-    var LVentry = Map[Int, Set[Symbol]]() withDefaultValue Set[Symbol]()
-    var LVexit  = Map[Int, Set[Symbol]]() withDefaultValue Set[Symbol]()
+    var LVentry = IntMap[Set[Symbol]]() withDefaultValue Set[Symbol]()
+    var LVexit  = IntMap[Set[Symbol]]() withDefaultValue Set[Symbol]()
 
     // All fields are declared to be dead at the exit of the final async state, except for the ones
     // that cannot be nulled out at all (those in noNull), because they have been captured by a nested def.
@@ -174,6 +192,14 @@ trait LiveVariables {
     var currStates = List(finalState)    // start at final state
     var captured: Set[Symbol] = Set()
 
+    def contains(as: Array[Int], a: Int): Boolean = {
+      var i = 0
+      while (i < as.length) {
+        if (as(i) == a) return true
+        i += 1
+      }
+      false
+    }
     while (!currStates.isEmpty) {
       var entryChanged: List[AsyncState] = Nil
 
@@ -183,19 +209,19 @@ trait LiveVariables {
         captured ++= referenced.captured
         val LVentryNew = LVexit(cs.state) ++ referenced.used
         if (!LVentryNew.sameElements(LVentryOld)) {
-          LVentry = LVentry + (cs.state -> LVentryNew)
+          LVentry = LVentry.updated(cs.state, LVentryNew)
           entryChanged ::= cs
         }
       }
 
-      val pred = entryChanged.flatMap(cs => asyncStates.filter(_.nextStates.contains(cs.state)))
+      val pred = entryChanged.flatMap(cs => asyncStates.filter(state => contains(state.nextStates, cs.state)))
       var exitChanged: List[AsyncState] = Nil
 
       for (p <- pred) {
         val LVexitOld = LVexit(p.state)
         val LVexitNew = p.nextStates.flatMap(succ => LVentry(succ)).toSet
         if (!LVexitNew.sameElements(LVexitOld)) {
-          LVexit = LVexit + (p.state -> LVexitNew)
+          LVexit = LVexit.updated(p.state, LVexitNew)
           exitChanged ::= p
         }
       }
@@ -210,53 +236,64 @@ trait LiveVariables {
       }
     }
 
-    def lastUsagesOf(field: Tree, at: AsyncState): Set[Int] = {
+    def lastUsagesOf(field: Tree, at: AsyncState): StateSet = {
       val avoid = scala.collection.mutable.HashSet[AsyncState]()
 
-      def lastUsagesOf0(field: Tree, at: AsyncState): Set[Int] = {
-        if (avoid(at)) Set()
+      val result = new StateSet
+      def lastUsagesOf0(field: Tree, at: AsyncState): Unit = {
+        if (avoid(at)) ()
         else if (captured(field.symbol)) {
-          Set()
+          ()
         }
         else LVentry get at.state match {
           case Some(fields) if fields.contains(field.symbol) =>
-            Set(at.state)
+            result += at.state
           case _ =>
             avoid += at
-            val preds = asyncStates.filter(_.nextStates.contains(at.state)).toSet
-            preds.flatMap(p => lastUsagesOf0(field, p))
+            for (state <- asyncStates) {
+              if (contains(state.nextStates, at.state)) {
+                lastUsagesOf0(field, state)
+              }
+            }
         }
       }
 
       lastUsagesOf0(field, at)
+      result
     }
 
-    val lastUsages: Map[Tree, Set[Int]] =
-      liftables.map(fld => fld -> lastUsagesOf(fld, finalState)).toMap
+    val lastUsages: Map[Tree, StateSet] =
+      liftables.iterator.map(fld => fld -> lastUsagesOf(fld, finalState)).toMap
 
     if(AsyncUtils.verbose) {
       for ((fld, lastStates) <- lastUsages)
-        AsyncUtils.vprintln(s"field ${fld.symbol.name} is last used in states ${lastStates.mkString(", ")}")
+        AsyncUtils.vprintln(s"field ${fld.symbol.name} is last used in states ${lastStates.iterator.mkString(", ")}")
     }
 
-    val nullOutAt: Map[Tree, Set[Int]] =
+    val nullOutAt: Map[Tree, StateSet] =
       for ((fld, lastStates) <- lastUsages) yield {
-        val killAt = lastStates.flatMap { s =>
-          if (s == finalState.state) Set()
-          else {
+        var result = new StateSet
+        lastStates.foreach(new IntConsumer { def accept(s: Int): Unit = {
+          if (s != finalState.state) {
             val lastAsyncState = asyncStates.find(_.state == s).get
             val succNums       = lastAsyncState.nextStates
             // all successor states that are not indirect predecessors
             // filter out successor states where the field is live at the entry
-            succNums.filter(num => !isPred(num, s)).filterNot(num => LVentry(num).contains(fld.symbol))
+            var i = 0
+            while (i < succNums.length) {
+              val num = succNums(i)
+              if (!isPred(num, s) && !LVentry(num).contains(fld.symbol))
+                result += num
+              i += 1
+            }
           }
-        }
-        (fld, killAt)
+        }})
+        (fld, result)
       }
 
     if(AsyncUtils.verbose) {
       for ((fld, killAt) <- nullOutAt)
-        AsyncUtils.vprintln(s"field ${fld.symbol.name} should be nulled out in states ${killAt.mkString(", ")}")
+        AsyncUtils.vprintln(s"field ${fld.symbol.name} should be nulled out in states ${killAt.iterator.mkString(", ")}")
     }
 
     nullOutAt

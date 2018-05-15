@@ -75,6 +75,7 @@ trait FutureSystem {
 
   def mkOps(c0: Context): Ops { val c: c0.type }
 
+  @deprecated("No longer honoured by the macro, all generated names now contain $async to avoid accidental clashes with lambda lifted names", "0.9.7")
   def freshenAllNames: Boolean = false
   def emitTryCatch: Boolean = true
   def resultFieldName: String = "result"

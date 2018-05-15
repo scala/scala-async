@@ -17,42 +17,8 @@ private[async] trait TransformUtils {
   import c.internal._
   import decorators._
 
-  private object baseNames {
-
-    val matchRes = "matchres"
-    val ifRes = "ifres"
-    val bindSuffix = "$bind"
-    val completed = newTermName("completed")
-
-    val state = newTermName("state")
-    val result = newTermName(self.futureSystem.resultFieldName)
-    val execContext = newTermName("execContext")
-    val tr = newTermName("tr")
-    val t = newTermName("throwable")
-  }
-  
-  object name {
-    def matchRes      = maybeFresh(baseNames.matchRes)
-    def ifRes         = maybeFresh(baseNames.ifRes) 
-    def bindSuffix    = maybeFresh(baseNames.bindSuffix)
-    def completed     = maybeFresh(baseNames.completed) 
-
-    val state         = maybeFresh(baseNames.state)
-    val result        = baseNames.result
-    val execContext   = maybeFresh(baseNames.execContext)
-    val tr            = maybeFresh(baseNames.tr)
-    val t             = maybeFresh(baseNames.t)
-
-    val await = "await"
-    val resume = newTermName("resume")
-    val apply = newTermName("apply")
-    val stateMachine  = newTermName(fresh("stateMachine"))
-    val stateMachineT = stateMachine.toTypeName
-
-    def maybeFresh(name: TermName): TermName = if (self.asyncBase.futureSystem.freshenAllNames) fresh(name) else name
-    def maybeFresh(name: String): String = if (self.asyncBase.futureSystem.freshenAllNames) fresh(name) else name
-    def fresh(name: TermName): TermName = c.freshName(name)
-
+  object name extends asyncNames.AsyncName {
+    def fresh(name: TermName): TermName = freshenIfNeeded(name)
     def fresh(name: String): String = c.freshName(name)
   }
 
@@ -162,10 +128,10 @@ private[async] trait TransformUtils {
       (i, j) => util.Try(byNamess(i)(j)).getOrElse(false)
     }
   }
-  private def argName(fun: Tree): ((Int, Int) => String) = {
+  private def argName(fun: Tree): ((Int, Int) => TermName) = {
     val paramss = fun.tpe.paramss
-    val namess = paramss.map(_.map(_.name.toString))
-    (i, j) => util.Try(namess(i)(j)).getOrElse(s"arg_${i}_${j}")
+    val namess = paramss.map(_.map(_.name.toTermName))
+    (i, j) => util.Try(namess(i)(j)).getOrElse(TermName(s"arg_${i}_${j}"))
   }
 
   object defn {
@@ -246,7 +212,7 @@ private[async] trait TransformUtils {
     }
   }
 
-  case class Arg(expr: Tree, isByName: Boolean, argName: String)
+  case class Arg(expr: Tree, isByName: Boolean, argName: TermName)
 
   /**
    * Transform a list of argument lists, producing the transformed lists, and lists of auxillary
@@ -261,7 +227,7 @@ private[async] trait TransformUtils {
    */
   def mapArgumentss[A](fun: Tree, argss: List[List[Tree]])(f: Arg => (A, Tree)): (List[List[A]], List[List[Tree]]) = {
     val isByNamess: (Int, Int) => Boolean = isByName(fun)
-    val argNamess: (Int, Int) => String = argName(fun)
+    val argNamess: (Int, Int) => TermName = argName(fun)
     argss.zipWithIndex.map { case (args, i) =>
       mapArguments[A](args) {
         (tree, j) => f(Arg(tree, isByNamess(i, j), argNamess(i, j)))
