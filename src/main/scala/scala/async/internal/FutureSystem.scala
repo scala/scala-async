@@ -71,6 +71,9 @@ trait FutureSystem {
 
     /** A hook for custom macros to transform the tree post-ANF transform */
     def postAnfTransform(tree: Block): Block = tree
+
+    /** A hook for custom macros to selectively generate and process a Graphviz visualization of the transformed state machine */
+    def dot(enclosingOwner: Symbol, macroApplication: Tree): Option[(String => Unit)] = None
   }
 
   def mkOps(c0: Context): Ops { val c: c0.type }

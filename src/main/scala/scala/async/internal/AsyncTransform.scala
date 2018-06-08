@@ -115,6 +115,7 @@ trait AsyncTransform {
     if(AsyncUtils.verbose) {
       logDiagnostics(anfTree, asyncBlock, asyncBlock.asyncStates.map(_.toString))
     }
+    futureSystemOps.dot(enclosingOwner, body).foreach(f => f(asyncBlock.toDot))
     cleanupContainsAwaitAttachments(result)
   }
 
