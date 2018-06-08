@@ -397,7 +397,7 @@ trait ExprBuilder {
           dotBuilder.append(s"""${stateLabel(state.state)} [label=""").append("<")
           if (i != length - 1) {
             val CaseDef(_, _, body) = state.mkHandlerCaseForState
-            toHtmlLabel(stateLabel(state.state), showCode(body), dotBuilder)
+            toHtmlLabel(stateLabel(state.state), showCode(compactStateTransform.transform(body)), dotBuilder)
           } else {
             toHtmlLabel(stateLabel(state.state), state.allStats.map(showCode(_)).mkString("\n"), dotBuilder)
           }
@@ -506,18 +506,19 @@ trait ExprBuilder {
             })), EmptyTree)
       }
 
-      private def compactStates(m: Match): Tree = {
-        val stateMemberSymbol = symLookup.stateMachineMember(name.state)
-        val compactStateTransform = new Transformer {
-          override def transform(tree: Tree): Tree = tree match {
-            case as @ Assign(lhs, Literal(Constant(i: Integer))) if lhs.symbol == stateMemberSymbol =>
-              val replacement = switchIds(i)
-              treeCopy.Assign(tree, lhs, Literal(Constant(replacement)))
-            case _: Match | _: CaseDef | _: Block | _: If =>
-              super.transform(tree)
-            case _ => tree
-          }
+      private lazy val stateMemberSymbol = symLookup.stateMachineMember(name.state)
+      private val compactStateTransform = new Transformer {
+        override def transform(tree: Tree): Tree = tree match {
+          case as @ Assign(lhs, Literal(Constant(i: Integer))) if lhs.symbol == stateMemberSymbol =>
+            val replacement = switchIds(i)
+            treeCopy.Assign(tree, lhs, Literal(Constant(replacement)))
+          case _: Match | _: CaseDef | _: Block | _: If =>
+            super.transform(tree)
+          case _ => tree
         }
+      }
+
+      private def compactStates(m: Match): Tree = {
         val cases1 = m.cases.flatMap {
           case cd @ CaseDef(Literal(Constant(i: Integer)), EmptyTree, rhs) =>
             val replacement = switchIds(i)
