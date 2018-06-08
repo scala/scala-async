@@ -394,7 +394,7 @@ trait ExprBuilder {
         def stateLabel(s: Int) = {
           if (s == 0) "INITIAL" else if (s == Int.MaxValue) "TERMINAL" else switchIds.getOrElse(s, s).toString
         }
-        val length = asyncStates.size
+        val length = states.size
         for ((state, i) <- asyncStates.zipWithIndex) {
           dotBuilder.append(s"""${stateLabel(state.state)} [label=""").append("<")
           def show(t: Tree): String = {
@@ -410,10 +410,30 @@ trait ExprBuilder {
             toHtmlLabel(stateLabel(state.state), state.allStats.map(show(_)).mkString("\n"), dotBuilder)
           }
           dotBuilder.append("> ]\n")
+          state match {
+            case s: AsyncStateWithAwait =>
+              val CaseDef(_, _, body) = s.mkOnCompleteHandler.get
+              dotBuilder.append(s"""${stateLabel(s.onCompleteState)} [label=""").append("<")
+              toHtmlLabel(stateLabel(s.onCompleteState), show(compactStateTransform.transform(body)), dotBuilder)
+              dotBuilder.append("> ]\n")
+            case _ =>
+          }
         }
-        for (state <- states; succ <- state.nextStates) {
-          dotBuilder.append(s"""${stateLabel(state.state)} -> ${stateLabel(succ)}""")
-          dotBuilder.append("\n")
+        for (state <- states) {
+          state match {
+            case s: AsyncStateWithAwait =>
+              dotBuilder.append(s"""${stateLabel(state.state)} -> ${stateLabel(s.onCompleteState)} [style=dashed color=red]""")
+              dotBuilder.append("\n")
+              for (succ <- state.nextStates) {
+                dotBuilder.append(s"""${stateLabel(s.onCompleteState)} -> ${stateLabel(succ)}""")
+                dotBuilder.append("\n")
+              }
+            case _ =>
+              for (succ <- state.nextStates) {
+                dotBuilder.append(s"""${stateLabel(state.state)} -> ${stateLabel(succ)}""")
+                dotBuilder.append("\n")
+              }
+          }
         }
         dotBuilder.append("}\n")
         dotBuilder.toString
