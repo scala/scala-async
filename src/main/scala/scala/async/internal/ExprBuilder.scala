@@ -378,13 +378,15 @@ trait ExprBuilder {
       def toDot: String = {
         val states = asyncStates
         def toHtmlLabel(label: String, preText: String, builder: StringBuilder): Unit = {
+          val br = "<br align=\"left\"/>"
           builder.append("<b>").append(label).append("</b>").append("<br/>")
           builder.append("<font face=\"Courier\">")
           preText.split("\n").foreach {
             (line: String) =>
-              builder.append("<br/>")
-              builder.append(line.replaceAllLiterally("\"", "&quot;").replaceAllLiterally("<", "&lt;").replaceAllLiterally(">", "&gt;"))
+              builder.append(br)
+              builder.append(line.replaceAllLiterally("\"", "&quot;").replaceAllLiterally("<", "&lt;").replaceAllLiterally(">", "&gt;").replaceAllLiterally(" ", "&nbsp;"))
           }
+          builder.append(br)
           builder.append("</font>")
         }
         val dotBuilder = new StringBuilder()
@@ -395,11 +397,17 @@ trait ExprBuilder {
         val length = asyncStates.size
         for ((state, i) <- asyncStates.zipWithIndex) {
           dotBuilder.append(s"""${stateLabel(state.state)} [label=""").append("<")
+          def show(t: Tree): String = {
+            (t match {
+              case Block(stats, expr) => stats ::: expr :: Nil
+              case t => t :: Nil
+            }).iterator.map(t => showCode(t)).mkString("\n")
+          }
           if (i != length - 1) {
             val CaseDef(_, _, body) = state.mkHandlerCaseForState
-            toHtmlLabel(stateLabel(state.state), showCode(compactStateTransform.transform(body)), dotBuilder)
+            toHtmlLabel(stateLabel(state.state), show(compactStateTransform.transform(body)), dotBuilder)
           } else {
-            toHtmlLabel(stateLabel(state.state), state.allStats.map(showCode(_)).mkString("\n"), dotBuilder)
+            toHtmlLabel(stateLabel(state.state), state.allStats.map(show(_)).mkString("\n"), dotBuilder)
           }
           dotBuilder.append("> ]\n")
         }
