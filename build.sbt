@@ -5,9 +5,14 @@ scalaModuleSettings
 scalaVersionsByJvm in ThisBuild := {
   val v212 = "2.12.6"
   val v213 = "2.13.0-M3"
+
+  val allFalse = List(v212 -> false, v213 -> false)
   Map(
     8 -> List(v212 -> true, v213 -> true),
-    9 -> List(v212 -> false, v213 -> false))
+    9 -> allFalse,
+    10 -> allFalse,
+    11 -> allFalse
+  )
 }
 
 name := "scala-async"
