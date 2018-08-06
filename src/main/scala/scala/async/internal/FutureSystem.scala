@@ -71,12 +71,17 @@ trait FutureSystem {
 
     /** A hook for custom macros to transform the tree post-ANF transform */
     def postAnfTransform(tree: Block): Block = tree
+
+    /** A hook for custom macros to selectively generate and process a Graphviz visualization of the transformed state machine */
+    def dot(enclosingOwner: Symbol, macroApplication: Tree): Option[(String => Unit)] = None
   }
 
   def mkOps(c0: Context): Ops { val c: c0.type }
 
+  @deprecated("No longer honoured by the macro, all generated names now contain $async to avoid accidental clashes with lambda lifted names", "0.9.7")
   def freshenAllNames: Boolean = false
   def emitTryCatch: Boolean = true
+  @deprecated("No longer honoured by the macro, all generated names now contain $async to avoid accidental clashes with lambda lifted names", "0.9.7")
   def resultFieldName: String = "result"
 }
 
