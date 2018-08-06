@@ -37,7 +37,7 @@ final class AsyncNames[U <: Names with Singleton](val u: U) {
   private val ifRes: TermNameCache = new TermNameCache("if")
   private val await: TermNameCache = new TermNameCache("await")
 
-  private val resume = newTermName("resume")
+  private val result = newTermName("result$async")
   private val completed: TermName = newTermName("completed$async")
   private val apply = newTermName("apply")
   private val stateMachine  = newTermName("stateMachine$async")
@@ -57,7 +57,7 @@ final class AsyncNames[U <: Names with Singleton](val u: U) {
     final val ifRes = new NameSource[U#TermName](self.matchRes)
     final val await = new NameSource[U#TermName](self.await)
     final val completed = self.completed
-    final val result = self.resume
+    final val result = self.result
     final val apply = self.apply
     final val stateMachine = self.stateMachine
     final val stateMachineT = self.stateMachineT

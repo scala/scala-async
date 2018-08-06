@@ -81,6 +81,7 @@ trait FutureSystem {
   @deprecated("No longer honoured by the macro, all generated names now contain $async to avoid accidental clashes with lambda lifted names", "0.9.7")
   def freshenAllNames: Boolean = false
   def emitTryCatch: Boolean = true
+  @deprecated("No longer honoured by the macro, all generated names now contain $async to avoid accidental clashes with lambda lifted names", "0.9.7")
   def resultFieldName: String = "result"
 }
 
