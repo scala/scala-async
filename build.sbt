@@ -58,3 +58,49 @@ pomExtra := (
   </developers>
   )
 OsgiKeys.exportPackage := Seq(s"scala.async.*;version=${version.value}")
+
+commands += testDeterminism
+
+def testDeterminism = Command.command("testDeterminism") { state =>
+  val extracted = Project.extract(state)
+  println("Running test:clean")
+  val (state1, _) = extracted.runTask(clean in Test in LocalRootProject, state)
+  println("Running test:compile")
+  val (state2, _) = extracted.runTask(compile in Test in LocalRootProject, state1)
+  val testClasses = extracted.get(classDirectory in Test)
+  val baseline: File = testClasses.getParentFile / (testClasses.getName + "-baseline")
+  baseline.mkdirs()
+  IO.copyDirectory(testClasses, baseline, overwrite = true)
+  IO.delete(testClasses)
+  println("Running test:compile")
+  val (state3, _) = extracted.runTask(compile in Test in LocalRootProject, state2)
+
+  import java.nio.file.FileVisitResult
+  import java.nio.file.{Files, Path}
+  import java.nio.file.SimpleFileVisitor
+  import java.nio.file.attribute.BasicFileAttributes
+  import java.util
+
+  def checkSameFileContents(one: Path, other: Path): Unit = {
+    Files.walkFileTree(one, new SimpleFileVisitor[Path]() {
+      override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
+        val result: FileVisitResult = super.visitFile(file, attrs)
+        // get the relative file name from path "one"
+        val relativize: Path = one.relativize(file)
+        // construct the path for the counterpart file in "other"
+        val fileInOther: Path = other.resolve(relativize)
+        val otherBytes: Array[Byte] = Files.readAllBytes(fileInOther)
+        val thisBytes: Array[Byte] = Files.readAllBytes(file)
+        if (!(util.Arrays.equals(otherBytes, thisBytes))) {
+          throw new AssertionError(file + " is not equal to " + fileInOther)
+        }
+        return result
+      }
+    })
+  }
+  println("Comparing: " + baseline.toPath + " and " + testClasses.toPath)
+  checkSameFileContents(baseline.toPath, testClasses.toPath)
+  checkSameFileContents(testClasses.toPath, baseline.toPath)
+
+  state3
+}

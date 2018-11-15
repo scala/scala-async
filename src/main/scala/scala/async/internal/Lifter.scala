@@ -1,5 +1,7 @@
 package scala.async.internal
 
+import scala.collection.mutable
+
 trait Lifter {
   self: AsyncMacro =>
   import c.universe._
@@ -37,7 +39,7 @@ trait Lifter {
     }
 
 
-    val defs: Map[Tree, Int] = {
+    val defs: mutable.LinkedHashMap[Tree, Int] = {
       /** Collect the DefTrees directly enclosed within `t` that have the same owner */
       def collectDirectlyEnclosedDefs(t: Tree): List[DefTree] = t match {
         case ld: LabelDef => Nil
@@ -48,33 +50,33 @@ trait Lifter {
           companionship.record(childDefs)
           childDefs
       }
-      asyncStates.flatMap {
+      mutable.LinkedHashMap(asyncStates.flatMap {
         asyncState =>
           val defs = collectDirectlyEnclosedDefs(Block(asyncState.allStats: _*))
           defs.map((_, asyncState.state))
-      }.toMap
+      }: _*)
     }
 
     // In which block are these symbols defined?
-    val symToDefiningState: Map[Symbol, Int] = defs.map {
+    val symToDefiningState: mutable.LinkedHashMap[Symbol, Int] = defs.map {
       case (k, v) => (k.symbol, v)
     }
 
     // The definitions trees
-    val symToTree: Map[Symbol, Tree] = defs.map {
+    val symToTree: mutable.LinkedHashMap[Symbol, Tree] = defs.map {
       case (k, v) => (k.symbol, k)
     }
 
     // The direct references of each definition tree
-    val defSymToReferenced: Map[Symbol, List[Symbol]] = defs.keys.map {
-      case tree => (tree.symbol, tree.collect {
+    val defSymToReferenced: mutable.LinkedHashMap[Symbol, List[Symbol]] = defs.map {
+      case (tree, _) => (tree.symbol, tree.collect {
         case rt: RefTree if symToDefiningState.contains(rt.symbol) => rt.symbol
       })
-    }.toMap
+    }
 
     // The direct references of each block, excluding references of `DefTree`-s which
     // are already accounted for.
-    val stateIdToDirectlyReferenced: Map[Int, List[Symbol]] = {
+    val stateIdToDirectlyReferenced: mutable.LinkedHashMap[Int, List[Symbol]] = {
       val refs: List[(Int, Symbol)] = asyncStates.flatMap(
         asyncState => asyncState.stats.filterNot(t => t.isDef && !isLabel(t.symbol)).flatMap(_.collect {
           case rt: RefTree
@@ -84,8 +86,8 @@ trait Lifter {
       toMultiMap(refs)
     }
 
-    def liftableSyms: Set[Symbol] = {
-      val liftableMutableSet = collection.mutable.Set[Symbol]()
+    def liftableSyms: mutable.LinkedHashSet[Symbol] = {
+      val liftableMutableSet = mutable.LinkedHashSet[Symbol]()
       def markForLift(sym: Symbol): Unit = {
         if (!liftableMutableSet(sym)) {
           liftableMutableSet += sym
@@ -97,19 +99,19 @@ trait Lifter {
         }
       }
       // Start things with DefTrees directly referenced from statements from other states...
-      val liftableStatementRefs: List[Symbol] = stateIdToDirectlyReferenced.toList.flatMap {
+      val liftableStatementRefs: List[Symbol] = stateIdToDirectlyReferenced.iterator.flatMap {
         case (i, syms) => syms.filter(sym => symToDefiningState(sym) != i)
-      }
+      }.toList
       // .. and likewise for DefTrees directly referenced by other DefTrees from other states
       val liftableRefsOfDefTrees = defSymToReferenced.toList.flatMap {
         case (referee, referents) => referents.filter(sym => symToDefiningState(sym) != symToDefiningState(referee))
       }
       // Mark these for lifting, which will follow transitive references.
       (liftableStatementRefs ++ liftableRefsOfDefTrees).foreach(markForLift)
-      liftableMutableSet.toSet
+      liftableMutableSet
     }
 
-    val lifted = liftableSyms.map(symToTree).toList.map {
+    liftableSyms.iterator.map(symToTree).map {
       t =>
         val sym = t.symbol
         val treeLifted = t match {
@@ -147,7 +149,6 @@ trait Lifter {
             treeCopy.TypeDef(td, Modifiers(sym.flags), sym.name, tparams, rhs)
         }
         atPos(t.pos)(treeLifted)
-    }
-    lifted
+    }.toList
   }
 }
