@@ -1,5 +1,7 @@
 package scala.async.internal
 
+import scala.collection.mutable
+
 import java.util
 import java.util.function.{IntConsumer, IntPredicate}
 
@@ -19,12 +21,12 @@ trait LiveVariables {
    *  @return  a map mapping a state to the fields that should be nulled out
    *           upon resuming that state
    */
-  def fieldsToNullOut(asyncStates: List[AsyncState], liftables: List[Tree]): Map[Int, List[Tree]] = {
+  def fieldsToNullOut(asyncStates: List[AsyncState], liftables: List[Tree]): mutable.LinkedHashMap[Int, List[Tree]] = {
     // live variables analysis:
     // the result map indicates in which states a given field should be nulled out
-    val liveVarsMap: Map[Tree, StateSet] = liveVars(asyncStates, liftables)
+    val liveVarsMap: mutable.LinkedHashMap[Tree, StateSet] = liveVars(asyncStates, liftables)
 
-    var assignsOf = Map[Int, List[Tree]]()
+    var assignsOf = mutable.LinkedHashMap[Int, List[Tree]]()
 
     for ((fld, where) <- liveVarsMap) {
       where.foreach { new IntConsumer { def accept(state: Int): Unit = {
@@ -54,7 +56,7 @@ trait LiveVariables {
    *  @param   liftables   the lifted fields
    *  @return              a map which indicates for a given field (the key) the states in which it should be nulled out
    */
-  def liveVars(asyncStates: List[AsyncState], liftables: List[Tree]): Map[Tree, StateSet] = {
+  def liveVars(asyncStates: List[AsyncState], liftables: List[Tree]): mutable.LinkedHashMap[Tree, StateSet] = {
     val liftedSyms: Set[Symbol] = // include only vars
       liftables.iterator.filter {
         case ValDef(mods, _, _, _) => mods.hasFlag(MUTABLE)
@@ -262,15 +264,15 @@ trait LiveVariables {
       result
     }
 
-    val lastUsages: Map[Tree, StateSet] =
-      liftables.iterator.map(fld => fld -> lastUsagesOf(fld, finalState)).toMap
+    val lastUsages: mutable.LinkedHashMap[Tree, StateSet] =
+      mutable.LinkedHashMap(liftables.map(fld => fld -> lastUsagesOf(fld, finalState)): _*)
 
     if(AsyncUtils.verbose) {
       for ((fld, lastStates) <- lastUsages)
         AsyncUtils.vprintln(s"field ${fld.symbol.name} is last used in states ${lastStates.iterator.mkString(", ")}")
     }
 
-    val nullOutAt: Map[Tree, StateSet] =
+    val nullOutAt: mutable.LinkedHashMap[Tree, StateSet] =
       for ((fld, lastStates) <- lastUsages) yield {
         var result = new StateSet
         lastStates.foreach(new IntConsumer { def accept(s: Int): Unit = {

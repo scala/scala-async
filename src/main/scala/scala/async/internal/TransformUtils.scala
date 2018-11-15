@@ -6,6 +6,8 @@ package scala.async.internal
 import scala.reflect.macros.Context
 import reflect.ClassTag
 import scala.collection.immutable.ListMap
+import scala.collection.mutable
+import scala.collection.mutable.ListBuffer
 
 /**
  * Utilities used in both `ExprBuilder` and `AnfTransform`.
@@ -303,8 +305,15 @@ private[async] trait TransformUtils {
     })
   }
 
-  def toMultiMap[A, B](as: Iterable[(A, B)]): Map[A, List[B]] =
-    as.toList.groupBy(_._1).mapValues(_.map(_._2).toList).toMap
+  def toMultiMap[A, B](abs: Iterable[(A, B)]): mutable.LinkedHashMap[A, List[B]] = {
+    // LinkedHashMap for stable order of results.
+    val result = new mutable.LinkedHashMap[A, ListBuffer[B]]()
+    for ((a, b) <- abs) {
+      val buffer = result.getOrElseUpdate(a, new ListBuffer[B])
+      buffer += b
+    }
+    result.map { case (a, b) => (a, b.toList) }
+  }
 
   // Attributed version of `TreeGen#mkCastPreservingAnnotations`
   def mkAttributedCastPreservingAnnotations(tree: Tree, tp: Type): Tree = {
