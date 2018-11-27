@@ -6,8 +6,9 @@ package scala.async
 package run
 package futures
 
-import scala.language.postfixOps
+import java.util.concurrent.ConcurrentHashMap
 
+import scala.language.postfixOps
 import scala.concurrent._
 import scala.concurrent.duration._
 import scala.concurrent.duration.Duration.Inf
@@ -34,10 +35,10 @@ class FutureSpec {
   /* future specification */
 
     @Test def `A future with custom ExecutionContext should handle Throwables`(): Unit = {
-      val ms = new mutable.HashSet[Throwable] with mutable.SynchronizedSet[Throwable]
+      val ms = new ConcurrentHashMap[Throwable, Unit]
       implicit val ec = scala.concurrent.ExecutionContext.fromExecutor(new java.util.concurrent.ForkJoinPool(), {
         t =>
-        ms += t
+        ms.put(t, ())
       })
       
       class ThrowableTest(m: String) extends Throwable(m)
