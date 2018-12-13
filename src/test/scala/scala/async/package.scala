@@ -35,7 +35,7 @@ package object async {
       throw new Exception(s"Exception of type ${classTag[T]} was not thrown")
     } catch {
       case t: Throwable =>
-        if (classTag[T].runtimeClass != t.getClass) throw t
+        if (!classTag[T].runtimeClass.isAssignableFrom(t.getClass)) throw t
         else t.asInstanceOf[T]
     }
   }
