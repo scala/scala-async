@@ -185,7 +185,7 @@ trait LiveVariables {
      */
 
     var LVentry = IntMap[Set[Symbol]]() withDefaultValue Set[Symbol]()
-    var LVexit  = IntMap[Set[Symbol]]() withDefaultValue Set[Symbol]()
+    var LVexit: Map[Int, Set[Symbol]] = IntMap[Set[Symbol]]() withDefaultValue Set[Symbol]()
 
     // All fields are declared to be dead at the exit of the final async state, except for the ones
     // that cannot be nulled out at all (those in noNull), because they have been captured by a nested def.
