@@ -1,6 +1,7 @@
 package scala.async.internal
 
 import scala.collection.mutable
+import scala.collection.mutable.ListBuffer
 
 trait Lifter {
   self: AsyncMacro =>
@@ -77,13 +78,25 @@ trait Lifter {
     // The direct references of each block, excluding references of `DefTree`-s which
     // are already accounted for.
     val stateIdToDirectlyReferenced: mutable.LinkedHashMap[Int, List[Symbol]] = {
-      val refs: List[(Int, Symbol)] = asyncStates.flatMap(
-        asyncState => asyncState.stats.filterNot(t => t.isDef && !isLabel(t.symbol)).flatMap(_.collect {
+      val result = new mutable.LinkedHashMap[Int, ListBuffer[Symbol]]()
+      asyncStates.foreach(
+        asyncState => asyncState.stats.filterNot(t => t.isDef && !isLabel(t.symbol)).foreach(_.foreach {
           case rt: RefTree
-            if symToDefiningState.contains(rt.symbol) => (asyncState.state, rt.symbol)
+            if symToDefiningState.contains(rt.symbol) =>
+              result.getOrElseUpdate(asyncState.state, new ListBuffer) += rt.symbol
+          case tt: TypeTree =>
+            tt.tpe.foreach { tp =>
+              val termSym = tp.termSymbol
+              if (symToDefiningState.contains(termSym))
+                result.getOrElseUpdate(asyncState.state, new ListBuffer) += termSym
+              val typeSym = tp.typeSymbol
+              if (symToDefiningState.contains(typeSym))
+                result.getOrElseUpdate(asyncState.state, new ListBuffer) += typeSym
+            }
+          case _ =>
         })
       )
-      toMultiMap(refs)
+      result.map { case (a, b) => (a, b.result())}
     }
 
     def liftableSyms: mutable.LinkedHashSet[Symbol] = {
