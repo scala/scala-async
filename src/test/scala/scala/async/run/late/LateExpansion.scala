@@ -3,7 +3,7 @@ package scala.async.run.late
 import java.io.File
 
 import junit.framework.Assert.assertEquals
-import org.junit.{Assert, Test}
+import org.junit.{Assert, Ignore, Test}
 
 import scala.annotation.StaticAnnotation
 import scala.annotation.meta.{field, getter}
@@ -32,6 +32,7 @@ class LateExpansion {
     assertEquals("Foo(1)", result.toString)
   }
 
+  @Ignore("Need to use adjustType more pervasively in AsyncTransform, but that exposes bugs in {Type, ... }Symbol's cache invalidation")
   @Test def testIsInstanceOfType(): Unit = {
     val result = wrapAndRun(
       """

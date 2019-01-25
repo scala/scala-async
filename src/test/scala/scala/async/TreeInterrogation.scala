@@ -70,16 +70,28 @@ object TreeInterrogationApp extends App {
     val tree = tb.parse(
       """
         | import scala.async.internal.AsyncId._
-        | async {
-        |   var b = true
-        |   while(await(b)) {
-        |     b = false
-        |   }
-        |   (1, 1) match {
-        |     case (x, y) => await(2); println(x)
-        |   }
-        |   await(b)
+        | trait QBound { type D; trait ResultType { case class Inner() }; def toResult: ResultType = ??? }
+        | trait QD[Q <: QBound] {
+        |     val operation: Q
+        |     type D = operation.D
         | }
+        |
+        |     async {
+        |      if (!"".isEmpty) {
+        |      val treeResult = null.asInstanceOf[QD[QBound]]
+        |      await(0)
+        |      val y = treeResult.operation
+        |      type RD = treeResult.operation.D
+        |      (null: Object) match {
+        |        case (_, _: RD) => ???
+        |        case _ => val x = y.toResult; x.Inner()
+        |      }
+        |      await(1)
+        |      (y, null.asInstanceOf[RD])
+        |      ""
+        |      }
+        |
+        |    }
         |
         | """.stripMargin)
     println(tree)

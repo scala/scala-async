@@ -154,38 +154,9 @@ trait AsyncTransform {
             sym.asModule.moduleClass.setOwner(stateMachineClass)
         }
     }
-    // Replace the ValDefs in the splicee with Assigns to the corresponding lifted
-    // fields. Similarly, replace references to them with references to the field.
-    //
-    // This transform will only be run on the RHS of `def foo`.
-    val useFields: (Tree, TypingTransformApi) => Tree = (tree, api) => {
-      val result: Tree = tree match {
-        case _ if api.currentOwner == stateMachineClass =>
-          api.default(tree)
-        case ValDef(_, _, _, rhs) if liftedSyms(tree.symbol) =>
-          api.atOwner(api.currentOwner) {
-            val fieldSym = tree.symbol
-            if (fieldSym.asTerm.isLazy) Literal(Constant(()))
-            else {
-              val lhs = atPos(tree.pos) {
-                gen.mkAttributedStableRef(thisType(fieldSym.owner.asClass), fieldSym)
-              }
-              treeCopy.Assign(tree, lhs, api.recur(rhs)).setType(definitions.UnitTpe).changeOwner(fieldSym, api.currentOwner)
-            }
-          }
-        case _: DefTree if liftedSyms(tree.symbol) =>
-          EmptyTree
-        case Ident(name) if liftedSyms(tree.symbol) =>
-          val fieldSym = tree.symbol
-          atPos(tree.pos) {
-            gen.mkAttributedStableRef(thisType(fieldSym.owner.asClass), fieldSym).setType(tree.tpe)
-          }
-        case ta: TypeApply =>
-          api.default(tree)
-        case _ =>
-          api.default(tree)
-      }
-      val resultType = if (result.tpe eq null) null else result.tpe.map {
+
+    def adjustType(tree: Tree): Tree = {
+      val resultType = if (tree.tpe eq null) null else tree.tpe.map {
         case TypeRef(pre, sym, args) if liftedSyms.contains(sym) =>
           val tp1 = internal.typeRef(thisType(sym.owner.asClass), sym, args)
           tp1
@@ -194,7 +165,41 @@ trait AsyncTransform {
           tp1
         case tp => tp
       }
-      setType(result, resultType)
+      setType(tree, resultType)
+    }
+
+    // Replace the ValDefs in the splicee with Assigns to the corresponding lifted
+    // fields. Similarly, replace references to them with references to the field.
+    //
+    // This transform will only be run on the RHS of `def foo`.
+  val useFields: (Tree, TypingTransformApi) => Tree = (tree, api) => tree match {
+      case _ if api.currentOwner == stateMachineClass =>
+        api.default(tree)
+      case ValDef(_, _, _, rhs) if liftedSyms(tree.symbol) =>
+        api.atOwner(api.currentOwner) {
+          val fieldSym = tree.symbol
+          if (fieldSym.asTerm.isLazy) Literal(Constant(()))
+          else {
+            val lhs = atPos(tree.pos) {
+              gen.mkAttributedStableRef(thisType(fieldSym.owner.asClass), fieldSym)
+            }
+            treeCopy.Assign(tree, lhs, api.recur(rhs)).setType(definitions.UnitTpe).changeOwner(fieldSym, api.currentOwner)
+          }
+        }
+      case _: DefTree if liftedSyms(tree.symbol) =>
+        EmptyTree
+      case Ident(name) if liftedSyms(tree.symbol) =>
+        val fieldSym = tree.symbol
+        atPos(tree.pos) {
+          gen.mkAttributedStableRef(thisType(fieldSym.owner.asClass), fieldSym).setType(tree.tpe)
+        }
+      case sel @ Select(n@New(tt: TypeTree), nme.CONSTRUCTOR) =>
+        adjustType(sel)
+        adjustType(n)
+        adjustType(tt)
+        sel
+      case _ =>
+        api.default(tree)
     }
 
     val liftablesUseFields = liftables.map {
