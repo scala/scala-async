@@ -3,11 +3,10 @@ package scala.async.run.late
 import java.io.File
 
 import junit.framework.Assert.assertEquals
-import org.junit.{Assert, Test}
+import org.junit.{Assert, Ignore, Test}
 
 import scala.annotation.StaticAnnotation
 import scala.annotation.meta.{field, getter}
-import scala.async.TreeInterrogation
 import scala.async.internal.AsyncId
 import scala.reflect.internal.util.ScalaClassLoader.URLClassLoader
 import scala.tools.nsc._
@@ -19,6 +18,57 @@ import scala.tools.nsc.transform.TypingTransformers
 // calls it from a new phase that runs after patmat.
 class LateExpansion {
 
+  @Test def testRewrittenApply(): Unit = {
+    val result = wrapAndRun(
+      """
+        | object O {
+        |   case class Foo(a: Any)
+        | }
+        | @autoawait def id(a: String) = a
+        | O.Foo
+        | id("foo") + id("bar")
+        | O.Foo(1)
+        | """.stripMargin)
+    assertEquals("Foo(1)", result.toString)
+  }
+
+  @Ignore("Need to use adjustType more pervasively in AsyncTransform, but that exposes bugs in {Type, ... }Symbol's cache invalidation")
+  @Test def testIsInstanceOfType(): Unit = {
+    val result = wrapAndRun(
+      """
+        | class Outer
+        | @autoawait def id(a: String) = a
+        | val o = new Outer
+        | id("foo") + id("bar")
+        | ("": Object).isInstanceOf[o.type]
+        | """.stripMargin)
+    assertEquals(false, result)
+  }
+
+  @Test def testIsInstanceOfTerm(): Unit = {
+    val result = wrapAndRun(
+      """
+        | class Outer
+        | @autoawait def id(a: String) = a
+        | val o = new Outer
+        | id("foo") + id("bar")
+        | o.isInstanceOf[Outer]
+        | """.stripMargin)
+    assertEquals(true, result)
+  }
+
+  @Test def testArrayLocalModule(): Unit = {
+    val result = wrapAndRun(
+      """
+        | class Outer
+        | @autoawait def id(a: String) = a
+        | val O = ""
+        | id("foo") + id("bar")
+        | new Array[O.type](0)
+        | """.stripMargin)
+    assertEquals(classOf[Array[String]], result.getClass)
+  }
+
   @Test def test0(): Unit = {
     val result = wrapAndRun(
       """
@@ -27,6 +77,7 @@ class LateExpansion {
         | """.stripMargin)
     assertEquals("foobar", result)
   }
+
   @Test def testGuard(): Unit = {
     val result = wrapAndRun(
       """
@@ -143,6 +194,7 @@ class LateExpansion {
         |}
         | """.stripMargin)
   }
+
   @Test def shadowing2(): Unit = {
     val result = run(
       """
@@ -369,6 +421,7 @@ class LateExpansion {
       }
       """)
   }
+
   @Test def testNegativeArraySizeExceptionFine1(): Unit = {
     val result = run(
       """
@@ -389,18 +442,20 @@ class LateExpansion {
       }
       """)
   }
+
   private def createTempDir(): File = {
     val f = File.createTempFile("output", "")
     f.delete()
     f.mkdirs()
     f
   }
+
   def run(code: String): Any = {
-    // settings.processArgumentString("-Xprint:patmat,postpatmat,jvm -Ybackend:GenASM -nowarn")
     val out = createTempDir()
     try {
       val reporter = new StoreReporter
       val settings = new Settings(println(_))
+      //settings.processArgumentString("-Xprint:refchecks,patmat,postpatmat,jvm -nowarn")
       settings.outdir.value = out.getAbsolutePath
       settings.embeddedDefaults(getClass.getClassLoader)
       val isInSBT = !settings.classpath.isSetByUser
@@ -432,6 +487,7 @@ class LateExpansion {
 }
 
 abstract class LatePlugin extends Plugin {
+
   import global._
 
   override val components: List[PluginComponent] = List(new PluginComponent with TypingTransformers {
@@ -448,16 +504,16 @@ abstract class LatePlugin extends Plugin {
         super.transform(tree) match {
           case ap@Apply(fun, args) if fun.symbol.hasAnnotation(autoAwaitSym) =>
             localTyper.typed(Apply(TypeApply(gen.mkAttributedRef(asyncIdSym.typeOfThis, awaitSym), TypeTree(ap.tpe) :: Nil), ap :: Nil))
-          case sel@Select(fun, _) if sel.symbol.hasAnnotation(autoAwaitSym) && !(tree.tpe.isInstanceOf[MethodTypeApi] || tree.tpe.isInstanceOf[PolyTypeApi] ) =>
+          case sel@Select(fun, _) if sel.symbol.hasAnnotation(autoAwaitSym) && !(tree.tpe.isInstanceOf[MethodTypeApi] || tree.tpe.isInstanceOf[PolyTypeApi]) =>
             localTyper.typed(Apply(TypeApply(gen.mkAttributedRef(asyncIdSym.typeOfThis, awaitSym), TypeTree(sel.tpe) :: Nil), sel :: Nil))
           case dd: DefDef if dd.symbol.hasAnnotation(lateAsyncSym) => atOwner(dd.symbol) {
-            deriveDefDef(dd){ rhs: Tree =>
+            deriveDefDef(dd) { rhs: Tree =>
               val invoke = Apply(TypeApply(gen.mkAttributedRef(asyncIdSym.typeOfThis, asyncSym), TypeTree(rhs.tpe) :: Nil), List(rhs))
               localTyper.typed(atPos(dd.pos)(invoke))
             }
           }
           case vd: ValDef if vd.symbol.hasAnnotation(lateAsyncSym) => atOwner(vd.symbol) {
-            deriveValDef(vd){ rhs: Tree =>
+            deriveValDef(vd) { rhs: Tree =>
               val invoke = Apply(TypeApply(gen.mkAttributedRef(asyncIdSym.typeOfThis, asyncSym), TypeTree(rhs.tpe) :: Nil), List(rhs))
               localTyper.typed(atPos(vd.pos)(invoke))
             }
@@ -468,6 +524,7 @@ abstract class LatePlugin extends Plugin {
         }
       }
     }
+
     override def newPhase(prev: Phase): Phase = new StdPhase(prev) {
       override def apply(unit: CompilationUnit): Unit = {
         val translated = newTransformer(unit).transformUnit(unit)
@@ -476,7 +533,7 @@ abstract class LatePlugin extends Plugin {
       }
     }
 
-    override val runsAfter: List[String] = "patmat" :: Nil
+    override val runsAfter: List[String] = "refchecks" :: Nil
     override val phaseName: String = "postpatmat"
 
   })
