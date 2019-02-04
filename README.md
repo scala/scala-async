@@ -2,7 +2,7 @@
 
 ## Supported Scala versions
 
-This branch targets Scala 2.12 and 2.13.
+This branch (version series 0.10.x) targets Scala 2.12 and 2.13.
 
 Support for Scala 2.11 is [on a branch](https://github.com/scala/scala-async/tree/2.11.x).
 
@@ -14,7 +14,7 @@ To include scala-async in an existing project use the library published on Maven
 For sbt projects add the following to your build definition - build.sbt or project/Build.scala:
 
 ```scala
-libraryDependencies += "org.scala-lang.modules" %% "scala-async" % "0.10.0"
+libraryDependencies += "org.scala-lang.modules" %% "scala-async" % "0.9.7"
 ```
 
 For Maven projects add the following to your <dependencies> (make sure to use the correct Scala version suffix
