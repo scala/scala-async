@@ -19,6 +19,8 @@ set -e
 verPat="[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9-]+)?"
 tagPat="^v$verPat(#$verPat#[0-9]+)?$"
 
+publish=no
+
 if [[ "$TRAVIS_TAG" =~ $tagPat ]]; then
   currentJvmVer=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}' | sed 's/^1\.//' | sed 's/[^0-9].*//')
 
@@ -39,6 +41,13 @@ if [[ "$TRAVIS_TAG" =~ $tagPat ]]; then
     echo "Releasing $tagVer on Java version $currentJvmVer according to 'scalaVersionsByJvm' in build.sbt."
   fi
 
+  publish=yes
+elif [[ "$TRAVIS_BRANCH" = master ]]; then
+  publishVersion='set every version := "0.0.'$(date +%Y%m%d)'-'$TRAVIS_COMMIT'"'
+  publish=yes
+fi
+
+if [[ "$publish" = yes ]]; then
   extraTarget="+publish-signed"
   cat admin/gpg.sbt >> project/plugins.sbt
   cp admin/publish-settings.sbt .
