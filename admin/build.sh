@@ -42,7 +42,7 @@ if [[ "$TRAVIS_TAG" =~ $tagPat ]]; then
   fi
 
   publish=yes
-elif [[ "$TRAVIS_BRANCH" = master ]]; then
+elif [[ "$TRAVIS_BRANCH" = master ]] && [[ "$TRAVIS_PULL_REQUEST" = false ]]; then
   publish=yes
 fi
 
