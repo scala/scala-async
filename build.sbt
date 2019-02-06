@@ -18,7 +18,11 @@ scalaVersionsByJvm in ThisBuild := {
 name := "scala-async"
 repoName := "async"
 
-version := "0.10.0-SNAPSHOT"
+// When the git tag includes a scala version and/or jvm version, remove both from the release version
+version in ThisBuild ~= (_.replaceFirst("#[^+]+", ""))
+
+// SNAPSHOT versions are not cached by consumers.  Since sbt-dynver already sets unique versions, do not produce a snapshot version.
+dynverSonatypeSnapshots in ThisBuild := false
 
 libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value % "provided"
 libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value % "test" // for ToolBox

@@ -43,7 +43,6 @@ if [[ "$TRAVIS_TAG" =~ $tagPat ]]; then
 
   publish=yes
 elif [[ "$TRAVIS_BRANCH" = master ]]; then
-  publishVersion='set every version := "0.0.'$(date +%Y%m%d)'-'$TRAVIS_COMMIT'"'
   publish=yes
 fi
 
