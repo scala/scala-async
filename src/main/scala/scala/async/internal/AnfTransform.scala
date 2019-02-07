@@ -255,7 +255,7 @@ private[async] trait AnfTransform {
 
             case ValDef(mods, name, tpt, rhs) =>
               if (containsAwait(rhs)) {
-                val stats :+ expr = api.atOwner(api.currentOwner.owner)(linearize.transformToList(rhs))
+                val stats :+ expr = linearize.transformToList(rhs)
                 stats.foreach(_.changeOwner(api.currentOwner, api.currentOwner.owner))
                 stats :+ treeCopy.ValDef(tree, mods, name, tpt, expr)
               } else List(tree)
