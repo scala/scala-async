@@ -443,6 +443,56 @@ class LateExpansion {
       """)
   }
 
+  @Test def testByNameOwner(): Unit = {
+    val result = run(
+      """
+      import scala.async.run.late.{autoawait,lateasync}
+      object Bleh {
+        @autoawait @lateasync def asyncCall(): Int = 0
+        def byName[T](fn: => T): T = fn
+      }
+      object Boffo {
+        @autoawait @lateasync def jerk(): Unit = {
+          val pointlessSymbolOwner = 1 match {
+            case _ =>
+              Bleh.asyncCall()
+              Bleh.byName {
+                val whyDoHateMe = 1
+                whyDoHateMe
+              }
+          }
+        }
+      }
+      object Test {
+        @lateasync def test() = Boffo.jerk()
+      }
+      """)
+  }
+
+  @Test def testByNameOwner2(): Unit = {
+    val result = run(
+      """
+      import scala.async.run.late.{autoawait,lateasync}
+      object Bleh {
+        @autoawait @lateasync def bleh = Bleh
+        def byName[T](fn: => T): T = fn
+      }
+      object Boffo {
+        @autoawait @lateasync def slob(): Unit = {
+          val pointlessSymbolOwner =  {
+              Bleh.bleh.byName {
+                val whyDoHateMeToo = 1
+                whyDoHateMeToo
+              }
+          }
+        }
+      }
+      object Test {
+        @lateasync def test() = Boffo.slob()
+      }
+      """)
+  }
+
   private def createTempDir(): File = {
     val f = File.createTempFile("output", "")
     f.delete()
@@ -455,9 +505,9 @@ class LateExpansion {
     try {
       val reporter = new StoreReporter
       val settings = new Settings(println(_))
-      //settings.processArgumentString("-Xprint:refchecks,patmat,postpatmat,jvm -nowarn")
       settings.outdir.value = out.getAbsolutePath
       settings.embeddedDefaults(getClass.getClassLoader)
+      // settings.processArgumentString("-Xprint:patmat,postpatmat,jvm -nowarn")
       val isInSBT = !settings.classpath.isSetByUser
       if (isInSBT) settings.usejavacp.value = true
       val global = new Global(settings, reporter) {
