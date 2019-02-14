@@ -3,15 +3,14 @@ import ScalaModulePlugin._
 scalaModuleSettings
 
 scalaVersionsByJvm in ThisBuild := {
-  val v212 = "2.12.6"
+  val v212 = "2.12.8"
   val v213 = "2.13.0-M5"
 
   val allFalse = List(v212 -> false, v213 -> false)
   Map(
     8 -> List(v212 -> true, v213 -> true),
-    9 -> allFalse,
-    10 -> allFalse,
-    11 -> allFalse
+    11 -> allFalse,
+    12 -> allFalse
   )
 }
 
