@@ -118,7 +118,7 @@ trait ExprBuilder {
     private def tryGetTree(tryReference: => Tree) =
       Assign(
         Ident(awaitable.resultName),
-        TypeApply(Select(futureSystemOps.tryyGet[Any](c.Expr[futureSystem.Tryy[Any]](tryReference)).tree, newTermName("asInstanceOf")), List(TypeTree(awaitable.resultType)))
+        TypeApply(Select(futureSystemOps.tryyGet[Any](c.Expr[futureSystem.Tryy[Any]](tryReference)).tree, TermName("asInstanceOf")), List(TypeTree(awaitable.resultType)))
       )
 
     /* if (tr.isFailure)
@@ -136,7 +136,7 @@ trait ExprBuilder {
           Block(toList(futureSystemOps.completeProm[T](
             c.Expr[futureSystem.Prom[T]](symLookup.memberRef(name.result)),
             c.Expr[futureSystem.Tryy[T]](
-              TypeApply(Select(tryReference, newTermName("asInstanceOf")),
+              TypeApply(Select(tryReference, TermName("asInstanceOf")),
                 List(TypeTree(futureSystemOps.tryType[T]))))).tree),
             Return(literalUnit)),
           getAndUpdateState

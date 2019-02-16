@@ -124,7 +124,7 @@ private[async] trait TransformUtils {
   }
   private lazy val Boolean_ShortCircuits: Set[Symbol] = {
     import definitions.BooleanClass
-    def BooleanTermMember(name: String) = BooleanClass.typeSignature.member(newTermName(name).encodedName)
+    def BooleanTermMember(name: String) = BooleanClass.typeSignature.member(TermName(name).encodedName)
     val Boolean_&& = BooleanTermMember("&&")
     val Boolean_|| = BooleanTermMember("||")
     Set(Boolean_&&, Boolean_||)

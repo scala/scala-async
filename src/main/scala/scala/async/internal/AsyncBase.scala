@@ -64,13 +64,13 @@ abstract class AsyncBase {
   protected[async] def asyncMethod(u: Universe)(asyncMacroSymbol: u.Symbol): u.Symbol = {
     import u._
     if (asyncMacroSymbol == null) NoSymbol
-    else asyncMacroSymbol.owner.typeSignature.member(newTermName("async"))
+    else asyncMacroSymbol.owner.typeSignature.member(TermName("async"))
   }
 
   protected[async] def awaitMethod(u: Universe)(asyncMacroSymbol: u.Symbol): u.Symbol = {
     import u._
     if (asyncMacroSymbol == null) NoSymbol
-    else asyncMacroSymbol.owner.typeSignature.member(newTermName("await"))
+    else asyncMacroSymbol.owner.typeSignature.member(TermName("await"))
   }
 
   protected[async] def nullOut(u: Universe)(name: u.Expr[String], v: u.Expr[Any]): u.Expr[Unit] =
