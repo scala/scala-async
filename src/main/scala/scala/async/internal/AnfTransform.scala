@@ -65,7 +65,12 @@ private[async] trait AnfTransform {
 
       def listToBlock(trees: List[Tree]): Block = trees match {
         case trees @ (init :+ last) =>
-          val pos = trees.map(_.pos).reduceLeft(_ union _)
+          val pos = trees.map(_.pos).reduceLeft{
+            (p, q) =>
+              if (!q.isRange) p
+              else if (p.isRange) p.withStart(p.start.min(q.start)).withEnd(p.end.max(q.end))
+              else q
+          }
           newBlock(init, last).setType(last.tpe).setPos(pos)
       }
 
