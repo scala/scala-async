@@ -532,14 +532,14 @@ trait ExprBuilder {
             CaseDef(
             Bind(name.t, Typed(Ident(termNames.WILDCARD), Ident(defn.ThrowableClass))),
             EmptyTree, {
-              val then = {
+              val thenn = {
                 val t = c.Expr[Throwable](Ident(name.t))
                 val complete = futureSystemOps.completeProm[T](
                     c.Expr[futureSystem.Prom[T]](symLookup.memberRef(name.result)), futureSystemOps.tryyFailure[T](t)).tree
                 Block(toList(complete), Return(literalUnit))
               }
-              If(Apply(Ident(defn.NonFatalClass), List(Ident(name.t))), then, Throw(Ident(name.t)))
-              then
+              If(Apply(Ident(defn.NonFatalClass), List(Ident(name.t))), thenn, Throw(Ident(name.t)))
+              thenn
             })), EmptyTree)
       }
 
