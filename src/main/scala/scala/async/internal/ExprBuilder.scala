@@ -564,8 +564,8 @@ trait ExprBuilder {
       }
 
       def forever(t: Tree): Tree = {
-        val labelName = name.fresh("while$")
-        LabelDef(labelName, Nil, Block(toList(t), Apply(Ident(labelName), Nil)))
+        val termName = TermName(name.fresh("while$"))
+        LabelDef(termName, Nil, Block(toList(t), Apply(Ident(termName), Nil)))
       }
 
       /**
