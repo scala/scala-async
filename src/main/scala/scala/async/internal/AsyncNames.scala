@@ -43,7 +43,7 @@ final class AsyncNames[U <: Names with Singleton](val u: U) {
     override protected def newName(s: String): U#TermName = TermName(s)
   }
   final class TypeNameCache(base: String) extends NameCache[U#TypeName](base) {
-    override protected def newName(s: String): U#TypeName = newTypeName(s)
+    override protected def newName(s: String): U#TypeName = TypeName(s)
   }
   private val matchRes: TermNameCache = new TermNameCache("match")
   private val ifRes: TermNameCache = new TermNameCache("if")
