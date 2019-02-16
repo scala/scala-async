@@ -81,7 +81,7 @@ private[async] trait AnfTransform {
           def statsExprUnit =
             stats :+ expr :+ api.typecheck(atPos(expr.pos)(Literal(Constant(()))))
           def statsExprThrow =
-            stats :+ expr :+ api.typecheck(atPos(expr.pos)(Throw(Apply(Select(New(gen.mkAttributedRef(defn.IllegalStateExceptionClass)), nme.CONSTRUCTOR), Nil))))
+            stats :+ expr :+ api.typecheck(atPos(expr.pos)(Throw(Apply(Select(New(gen.mkAttributedRef(defn.IllegalStateExceptionClass)), termNames.CONSTRUCTOR), Nil))))
           expr match {
             case Apply(fun, args) if isAwait(fun) =>
               val valDef = defineVal(name.await(), expr, tree.pos)

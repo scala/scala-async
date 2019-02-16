@@ -253,8 +253,8 @@ private[async] trait TransformUtils {
   }
 
   def emptyConstructor: DefDef = {
-    val emptySuperCall = Apply(Select(Super(This(typeNames.EMPTY), typeNames.EMPTY), nme.CONSTRUCTOR), Nil)
-    DefDef(NoMods, nme.CONSTRUCTOR, List(), List(List()), TypeTree(), Block(List(emptySuperCall), Literal(Constant(()))))
+    val emptySuperCall = Apply(Select(Super(This(typeNames.EMPTY), typeNames.EMPTY), termNames.CONSTRUCTOR), Nil)
+    DefDef(NoMods, termNames.CONSTRUCTOR, List(), List(List()), TypeTree(), Block(List(emptySuperCall), Literal(Constant(()))))
   }
 
   def applied(className: String, types: List[Type]): AppliedTypeTree =

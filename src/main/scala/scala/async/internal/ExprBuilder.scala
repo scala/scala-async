@@ -523,14 +523,14 @@ trait ExprBuilder {
       private def resumeFunTree[T: WeakTypeTag]: Tree = {
         val stateMemberSymbol = symLookup.stateMachineMember(name.state)
         val stateMemberRef = symLookup.memberRef(name.state)
-        val body = Match(stateMemberRef, mkCombinedHandlerCases[T] ++ initStates.flatMap(_.mkOnCompleteHandler[T]) ++ List(CaseDef(Ident(nme.WILDCARD), EmptyTree, Throw(Apply(Select(New(Ident(defn.IllegalStateExceptionClass)), termNames.CONSTRUCTOR), List())))))
+        val body = Match(stateMemberRef, mkCombinedHandlerCases[T] ++ initStates.flatMap(_.mkOnCompleteHandler[T]) ++ List(CaseDef(Ident(termNames.WILDCARD), EmptyTree, Throw(Apply(Select(New(Ident(defn.IllegalStateExceptionClass)), termNames.CONSTRUCTOR), List())))))
         val body1 = compactStates(body)
 
         maybeTry(
           body1,
           List(
             CaseDef(
-            Bind(name.t, Typed(Ident(nme.WILDCARD), Ident(defn.ThrowableClass))),
+            Bind(name.t, Typed(Ident(termNames.WILDCARD), Ident(defn.ThrowableClass))),
             EmptyTree, {
               val then = {
                 val t = c.Expr[Throwable](Ident(name.t))
