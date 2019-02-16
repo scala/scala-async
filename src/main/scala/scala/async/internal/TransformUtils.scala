@@ -214,9 +214,9 @@ private[async] trait TransformUtils {
     */
   private def mapArguments[A](args: List[Tree])(f: (Tree, Int) => (A, Tree)): (List[A], List[Tree]) = {
     args match {
-      case args :+ Typed(tree, Ident(tpnme.WILDCARD_STAR)) =>
+      case args :+ Typed(tree, Ident(typeNames.WILDCARD_STAR)) =>
         val (a, argExprs :+ lastArgExpr) = (args :+ tree).zipWithIndex.map(f.tupled).unzip
-        val exprs = argExprs :+ atPos(lastArgExpr.pos.makeTransparent)(Typed(lastArgExpr, Ident(tpnme.WILDCARD_STAR)))
+        val exprs = argExprs :+ atPos(lastArgExpr.pos.makeTransparent)(Typed(lastArgExpr, Ident(typeNames.WILDCARD_STAR)))
         (a, exprs)
       case args                                            =>
         args.zipWithIndex.map(f.tupled).unzip
@@ -253,7 +253,7 @@ private[async] trait TransformUtils {
   }
 
   def emptyConstructor: DefDef = {
-    val emptySuperCall = Apply(Select(Super(This(tpnme.EMPTY), tpnme.EMPTY), nme.CONSTRUCTOR), Nil)
+    val emptySuperCall = Apply(Select(Super(This(typeNames.EMPTY), typeNames.EMPTY), nme.CONSTRUCTOR), Nil)
     DefDef(NoMods, nme.CONSTRUCTOR, List(), List(List()), TypeTree(), Block(List(emptySuperCall), Literal(Constant(()))))
   }
 
@@ -557,8 +557,8 @@ private[async] trait TransformUtils {
       val ACCESSOR = (1L << 27).asInstanceOf[FlagSet]
       val STABLE = (1L << 22).asInstanceOf[FlagSet]
       val field = ValDef(Modifiers(Flag.MUTABLE | Flag.PRIVATE | Flag.LOCAL), name + " ", TypeTree(tpt), init)
-      val getter = DefDef(Modifiers(ACCESSOR | STABLE), name, Nil, Nil, TypeTree(tpt), Select(This(tpnme.EMPTY), field.name))
-      val setter = DefDef(Modifiers(ACCESSOR), name + "_=", Nil, List(List(ValDef(NoMods, TermName("x"), TypeTree(tpt), EmptyTree))), TypeTree(definitions.UnitTpe), Assign(Select(This(tpnme.EMPTY), field.name), Ident(TermName("x"))))
+      val getter = DefDef(Modifiers(ACCESSOR | STABLE), name, Nil, Nil, TypeTree(tpt), Select(This(typeNames.EMPTY), field.name))
+      val setter = DefDef(Modifiers(ACCESSOR), name + "_=", Nil, List(List(ValDef(NoMods, TermName("x"), TypeTree(tpt), EmptyTree))), TypeTree(definitions.UnitTpe), Assign(Select(This(typeNames.EMPTY), field.name), Ident(TermName("x"))))
       field :: getter :: setter :: Nil
     } else {
       val result = ValDef(NoMods, name, TypeTree(tpt), init)

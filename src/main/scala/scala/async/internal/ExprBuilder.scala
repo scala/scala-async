@@ -99,7 +99,7 @@ trait ExprBuilder {
       Array(nextState)
 
     override def mkHandlerCaseForState[T: WeakTypeTag]: CaseDef = {
-      val fun = This(tpnme.EMPTY)
+      val fun = This(typeNames.EMPTY)
       val callOnComplete = futureSystemOps.onComplete[Any, Unit](c.Expr[futureSystem.Fut[Any]](awaitable.expr),
         c.Expr[futureSystem.Tryy[Any] => Unit](fun), c.Expr[futureSystem.ExecContext](Ident(name.execContext))).tree
       val tryGetOrCallOnComplete: List[Tree] =
