@@ -70,7 +70,7 @@ trait AsyncTransform {
         symbolOf[scala.Function1[Any, Any]]
       }
       val tryToUnit = appliedType(tycon, futureSystemOps.tryType[Any], typeOf[Unit])
-      val template = Template((futureSystemOps.stateMachineClassParents ::: List(tryToUnit, typeOf[() => Unit])).map(TypeTree(_)), emptyValDef, body)
+      val template = Template((futureSystemOps.stateMachineClassParents ::: List(tryToUnit, typeOf[() => Unit])).map(TypeTree(_)), noSelfType, body)
 
       val t = ClassDef(NoMods, name.stateMachineT, Nil, template)
       typecheckClassDef(t)
