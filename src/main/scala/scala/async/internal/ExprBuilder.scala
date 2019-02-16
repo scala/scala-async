@@ -399,7 +399,7 @@ trait ExprBuilder {
         val dotBuilder = new StringBuilder()
         dotBuilder.append("digraph {\n")
         def stateLabel(s: Int) = {
-          if (s == 0) "INITIAL" else if (s == Int.MaxValue) "TERMINAL" else switchIds.getOrElse(s, s).toString
+          if (s == 0) "INITIAL" else if (s == Int.MaxValue) "TERMINAL" else switchIds.get(s).map(_.toString).getOrElse(s.toString)
         }
         val length = states.size
         for ((state, i) <- asyncStates.zipWithIndex) {
