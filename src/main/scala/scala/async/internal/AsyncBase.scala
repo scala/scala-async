@@ -12,7 +12,7 @@
 
 package scala.async.internal
 
-import scala.reflect.internal.annotations.compileTimeOnly
+import scala.annotation.compileTimeOnly
 import scala.reflect.macros.whitebox
 import scala.reflect.api.Universe
 
