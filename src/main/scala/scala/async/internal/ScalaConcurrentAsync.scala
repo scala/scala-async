@@ -14,7 +14,6 @@ package scala
 package async
 package internal
 
-import scala.language.experimental.macros
 import scala.reflect.macros.whitebox
 import scala.concurrent.Future
 

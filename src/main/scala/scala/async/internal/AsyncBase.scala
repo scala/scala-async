@@ -50,7 +50,7 @@ abstract class AsyncBase {
   def asyncImpl[T: c.WeakTypeTag](c: whitebox.Context)
                                  (body: c.Expr[T])
                                  (execContext: c.Expr[futureSystem.ExecContext]): c.Expr[futureSystem.Fut[T]] = {
-    import c.universe._, c.internal._, decorators._
+    import c.internal._, decorators._
     val asyncMacro = AsyncMacro(c, self)(body.tree)
 
     val code = asyncMacro.asyncTransform[T](execContext.tree)(c.weakTypeTag[T])

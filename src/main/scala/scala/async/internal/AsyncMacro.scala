@@ -14,8 +14,6 @@ package scala.async.internal
 
 object AsyncMacro {
   def apply(c0: reflect.macros.whitebox.Context, base: AsyncBase)(body0: c0.Tree): AsyncMacro { val c: c0.type } = {
-    import language.reflectiveCalls
-
     // Use an attachment on RootClass as a sneaky place for a per-Global cache
     val att = c0.internal.attachments(c0.universe.rootMirror.RootClass)
     val names = att.get[AsyncNames[_]].getOrElse {

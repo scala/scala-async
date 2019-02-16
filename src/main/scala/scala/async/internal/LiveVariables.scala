@@ -14,8 +14,7 @@ package scala.async.internal
 
 import scala.collection.mutable
 
-import java.util
-import java.util.function.{IntConsumer, IntPredicate}
+import java.util.function.IntConsumer
 
 import scala.collection.immutable.IntMap
 

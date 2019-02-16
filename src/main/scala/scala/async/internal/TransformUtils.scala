@@ -12,8 +12,6 @@
 
 package scala.async.internal
 
-import scala.reflect.macros.Context
-import reflect.ClassTag
 import scala.collection.immutable.ListMap
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer

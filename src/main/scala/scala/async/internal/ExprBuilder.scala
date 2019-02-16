@@ -16,13 +16,11 @@ import java.util.function.IntUnaryOperator
 
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
-import language.existentials
 
 trait ExprBuilder {
   builder: AsyncMacro =>
 
   import c.universe._
-  import defn._
   import c.internal._
 
   val futureSystem: FutureSystem
