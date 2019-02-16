@@ -134,14 +134,14 @@ private[async] trait TransformUtils {
     if (Boolean_ShortCircuits contains fun.symbol) (i, j) => true
     else if (fun.tpe == null) (x, y) => false
     else {
-      val paramss = fun.tpe.paramss
-      val byNamess = paramss.map(_.map(_.asTerm.isByNameParam))
+      val paramLists = fun.tpe.paramLists
+      val byNamess = paramLists.map(_.map(_.asTerm.isByNameParam))
       (i, j) => util.Try(byNamess(i)(j)).getOrElse(false)
     }
   }
   private def argName(fun: Tree): ((Int, Int) => TermName) = {
-    val paramss = fun.tpe.paramss
-    val namess = paramss.map(_.map(_.name.toTermName))
+    val paramLists = fun.tpe.paramLists
+    val namess = paramLists.map(_.map(_.name.toTermName))
     (i, j) => util.Try(namess(i)(j)).getOrElse(TermName(s"arg_${i}_${j}"))
   }
 
