@@ -615,7 +615,7 @@ trait ExprBuilder {
     case _ if t.tpe != null => t.tpe
     case Try(body, Nil, _) => tpeOf(body)
     case Block(_, expr) => tpeOf(expr)
-    case Literal(Constant(value)) if value == () => definitions.UnitTpe
+    case Literal(Constant(value)) if value == (()) => definitions.UnitTpe
     case Return(_) => definitions.NothingTpe
     case _ => NoType
   }
@@ -643,7 +643,7 @@ trait ExprBuilder {
   def literalUnit = Literal(Constant(())) // a def to avoid sharing trees
 
   def toList(tree: Tree): List[Tree] = tree match {
-    case Block(stats, Literal(Constant(value))) if value == () => stats
+    case Block(stats, Literal(Constant(value))) if value == (()) => stats
     case _ => tree :: Nil
   }
 
