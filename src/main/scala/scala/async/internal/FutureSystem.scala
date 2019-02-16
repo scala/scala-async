@@ -18,7 +18,7 @@ import scala.reflect.macros.whitebox
 /**
  * An abstraction over a future system.
  *
- * Used by the macro implementations in [[scala.async.AsyncBase]] to
+ * Used by the macro implementations in [[scala.async.internal.AsyncBase]] to
  * customize the code generation.
  *
  * The API mirrors that of `scala.concurrent.Future`, see the instance
