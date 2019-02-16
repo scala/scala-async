@@ -13,7 +13,7 @@
 package scala.async.internal
 
 import scala.language.higherKinds
-import scala.reflect.macros.Context
+import scala.reflect.macros.whitebox
 
 /**
  * An abstraction over a future system.
@@ -36,7 +36,7 @@ trait FutureSystem {
   type Tryy[T]
 
   trait Ops {
-    val c: Context
+    val c: whitebox.Context
     import c.universe._
 
     def promType[A: WeakTypeTag]: Type
@@ -85,7 +85,7 @@ trait FutureSystem {
     def dot(enclosingOwner: Symbol, macroApplication: Tree): Option[(String => Unit)] = None
   }
 
-  def mkOps(c0: Context): Ops { val c: c0.type }
+  def mkOps(c0: whitebox.Context): Ops { val c: c0.type }
 
   @deprecated("No longer honoured by the macro, all generated names now contain $async to avoid accidental clashes with lambda lifted names", "0.9.7")
   def freshenAllNames: Boolean = false
@@ -103,7 +103,7 @@ object ScalaConcurrentFutureSystem extends FutureSystem {
   type ExecContext = ExecutionContext
   type Tryy[A] = scala.util.Try[A]
 
-  def mkOps(c0: Context): Ops {val c: c0.type} = new Ops {
+  def mkOps(c0: whitebox.Context): Ops {val c: c0.type} = new Ops {
     val c: c0.type = c0
     import c.universe._
 

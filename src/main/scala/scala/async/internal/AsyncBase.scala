@@ -13,7 +13,7 @@
 package scala.async.internal
 
 import scala.reflect.internal.annotations.compileTimeOnly
-import scala.reflect.macros.Context
+import scala.reflect.macros.whitebox
 import scala.reflect.api.Universe
 
 /**
@@ -47,7 +47,7 @@ abstract class AsyncBase {
   @compileTimeOnly("`await` must be enclosed in an `async` block")
   def await[T](awaitable: futureSystem.Fut[T]): T = ???
 
-  def asyncImpl[T: c.WeakTypeTag](c: Context)
+  def asyncImpl[T: c.WeakTypeTag](c: whitebox.Context)
                                  (body: c.Expr[T])
                                  (execContext: c.Expr[futureSystem.ExecContext]): c.Expr[futureSystem.Fut[T]] = {
     import c.universe._, c.internal._, decorators._
