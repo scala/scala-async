@@ -519,7 +519,6 @@ trait ExprBuilder {
        *     }
        */
       private def resumeFunTree[T: WeakTypeTag]: Tree = {
-        val stateMemberSymbol = symLookup.stateMachineMember(name.state)
         val stateMemberRef = symLookup.memberRef(name.state)
         val body = Match(stateMemberRef, mkCombinedHandlerCases[T] ++ initStates.flatMap(_.mkOnCompleteHandler[T]) ++ List(CaseDef(Ident(termNames.WILDCARD), EmptyTree, Throw(Apply(Select(New(Ident(defn.IllegalStateExceptionClass)), termNames.CONSTRUCTOR), List())))))
         val body1 = compactStates(body)
@@ -582,7 +581,7 @@ trait ExprBuilder {
        *     }
        */
       def onCompleteHandler[T: WeakTypeTag]: Tree = {
-        val onCompletes = initStates.flatMap(_.mkOnCompleteHandler[T])
+        initStates.flatMap(_.mkOnCompleteHandler[T])
         forever {
           adaptToUnit(toList(resumeFunTree))
         }

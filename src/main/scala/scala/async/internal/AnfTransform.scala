@@ -329,7 +329,6 @@ private[async] trait AnfTransform {
 
         val matchResults = collection.mutable.Buffer[Tree]()
         def modifyLabelDef(ld: LabelDef): (Tree, Tree) = {
-          val symTab = c.universe.asInstanceOf[reflect.internal.SymbolTable]
           val param = ld.params.head
           val ld2 = if (ld.params.head.tpe.typeSymbol == definitions.UnitClass) {
             // Unit typed match: eliminate the label def parameter, but don't create a matchres temp variable to
