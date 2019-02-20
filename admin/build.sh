@@ -39,7 +39,7 @@ if [[ "$TRAVIS_TAG" =~ $tagPat ]]; then
     echo "Releasing $tagVer on Java version $currentJvmVer according to 'scalaVersionsByJvm' in build.sbt."
   fi
 
-  extraTarget="+publish-signed"
+  extraTarget="+publishSigned"
   cat admin/gpg.sbt >> project/plugins.sbt
   cp admin/publish-settings.sbt .
 
