@@ -19,9 +19,6 @@ repoName := "async"
 
 version := "0.10.0-SNAPSHOT"
 
-// this line could be removed after https://github.com/scala/sbt-scala-module/issues/48 is fixed
-licenses := Seq(("Apache-2.0", url("https://www.apache.org/licenses/LICENSE-2.0")))
-
 libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value % "provided"
 libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value % "test" // for ToolBox
 libraryDependencies += "junit" % "junit" % "4.12" % "test"
