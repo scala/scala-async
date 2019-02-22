@@ -65,7 +65,12 @@ private[async] trait AnfTransform {
 
       def listToBlock(trees: List[Tree]): Block = trees match {
         case trees @ (init :+ last) =>
-          val pos = trees.map(_.pos).reduceLeft(_ union _)
+          val pos = trees.map(_.pos).reduceLeft{
+            (p, q) =>
+              if (!q.isRange) p
+              else if (p.isRange) p.withStart(p.start.min(q.start)).withEnd(p.end.max(q.end))
+              else q
+          }
           newBlock(init, last).setType(last.tpe).setPos(pos)
       }
 
@@ -81,7 +86,7 @@ private[async] trait AnfTransform {
           def statsExprUnit =
             stats :+ expr :+ api.typecheck(atPos(expr.pos)(Literal(Constant(()))))
           def statsExprThrow =
-            stats :+ expr :+ api.typecheck(atPos(expr.pos)(Throw(Apply(Select(New(gen.mkAttributedRef(defn.IllegalStateExceptionClass)), nme.CONSTRUCTOR), Nil))))
+            stats :+ expr :+ api.typecheck(atPos(expr.pos)(Throw(Apply(Select(New(gen.mkAttributedRef(defn.IllegalStateExceptionClass)), termNames.CONSTRUCTOR), Nil))))
           expr match {
             case Apply(fun, args) if isAwait(fun) =>
               val valDef = defineVal(name.await(), expr, tree.pos)
@@ -329,7 +334,6 @@ private[async] trait AnfTransform {
 
         val matchResults = collection.mutable.Buffer[Tree]()
         def modifyLabelDef(ld: LabelDef): (Tree, Tree) = {
-          val symTab = c.universe.asInstanceOf[reflect.internal.SymbolTable]
           val param = ld.params.head
           val ld2 = if (ld.params.head.tpe.typeSymbol == definitions.UnitClass) {
             // Unit typed match: eliminate the label def parameter, but don't create a matchres temp variable to

@@ -13,7 +13,7 @@
 package scala.async.internal
 
 import language.experimental.macros
-import scala.reflect.macros.Context
+import scala.reflect.macros.whitebox
 import scala.reflect.api.Universe
 
 object AsyncId extends AsyncBase {
@@ -22,7 +22,7 @@ object AsyncId extends AsyncBase {
 
   def async[T](body: => T): T = macro asyncIdImpl[T]
 
-  def asyncIdImpl[T: c.WeakTypeTag](c: Context)(body: c.Expr[T]): c.Expr[T] = asyncImpl[T](c)(body)(c.literalUnit)
+  def asyncIdImpl[T: c.WeakTypeTag](c: whitebox.Context)(body: c.Expr[T]): c.Expr[T] = asyncImpl[T](c)(body)(c.literalUnit)
 }
 
 object AsyncTestLV extends AsyncBase {
@@ -31,7 +31,7 @@ object AsyncTestLV extends AsyncBase {
 
   def async[T](body: T): T = macro asyncIdImpl[T]
 
-  def asyncIdImpl[T: c.WeakTypeTag](c: Context)(body: c.Expr[T]): c.Expr[T] = asyncImpl[T](c)(body)(c.literalUnit)
+  def asyncIdImpl[T: c.WeakTypeTag](c: whitebox.Context)(body: c.Expr[T]): c.Expr[T] = asyncImpl[T](c)(body)(c.literalUnit)
 
   var log: List[(String, Any)] = Nil
   def assertNulledOut(a: Any): Unit = assert(log.exists(_._2 == a), AsyncTestLV.log)
@@ -59,7 +59,7 @@ object IdentityFutureSystem extends FutureSystem {
   type ExecContext = Unit
   type Tryy[A] = scala.util.Try[A]
 
-  def mkOps(c0: Context): Ops {val c: c0.type} = new Ops {
+  def mkOps(c0: whitebox.Context): Ops {val c: c0.type} = new Ops {
     val c: c0.type = c0
     import c.universe._
 

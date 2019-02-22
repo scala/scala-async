@@ -16,13 +16,11 @@ import java.util.function.IntUnaryOperator
 
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
-import language.existentials
 
 trait ExprBuilder {
   builder: AsyncMacro =>
 
   import c.universe._
-  import defn._
   import c.internal._
 
   val futureSystem: FutureSystem
@@ -99,7 +97,7 @@ trait ExprBuilder {
       Array(nextState)
 
     override def mkHandlerCaseForState[T: WeakTypeTag]: CaseDef = {
-      val fun = This(tpnme.EMPTY)
+      val fun = This(typeNames.EMPTY)
       val callOnComplete = futureSystemOps.onComplete[Any, Unit](c.Expr[futureSystem.Fut[Any]](awaitable.expr),
         c.Expr[futureSystem.Tryy[Any] => Unit](fun), c.Expr[futureSystem.ExecContext](Ident(name.execContext))).tree
       val tryGetOrCallOnComplete: List[Tree] =
@@ -118,7 +116,7 @@ trait ExprBuilder {
     private def tryGetTree(tryReference: => Tree) =
       Assign(
         Ident(awaitable.resultName),
-        TypeApply(Select(futureSystemOps.tryyGet[Any](c.Expr[futureSystem.Tryy[Any]](tryReference)).tree, newTermName("asInstanceOf")), List(TypeTree(awaitable.resultType)))
+        TypeApply(Select(futureSystemOps.tryyGet[Any](c.Expr[futureSystem.Tryy[Any]](tryReference)).tree, TermName("asInstanceOf")), List(TypeTree(awaitable.resultType)))
       )
 
     /* if (tr.isFailure)
@@ -136,7 +134,7 @@ trait ExprBuilder {
           Block(toList(futureSystemOps.completeProm[T](
             c.Expr[futureSystem.Prom[T]](symLookup.memberRef(name.result)),
             c.Expr[futureSystem.Tryy[T]](
-              TypeApply(Select(tryReference, newTermName("asInstanceOf")),
+              TypeApply(Select(tryReference, TermName("asInstanceOf")),
                 List(TypeTree(futureSystemOps.tryType[T]))))).tree),
             Return(literalUnit)),
           getAndUpdateState
@@ -401,7 +399,7 @@ trait ExprBuilder {
         val dotBuilder = new StringBuilder()
         dotBuilder.append("digraph {\n")
         def stateLabel(s: Int) = {
-          if (s == 0) "INITIAL" else if (s == Int.MaxValue) "TERMINAL" else switchIds.getOrElse(s, s).toString
+          if (s == 0) "INITIAL" else if (s == Int.MaxValue) "TERMINAL" else switchIds.get(s).map(_.toString).getOrElse(s.toString)
         }
         val length = states.size
         for ((state, i) <- asyncStates.zipWithIndex) {
@@ -521,25 +519,24 @@ trait ExprBuilder {
        *     }
        */
       private def resumeFunTree[T: WeakTypeTag]: Tree = {
-        val stateMemberSymbol = symLookup.stateMachineMember(name.state)
         val stateMemberRef = symLookup.memberRef(name.state)
-        val body = Match(stateMemberRef, mkCombinedHandlerCases[T] ++ initStates.flatMap(_.mkOnCompleteHandler[T]) ++ List(CaseDef(Ident(nme.WILDCARD), EmptyTree, Throw(Apply(Select(New(Ident(defn.IllegalStateExceptionClass)), termNames.CONSTRUCTOR), List())))))
+        val body = Match(stateMemberRef, mkCombinedHandlerCases[T] ++ initStates.flatMap(_.mkOnCompleteHandler[T]) ++ List(CaseDef(Ident(termNames.WILDCARD), EmptyTree, Throw(Apply(Select(New(Ident(defn.IllegalStateExceptionClass)), termNames.CONSTRUCTOR), List())))))
         val body1 = compactStates(body)
 
         maybeTry(
           body1,
           List(
             CaseDef(
-            Bind(name.t, Typed(Ident(nme.WILDCARD), Ident(defn.ThrowableClass))),
+            Bind(name.t, Typed(Ident(termNames.WILDCARD), Ident(defn.ThrowableClass))),
             EmptyTree, {
-              val then = {
+              val thenn = {
                 val t = c.Expr[Throwable](Ident(name.t))
                 val complete = futureSystemOps.completeProm[T](
                     c.Expr[futureSystem.Prom[T]](symLookup.memberRef(name.result)), futureSystemOps.tryyFailure[T](t)).tree
                 Block(toList(complete), Return(literalUnit))
               }
-              If(Apply(Ident(defn.NonFatalClass), List(Ident(name.t))), then, Throw(Ident(name.t)))
-              then
+              If(Apply(Ident(defn.NonFatalClass), List(Ident(name.t))), thenn, Throw(Ident(name.t)))
+              thenn
             })), EmptyTree)
       }
 
@@ -567,8 +564,8 @@ trait ExprBuilder {
       }
 
       def forever(t: Tree): Tree = {
-        val labelName = name.fresh("while$")
-        LabelDef(labelName, Nil, Block(toList(t), Apply(Ident(labelName), Nil)))
+        val termName = TermName(name.fresh("while$"))
+        LabelDef(termName, Nil, Block(toList(t), Apply(Ident(termName), Nil)))
       }
 
       /**
@@ -584,7 +581,7 @@ trait ExprBuilder {
        *     }
        */
       def onCompleteHandler[T: WeakTypeTag]: Tree = {
-        val onCompletes = initStates.flatMap(_.mkOnCompleteHandler[T])
+        initStates.flatMap(_.mkOnCompleteHandler[T])
         forever {
           adaptToUnit(toList(resumeFunTree))
         }
@@ -617,7 +614,7 @@ trait ExprBuilder {
     case _ if t.tpe != null => t.tpe
     case Try(body, Nil, _) => tpeOf(body)
     case Block(_, expr) => tpeOf(expr)
-    case Literal(Constant(value)) if value == () => definitions.UnitTpe
+    case Literal(Constant(value)) if value == (()) => definitions.UnitTpe
     case Return(_) => definitions.NothingTpe
     case _ => NoType
   }
@@ -645,7 +642,7 @@ trait ExprBuilder {
   def literalUnit = Literal(Constant(())) // a def to avoid sharing trees
 
   def toList(tree: Tree): List[Tree] = tree match {
-    case Block(stats, Literal(Constant(value))) if value == () => stats
+    case Block(stats, Literal(Constant(value))) if value == (()) => stats
     case _ => tree :: Nil
   }
 

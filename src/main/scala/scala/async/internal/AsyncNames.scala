@@ -40,24 +40,24 @@ final class AsyncNames[U <: Names with Singleton](val u: U) {
   }
 
   final class TermNameCache(base: String) extends NameCache[U#TermName](base) {
-    override protected def newName(s: String): U#TermName = newTermName(s)
+    override protected def newName(s: String): U#TermName = TermName(s)
   }
   final class TypeNameCache(base: String) extends NameCache[U#TypeName](base) {
-    override protected def newName(s: String): U#TypeName = newTypeName(s)
+    override protected def newName(s: String): U#TypeName = TypeName(s)
   }
   private val matchRes: TermNameCache = new TermNameCache("match")
   private val ifRes: TermNameCache = new TermNameCache("if")
   private val await: TermNameCache = new TermNameCache("await")
 
-  private val result = newTermName("result$async")
-  private val completed: TermName = newTermName("completed$async")
-  private val apply = newTermName("apply")
-  private val stateMachine  = newTermName("stateMachine$async")
+  private val result = TermName("result$async")
+  private val completed: TermName = TermName("completed$async")
+  private val apply = TermName("apply")
+  private val stateMachine  = TermName("stateMachine$async")
   private val stateMachineT = stateMachine.toTypeName
-  private val state: u.TermName = newTermName("state$async")
-  private val execContext = newTermName("execContext$async")
-  private val tr: u.TermName = newTermName("tr$async")
-  private val t: u.TermName = newTermName("throwable$async")
+  private val state: u.TermName = TermName("state$async")
+  private val execContext = TermName("execContext$async")
+  private val tr: u.TermName = TermName("tr$async")
+  private val t: u.TermName = TermName("throwable$async")
 
   final class NameSource[N <: U#Name](cache: NameCache[N]) {
     private val count = new AtomicInteger(0)

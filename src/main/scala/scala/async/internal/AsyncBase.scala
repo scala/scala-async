@@ -12,8 +12,8 @@
 
 package scala.async.internal
 
-import scala.reflect.internal.annotations.compileTimeOnly
-import scala.reflect.macros.Context
+import scala.annotation.compileTimeOnly
+import scala.reflect.macros.whitebox
 import scala.reflect.api.Universe
 
 /**
@@ -47,10 +47,10 @@ abstract class AsyncBase {
   @compileTimeOnly("`await` must be enclosed in an `async` block")
   def await[T](awaitable: futureSystem.Fut[T]): T = ???
 
-  def asyncImpl[T: c.WeakTypeTag](c: Context)
+  def asyncImpl[T: c.WeakTypeTag](c: whitebox.Context)
                                  (body: c.Expr[T])
                                  (execContext: c.Expr[futureSystem.ExecContext]): c.Expr[futureSystem.Fut[T]] = {
-    import c.universe._, c.internal._, decorators._
+    import c.internal._, decorators._
     val asyncMacro = AsyncMacro(c, self)(body.tree)
 
     val code = asyncMacro.asyncTransform[T](execContext.tree)(c.weakTypeTag[T])
@@ -64,13 +64,13 @@ abstract class AsyncBase {
   protected[async] def asyncMethod(u: Universe)(asyncMacroSymbol: u.Symbol): u.Symbol = {
     import u._
     if (asyncMacroSymbol == null) NoSymbol
-    else asyncMacroSymbol.owner.typeSignature.member(newTermName("async"))
+    else asyncMacroSymbol.owner.typeSignature.member(TermName("async"))
   }
 
   protected[async] def awaitMethod(u: Universe)(asyncMacroSymbol: u.Symbol): u.Symbol = {
     import u._
     if (asyncMacroSymbol == null) NoSymbol
-    else asyncMacroSymbol.owner.typeSignature.member(newTermName("await"))
+    else asyncMacroSymbol.owner.typeSignature.member(TermName("await"))
   }
 
   protected[async] def nullOut(u: Universe)(name: u.Expr[String], v: u.Expr[Any]): u.Expr[Unit] =

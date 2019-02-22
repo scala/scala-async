@@ -12,8 +12,6 @@
 
 package scala.async.internal
 
-import scala.reflect.macros.Context
-import reflect.ClassTag
 import scala.collection.immutable.ListMap
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
@@ -124,7 +122,7 @@ private[async] trait TransformUtils {
   }
   private lazy val Boolean_ShortCircuits: Set[Symbol] = {
     import definitions.BooleanClass
-    def BooleanTermMember(name: String) = BooleanClass.typeSignature.member(newTermName(name).encodedName)
+    def BooleanTermMember(name: String) = BooleanClass.typeSignature.member(TermName(name).encodedName)
     val Boolean_&& = BooleanTermMember("&&")
     val Boolean_|| = BooleanTermMember("||")
     Set(Boolean_&&, Boolean_||)
@@ -134,14 +132,14 @@ private[async] trait TransformUtils {
     if (Boolean_ShortCircuits contains fun.symbol) (i, j) => true
     else if (fun.tpe == null) (x, y) => false
     else {
-      val paramss = fun.tpe.paramss
-      val byNamess = paramss.map(_.map(_.asTerm.isByNameParam))
+      val paramLists = fun.tpe.paramLists
+      val byNamess = paramLists.map(_.map(_.asTerm.isByNameParam))
       (i, j) => util.Try(byNamess(i)(j)).getOrElse(false)
     }
   }
   private def argName(fun: Tree): ((Int, Int) => TermName) = {
-    val paramss = fun.tpe.paramss
-    val namess = paramss.map(_.map(_.name.toTermName))
+    val paramLists = fun.tpe.paramLists
+    val namess = paramLists.map(_.map(_.name.toTermName))
     (i, j) => util.Try(namess(i)(j)).getOrElse(TermName(s"arg_${i}_${j}"))
   }
 
@@ -214,9 +212,9 @@ private[async] trait TransformUtils {
     */
   private def mapArguments[A](args: List[Tree])(f: (Tree, Int) => (A, Tree)): (List[A], List[Tree]) = {
     args match {
-      case args :+ Typed(tree, Ident(tpnme.WILDCARD_STAR)) =>
+      case args :+ Typed(tree, Ident(typeNames.WILDCARD_STAR)) =>
         val (a, argExprs :+ lastArgExpr) = (args :+ tree).zipWithIndex.map(f.tupled).unzip
-        val exprs = argExprs :+ atPos(lastArgExpr.pos.makeTransparent)(Typed(lastArgExpr, Ident(tpnme.WILDCARD_STAR)))
+        val exprs = argExprs :+ atPos(lastArgExpr.pos.makeTransparent)(Typed(lastArgExpr, Ident(typeNames.WILDCARD_STAR)))
         (a, exprs)
       case args                                            =>
         args.zipWithIndex.map(f.tupled).unzip
@@ -253,8 +251,8 @@ private[async] trait TransformUtils {
   }
 
   def emptyConstructor: DefDef = {
-    val emptySuperCall = Apply(Select(Super(This(tpnme.EMPTY), tpnme.EMPTY), nme.CONSTRUCTOR), Nil)
-    DefDef(NoMods, nme.CONSTRUCTOR, List(), List(List()), TypeTree(), Block(List(emptySuperCall), Literal(Constant(()))))
+    val emptySuperCall = Apply(Select(Super(This(typeNames.EMPTY), typeNames.EMPTY), termNames.CONSTRUCTOR), Nil)
+    DefDef(NoMods, termNames.CONSTRUCTOR, List(), List(List()), TypeTree(), Block(List(emptySuperCall), Literal(Constant(()))))
   }
 
   def applied(className: String, types: List[Type]): AppliedTypeTree =
@@ -556,9 +554,9 @@ private[async] trait TransformUtils {
       // we have to create the trio of members manually.
       val ACCESSOR = (1L << 27).asInstanceOf[FlagSet]
       val STABLE = (1L << 22).asInstanceOf[FlagSet]
-      val field = ValDef(Modifiers(Flag.MUTABLE | Flag.PRIVATE | Flag.LOCAL), name + " ", TypeTree(tpt), init)
-      val getter = DefDef(Modifiers(ACCESSOR | STABLE), name, Nil, Nil, TypeTree(tpt), Select(This(tpnme.EMPTY), field.name))
-      val setter = DefDef(Modifiers(ACCESSOR), name + "_=", Nil, List(List(ValDef(NoMods, TermName("x"), TypeTree(tpt), EmptyTree))), TypeTree(definitions.UnitTpe), Assign(Select(This(tpnme.EMPTY), field.name), Ident(TermName("x"))))
+      val field = ValDef(Modifiers(Flag.MUTABLE | Flag.PRIVATE | Flag.LOCAL), TermName(name + " "), TypeTree(tpt), init)
+      val getter = DefDef(Modifiers(ACCESSOR | STABLE), name, Nil, Nil, TypeTree(tpt), Select(This(typeNames.EMPTY), field.name))
+      val setter = DefDef(Modifiers(ACCESSOR), TermName(name + "_="), Nil, List(List(ValDef(NoMods, TermName("x"), TypeTree(tpt), EmptyTree))), TypeTree(definitions.UnitTpe), Assign(Select(This(typeNames.EMPTY), field.name), Ident(TermName("x"))))
       field :: getter :: setter :: Nil
     } else {
       val result = ValDef(NoMods, name, TypeTree(tpt), init)

@@ -70,7 +70,7 @@ trait AsyncTransform {
         symbolOf[scala.Function1[Any, Any]]
       }
       val tryToUnit = appliedType(tycon, futureSystemOps.tryType[Any], typeOf[Unit])
-      val template = Template((futureSystemOps.stateMachineClassParents ::: List(tryToUnit, typeOf[() => Unit])).map(TypeTree(_)), emptyValDef, body)
+      val template = Template((futureSystemOps.stateMachineClassParents ::: List(tryToUnit, typeOf[() => Unit])).map(TypeTree(_)), noSelfType, body)
 
       val t = ClassDef(NoMods, name.stateMachineT, Nil, template)
       typecheckClassDef(t)
@@ -112,7 +112,7 @@ trait AsyncTransform {
 
       Block(List[Tree](
         stateMachineSpliced,
-        ValDef(NoMods, name.stateMachine, TypeTree(), Apply(Select(New(Ident(stateMachine.symbol)), nme.CONSTRUCTOR), Nil)),
+        ValDef(NoMods, name.stateMachine, TypeTree(), Apply(Select(New(Ident(stateMachine.symbol)), termNames.CONSTRUCTOR), Nil)),
         futureSystemOps.spawn(Apply(selectStateMachine(name.apply), Nil), selectStateMachine(name.execContext))
       ),
       futureSystemOps.promiseToFuture(c.Expr[futureSystem.Prom[T]](selectStateMachine(name.result))).tree)
@@ -205,7 +205,7 @@ trait AsyncTransform {
         atPos(tree.pos) {
           gen.mkAttributedStableRef(thisType(fieldSym.owner.asClass), fieldSym).setType(tree.tpe)
         }
-      case sel @ Select(n@New(tt: TypeTree), nme.CONSTRUCTOR) =>
+      case sel @ Select(n@New(tt: TypeTree), termNamesCONSTRUCTOR) =>
         adjustType(sel)
         adjustType(n)
         adjustType(tt)
