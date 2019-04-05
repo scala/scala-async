@@ -554,9 +554,9 @@ private[async] trait TransformUtils {
       // we have to create the trio of members manually.
       val ACCESSOR = (1L << 27).asInstanceOf[FlagSet]
       val STABLE = (1L << 22).asInstanceOf[FlagSet]
-      val field = ValDef(Modifiers(Flag.MUTABLE | Flag.PRIVATE | Flag.LOCAL), TermName(name + " "), TypeTree(tpt), init)
+      val field = ValDef(Modifiers(Flag.MUTABLE | Flag.PRIVATE | Flag.LOCAL), TermName(name.toString + " "), TypeTree(tpt), init)
       val getter = DefDef(Modifiers(ACCESSOR | STABLE), name, Nil, Nil, TypeTree(tpt), Select(This(typeNames.EMPTY), field.name))
-      val setter = DefDef(Modifiers(ACCESSOR), TermName(name + "_="), Nil, List(List(ValDef(NoMods, TermName("x"), TypeTree(tpt), EmptyTree))), TypeTree(definitions.UnitTpe), Assign(Select(This(typeNames.EMPTY), field.name), Ident(TermName("x"))))
+      val setter = DefDef(Modifiers(ACCESSOR), TermName(name.toString + "_="), Nil, List(List(ValDef(NoMods, TermName("x"), TypeTree(tpt), EmptyTree))), TypeTree(definitions.UnitTpe), Assign(Select(This(typeNames.EMPTY), field.name), Ident(TermName("x"))))
       field :: getter :: setter :: Nil
     } else {
       val result = ValDef(NoMods, name, TypeTree(tpt), init)
