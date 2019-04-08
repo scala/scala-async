@@ -2,7 +2,7 @@
 
 ## Supported Scala versions
 
-This branch (version series 0.10.x) targets Scala 2.12 and 2.13. `scala-async` us no longer maintained for older versions.
+This branch (version series 0.10.x) targets Scala 2.12 and 2.13. `scala-async` is no longer maintained for older versions.
 
 ## Quick start
 
