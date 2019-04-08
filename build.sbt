@@ -17,7 +17,7 @@ scalaVersionsByJvm in ThisBuild := {
 name := "scala-async"
 repoName := "async"
 
-version := "0.10.0-SNAPSHOT"
+version := "0.10.1-SNAPSHOT"
 
 libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value % "provided"
 libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value % "test" // for ToolBox
