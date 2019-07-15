@@ -21,8 +21,11 @@ import scala.collection.JavaConverters.{asScalaIteratorConverter, iterableAsScal
 final class StateSet {
   private var bitSet = new java.util.BitSet()
   private var caseSet = new util.HashSet[Integer]()
-  def +=(stateId: Int): Unit = if (stateId > 0) bitSet.set(stateId) else caseSet.add(stateId)
-  def contains(stateId: Int): Boolean = if (stateId > 0 && stateId < 1024) bitSet.get(stateId) else caseSet.contains(stateId)
+  def +=(stateId: Int): Unit = if (storeInBitSet(stateId)) bitSet.set(stateId) else caseSet.add(stateId)
+  def contains(stateId: Int): Boolean = if (storeInBitSet(stateId)) bitSet.get(stateId) else caseSet.contains(stateId)
+  private def storeInBitSet(stateId: Int) = {
+    stateId > 0 && stateId < 1024
+  }
   def iterator: Iterator[Integer] = {
     bitSet.stream().iterator().asScala ++ caseSet.asScala.iterator
   }
