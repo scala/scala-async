@@ -13,7 +13,7 @@
 package scala.async.internal
 
 import scala.collection.immutable.ListMap
-import scala.collection.mutable
+import scala.collection.{immutable, mutable}
 import scala.collection.mutable.ListBuffer
 
 /**
@@ -133,8 +133,13 @@ private[async] trait TransformUtils {
     else if (fun.tpe == null) (x, y) => false
     else {
       val paramLists = fun.tpe.paramLists
-      val byNamess = paramLists.map(_.map(_.asTerm.isByNameParam))
-      (i, j) => util.Try(byNamess(i)(j)).getOrElse(false)
+      val byNamess: immutable.Seq[mutable.BitSet] = paramLists.map {
+        ps =>
+          val result = new mutable.BitSet()
+          ps.zipWithIndex.foreach { case (p, i) => if (p.asTerm.isByNameParam) result += i }
+          result
+      }
+      (i, j) => byNamess(i)(j)
     }
   }
   private def argName(fun: Tree): ((Int, Int) => TermName) = {
