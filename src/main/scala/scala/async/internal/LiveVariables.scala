@@ -143,7 +143,7 @@ trait LiveVariables {
      * A state `i` is contained in the list that is the value to which
      * key `j` maps iff control can flow from state `j` to state `i`.
      */
-    val cfg: Map[Int, Array[Int]] = {
+    val cfg: IntMap[Array[Int]] = {
       var res = IntMap.empty[Array[Int]]
 
       for (as <- asyncStates) res = res.updated(as.state, as.nextStates)
@@ -158,16 +158,15 @@ trait LiveVariables {
       def isPred0(state1: Int, state2: Int): Boolean = 
         if(state1 == state2) false
         else if (seen.contains(state1)) false  // breaks cycles in the CFG
-        else cfg get state1 match {
-          case Some(nextStates) =>
+        else cfg getOrElse(state1, null) match {
+          case null => false
+          case nextStates =>
             seen += state1
             var i = 0
             while (i < nextStates.length) {
               if (nextStates(i) == state2 || isPred0(nextStates(i), state2)) return true
               i += 1
             }
-            false
-          case None =>
             false
         }
 
