@@ -52,6 +52,11 @@ private[async] trait TransformUtils {
   def isPastTyper =
     c.universe.asInstanceOf[scala.reflect.internal.SymbolTable].isPastTyper
 
+  lazy val isPastRefchecks: Boolean = {
+    val symtab = c.universe.asInstanceOf[scala.reflect.internal.SymbolTable]
+    symtab.isAtPhaseAfter(symtab.findPhaseWithName("refchecks"))
+  }
+
   // Copy pasted from TreeInfo in the compiler.
   // Using a quasiquote pattern like `case q"$fun[..$targs](...$args)" => is not
   // sufficient since https://github.com/scala/scala/pull/3656 as it doesn't match
@@ -391,9 +396,11 @@ private[async] trait TransformUtils {
   // Copy/Pasted from Scala 2.10.3. See scala/bug#7694
   private lazy val UncheckedBoundsClass =
     c.mirror.staticClass("scala.reflect.internal.annotations.uncheckedBounds")
-  final def uncheckedBounds(tp: Type): Type =
-    if ((tp.typeArgs.isEmpty && (tp match { case _: TypeRef => true; case _ => false}))) tp
+  final def uncheckedBounds(tp: Type): Type = {
+    if (self.isPastRefchecks || UncheckedBoundsClass == NoSymbol || (tp.typeArgs.isEmpty && (tp match { case _: TypeRef => true; case _ => false}))) tp
     else withAnnotation(tp, Annotation(UncheckedBoundsClass.asType.toType, Nil, ListMap()))
+  }
+
   // =====================================
 
   /**
