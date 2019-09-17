@@ -1,30 +1,14 @@
-import ScalaModulePlugin._
-
-scalaModuleSettings
-
-scalaVersionsByJvm in ThisBuild := {
-  val v212 = "2.12.8"
-  val v213 = "2.13.0"
-
-  val allFalse = List(v212 -> false, v213 -> false)
-  Map(
-    8 -> List(v212 -> true, v213 -> true),
-    11 -> allFalse,
-    12 -> allFalse
-  )
-}
+ScalaModulePlugin.scalaModuleSettings
+ScalaModulePlugin.scalaModuleSettingsJVM
 
 name := "scala-async"
-repoName := "async"
-
-version := "0.10.1-SNAPSHOT"
 
 libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value % "provided"
 libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value % "test" // for ToolBox
 libraryDependencies += "junit" % "junit" % "4.12" % "test"
 libraryDependencies += "com.novocode" % "junit-interface" % "0.11" % "test"
 
-enableOptimizer
+ScalaModulePlugin.enableOptimizer
 testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v", "-s")
 scalacOptions in Test ++= Seq("-Yrangepos")
 
