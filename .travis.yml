@@ -1,19 +1,40 @@
 language: scala
-sudo: false
+
+scala:
+  - 2.12.10
+  - 2.13.0
+
 env:
-  global:
-    # PGP_PASSPHRASE
-    - secure: "ENsi/6s/RXiPqrfrU7kXqaDz8WiZeenQMhaSFshxbueJ8EtN20FIVt4rSM8HOpLbn1pYeq6PiQ7T2mxlsaJMWCUNud9CqOxgSH9vCoYkJJy6CkTIVLLKdu5teHVIzWcl3smbk7LZYv/4FuljBqYs9EecWjuYF7dZrY/otE5kKbA="
-    # SONA_USER
-    - secure: "cQAs8Q/a2YrqzRv3+QAiHchLac35Ppu7rppwJs2favmVJFL0SIBtPu891UiPy0V/3QN1JmwPLbsR/lsgpoGM76AMCn3rgq88zp45pD+UiH0d7dgFMzXorNGt3K+YpiW4j6iHyzM/POKVO7vLnRuln6jTE0QRcjRbEOqg+xtQo+I="
-    # SONA_PASS
-    - secure: "Cj4PsumsWL37Pl7V5ZPJw+/xH9esHblG5nN9Op91XcCfG006xHsz2w1iNOqFqCF8wAhgObuA2CmAH3ZuI1jZGGSo2HMt9+f5Z6tpifFzsTHZJtdNIVOpS3/NGhvgtg3UnT5WQQtnVi6zlkKl1xCpAIDNhOJ9dXoL54auAqvxpko="
-script:
-  - admin/build.sh
-jdk:
-  - oraclejdk8
-  - openjdk11
+  - ADOPTOPENJDK=8
+  - ADOPTOPENJDK=11
+
+before_install:
+  # adding $HOME/.sdkman to cache would create an empty directory, which interferes with the initial installation
+  - "[[ -d $HOME/.sdkman/bin ]] || rm -rf $HOME/.sdkman/"
+  - curl -sL https://get.sdkman.io | bash
+  - echo sdkman_auto_answer=true > $HOME/.sdkman/etc/config
+  - source "$HOME/.sdkman/bin/sdkman-init.sh"
+
+install:
+  - sdk install java $(sdk list java | grep -o "$ADOPTOPENJDK\.[0-9\.]*hs-adpt" | head -1)
+  - unset JAVA_HOME
+  - java -Xmx32m -version
+  - git fetch --tags # get all tags for sbt-dynver
+
+script: ./build.sh
+
 notifications:
   email:
     - jason.zaugg@lightbend.com
     - seth.tisue@lightbend.com
+
+before_cache:
+  - rm -f $HOME/.ivy2/.sbt.ivy.lock
+  - find $HOME/.ivy2/cache     -name "ivydata-*.properties" | xargs rm
+  - find $HOME/.sbt            -name "*.lock"               | xargs rm
+cache:
+  directories:
+    - $HOME/.ivy2/cache
+    - $HOME/.sbt
+    - $HOME/.cache/coursier
+    - $HOME/.sdkman
