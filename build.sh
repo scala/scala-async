@@ -12,9 +12,7 @@ set -e
 
 # When a new binary incompatible Scala version becomes available, a previously released version
 # can be released using that new Scala version by creating a new tag containing the Scala version
-# after a hash, e.g., v1.2.3#2.13.0-M3. In this situation, the first job of the travis job
-# matrix builds the release. All other jobs are stopped. Make sure that the first job uses
-# the desired JVM version.
+# after a hash, e.g., v1.2.3#2.13.0-M3.
 
 # For normal tags that are cross-built, we release on JDK 8 for Scala 2.x
 isReleaseJob() {
