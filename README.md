@@ -11,6 +11,7 @@ For sbt projects add the following to your build definition - build.sbt or proje
 
 ```scala
 libraryDependencies += "org.scala-lang.modules" %% "scala-async" % "0.10.0"
+libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided
 ```
 
 For Maven projects add the following to your <dependencies> (make sure to use the correct Scala version suffix
@@ -21,6 +22,12 @@ to match your project’s Scala binary version):
 	<groupId>org.scala-lang.modules</groupId>
 	<artifactId>scala-async_2.12</artifactId>
 	<version>0.10.0</version>
+</dependency>
+<dependency>
+	<groupId>org.scala-lang</groupId>
+	<artifactId>scala-reflect</artifactId>
+	<version>2.12.10</version>
+	<scope>provided</scope>
 </dependency>
 ```
 
