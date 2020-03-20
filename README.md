@@ -1,13 +1,19 @@
 # scala-async [![Build Status](https://travis-ci.org/scala/scala-async.svg?branch=master)](https://travis-ci.org/scala/scala-async) [<img src="https://img.shields.io/maven-central/v/org.scala-lang.modules/scala-async_2.12.svg?label=latest%20release%20for%202.12">](http://search.maven.org/#search%7Cga%7C1%7Cg%3Aorg.scala-lang.modules%20a%3Ascala-async_2.12) [<img src="https://img.shields.io/maven-central/v/org.scala-lang.modules/scala-async_2.13.svg?label=latest%20release%20for%202.13">](http://search.maven.org/#search%7Cga%7C1%7Cg%3Aorg.scala-lang.modules%20a%3Ascala-async_2.13)
 
-## Supported Scala versions
-
-This branch (version series 0.10.x) targets Scala 2.12 and 2.13. `scala-async` is no longer maintained for older versions.
+A DSL to enable a direct style of programming with when composing values wrapped in Scala `Future`s. 
 
 ## Quick start
 
 To include scala-async in an existing project use the library published on Maven Central.
 For sbt projects add the following to your build definition - build.sbt or project/Build.scala:
+
+### Use a modern Scala compiler
+
+As of scala-async 1.0, Scala 2.12.12+ or 2.13.3+ are required.
+
+### Add dependency
+
+#### SBT Example
 
 ```scala
 libraryDependencies += "org.scala-lang.modules" %% "scala-async" % "0.10.0"
@@ -17,28 +23,58 @@ libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value %
 For Maven projects add the following to your <dependencies> (make sure to use the correct Scala version suffix
 to match your project’s Scala binary version):
 
+#### Maven Example
+
 ```scala
 <dependency>
-	<groupId>org.scala-lang.modules</groupId>
-	<artifactId>scala-async_2.12</artifactId>
-	<version>0.10.0</version>
+  <groupId>org.scala-lang.modules</groupId>
+  <artifactId>scala-async_2.13</artifactId>
+  <version>1.0.0</version>
 </dependency>
 <dependency>
-	<groupId>org.scala-lang</groupId>
-	<artifactId>scala-reflect</artifactId>
-	<version>2.12.11</version>
-	<scope>provided</scope>
+  <groupId>org.scala-lang</groupId>
+  <artifactId>scala-reflect</artifactId>
+  <version>2.13.3</version>
+  <scope>provided</scope>
 </dependency>
 ```
 
-After adding scala-async to your classpath, write your first `async` block:
+### Enable compiler support for `async`
+
+Add the `-Xasync` to the Scala compiler options.
+
+#### SBT Example
+```scala
+scalaOptions += "-Xasync"
+```
+
+#### Maven Example
+
+```xml
+<project>
+  ...
+  <plugin>
+    <groupId>net.alchim31.maven</groupId>
+    <artifactId>scala-maven-plugin</artifactId>
+    <version>4.4.0</version>
+    <configuration>
+      <args>
+        <arg>-Xasync</arg>
+      </args>
+    </configuration>
+  </plugin>
+  ...
+</project>
+```
+
+### Start coding
 
 ```scala
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.async.Async.{async, await}
 
 val future = async {
-  val f1 = async { ...; true }
+  val f1: Future[Boolean] = async { ...; true }
   val f2 = async { ...; 42 }
   if (await(f1)) await(f2) else 0
 }
@@ -93,6 +129,22 @@ def combined: Future[Int] = async {
 }
 ```
 
+## Limitations
+
+### `await` must be directly in the control flow of the async expression
+
+The `await` cannot be nested under a local method, object, class or lambda:  
+
+```
+async {
+  List(1).foreach { x => await(f(x) } // invali
+}
+```
+
+### `await` must be not be nested within `try` / `catch` / `finally`.
+
+This implementation restriction may be lifted in future versions.
+
 ## Comparison with direct use of `Future` API
 
 This computation could also be expressed by directly using the
@@ -119,53 +171,3 @@ The `async` approach has two advantages over the use of
      required at each generator (`<-`) in the for-comprehension.
      This reduces the size of generated code, and can avoid boxing
      of intermediate results.
-
-## Comparison with CPS plugin
-
-The existing continuations (CPS) plugin for Scala can also be used
-to provide a syntactic layer like `async`. This approach has been
-used in Akka's [Dataflow Concurrency](http://doc.akka.io/docs/akka/2.3-M1/scala/dataflow.html)
-(now deprecated in favour of this library).
-
-CPS-based rewriting of asynchronous code also produces a closure
-for each suspension. It can also lead to type errors that are
-difficult to understand.
-
-## How it works
-
- - The `async` macro analyses the block of code, looking for control
-   structures and locations of `await` calls. It then breaks the code
-   into 'chunks'. Each chunk contains a linear sequence of statements
-   that concludes with a branching decision, or with the registration
-   of a subsequent state handler as the continuation.
- - Before this analysis and transformation, the program is normalized
-   into a form amenable to this manipulation. This is called the
-   "A Normal Form" (ANF), and roughly means that:
-     - `if` and `match` constructs are only used as statements;
-       they cannot be used as an expression.
-     - calls to `await` are not allowed in compound expressions.
- - Identify vals, vars and defs that are accessed from multiple
-   states. These will be lifted out to fields in the state machine
-   object.
- - Synthesize a class that holds:
-   - an integer representing the current state ID.
-   - the lifted definitions.
-   - an `apply(value: Try[Any]): Unit` method that will be
-     called on completion of each future. The behavior of
-     this method is determined by the current state. It records
-     the downcast result of the future in a field, and calls the
-     `resume()` method.
-   - the `resume(): Unit` method that switches on the current state
-     and runs the users code for one 'chunk', and either:
-       a) registers the state machine as the handler for the next future
-       b) completes the result Promise of the `async` block, if at the terminal state.
-   - an `apply(): Unit` method that starts the computation.
-
-## Limitations
-
- - See the [neg](https://github.com/scala/async/tree/master/src/test/scala/scala/async/neg) test cases
-   for constructs that are not allowed in an `async` block.
- - See the [issue list](https://github.com/scala/async/issues?state=open) for which of these restrictions are planned
-   to be dropped in the future.
- - See [#32](https://github.com/scala/async/issues/32) for why `await` is not possible in closures, and for suggestions on
-   ways to structure the code to work around this limitation.
