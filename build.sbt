@@ -1,5 +1,5 @@
 ScalaModulePlugin.scalaModuleSettings
-ScalaModulePlugin.scalaModuleSettingsJVM
+ScalaModulePlugin.scalaModuleOsgiSettings
 
 name := "scala-async"
 
