@@ -26,7 +26,7 @@ to match your project’s Scala binary version):
 <dependency>
 	<groupId>org.scala-lang</groupId>
 	<artifactId>scala-reflect</artifactId>
-	<version>2.12.10</version>
+	<version>2.12.11</version>
 	<scope>provided</scope>
 </dependency>
 ```
