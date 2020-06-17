@@ -5,8 +5,8 @@ import: scala/scala-dev:travis/default.yml
 language: scala
 
 scala:
-  - 2.12.10
-  - 2.13.0
+  - 2.12.11
+  - 2.13.2
 
 env:
   - ADOPTOPENJDK=8
