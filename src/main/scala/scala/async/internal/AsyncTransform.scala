@@ -56,7 +56,7 @@ trait AsyncTransform {
         val apply0DefDef: DefDef = {
           // We extend () => Unit so we can pass this class as the by-name argument to `Future.apply`.
           // See SI-1247 for the the optimization that avoids creation.
-          DefDef(NoMods, name.apply, Nil, Nil, TypeTree(definitions.UnitTpe), Apply(Ident(name.apply), literalNull :: Nil))
+          DefDef(NoMods, name.apply, Nil, List(Nil), TypeTree(definitions.UnitTpe), Apply(Ident(name.apply), literalNull :: Nil))
         }
         List(emptyConstructor, stateVar) ++ resultAndAccessors ++ List(execContextValDef) ++ List(applyDefDefDummyBody, apply0DefDef)
       }
