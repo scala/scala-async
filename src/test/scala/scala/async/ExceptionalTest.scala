@@ -18,7 +18,6 @@ class ExceptionalTest {
   }
 
   @Test
-  @Ignore // TODO https://github.com/scala/scala-async/issues/243
   def nonFatalNotCaughtAsync(): Unit = {
     check { implicit ec =>
       async {
