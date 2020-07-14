@@ -4,13 +4,13 @@ ScalaModulePlugin.scalaModuleOsgiSettings
 name := "scala-async"
 
 libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value % "provided"
-libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value % "test" // for ToolBox
 libraryDependencies += "junit" % "junit" % "4.12" % "test"
 libraryDependencies += "com.novocode" % "junit-interface" % "0.11" % "test"
 
 ScalaModulePlugin.enableOptimizer
 testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v", "-s")
 scalacOptions in Test ++= Seq("-Yrangepos")
+scalacOptions ++= List("-deprecation" , "-Xasync")
 
 parallelExecution in Global := false
 
