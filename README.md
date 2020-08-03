@@ -137,7 +137,7 @@ The `await` cannot be nested under a local method, object, class or lambda:
 
 ```
 async {
-  List(1).foreach { x => await(f(x) } // invali
+  List(1).foreach { x => await(f(x) } // invalid
 }
 ```
 
