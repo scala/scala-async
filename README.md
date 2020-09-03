@@ -45,7 +45,7 @@ Add the `-Xasync` to the Scala compiler options.
 
 #### SBT Example
 ```scala
-scalaOptions += "-Xasync"
+scalacOptions += "-Xasync"
 ```
 
 #### Maven Example
