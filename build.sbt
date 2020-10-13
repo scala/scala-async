@@ -9,13 +9,13 @@ libraryDependencies += "com.novocode" % "junit-interface" % "0.11" % Test
 
 ScalaModulePlugin.enableOptimizer
 testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v", "-s")
-scalacOptions in Test ++= Seq("-Yrangepos")
+Test / scalacOptions ++= Seq("-Yrangepos")
 scalacOptions ++= List("-deprecation" , "-Xasync")
 
-parallelExecution in Global := false
+Global / parallelExecution := false
 
 // Uncomment to disable test compilation.
-// (sources in Test) ~= ((xs: Seq[File]) => xs.filter(f => Seq("TreeInterrogation", "package").exists(f.name.contains)))
+// Test / sources ~= ((xs: Seq[File]) => xs.filter(f => Seq("TreeInterrogation", "package").exists(f.name.contains)))
 
 description := "An asynchronous programming facility for Scala that offers a direct API for working with Futures."
 homepage := Some(url("http://github.com/scala/async"))
@@ -47,16 +47,16 @@ commands += testDeterminism
 def testDeterminism = Command.command("testDeterminism") { state =>
   val extracted = Project.extract(state)
   println("Running test:clean")
-  val (state1, _) = extracted.runTask(clean in Test in LocalRootProject, state)
+  val (state1, _) = extracted.runTask(LocalRootProject / Test / clean, state)
   println("Running test:compile")
-  val (state2, _) = extracted.runTask(compile in Test in LocalRootProject, state1)
-  val testClasses = extracted.get(classDirectory in Test)
+  val (state2, _) = extracted.runTask(LocalRootProject / Test / compile, state1)
+  val testClasses = extracted.get(Test / classDirectory)
   val baseline: File = testClasses.getParentFile / (testClasses.getName + "-baseline")
   baseline.mkdirs()
   IO.copyDirectory(testClasses, baseline, overwrite = true)
   IO.delete(testClasses)
   println("Running test:compile")
-  val (state3, _) = extracted.runTask(compile in Test in LocalRootProject, state2)
+  val (state3, _) = extracted.runTask(LocalRootProject / Test / compile, state2)
 
   import java.nio.file.FileVisitResult
   import java.nio.file.{Files, Path}
