@@ -4,7 +4,7 @@ ScalaModulePlugin.scalaModuleOsgiSettings
 name := "scala-async"
 
 libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value % "provided"
-libraryDependencies += "junit" % "junit" % "4.13.1" % Test
+libraryDependencies += "junit" % "junit" % "4.13.2" % Test
 libraryDependencies += "com.novocode" % "junit-interface" % "0.11" % Test
 
 ScalaModulePlugin.enableOptimizer
