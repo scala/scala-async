@@ -67,7 +67,7 @@ object Async {
                                           (execContext: c.Tree): c.Tree = {
     import c.universe._
     if (!c.compilerSettings.contains("-Xasync")) {
-      c.abort(c.macroApplication.pos, "The async requires the compiler option -Xasync (supported only by Scala 2.12.12+ / 2.13.3+)")
+      c.abort(c.macroApplication.pos, "The async requires the compiler option -Xasync (supported only by Scala 2.12.13+ / 2.13.3+)")
     } else try {
       val awaitSym = typeOf[Async.type].decl(TermName("await"))
       def mark(t: DefDef): Tree = {
