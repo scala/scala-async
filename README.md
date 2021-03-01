@@ -34,7 +34,7 @@ to match your project’s Scala binary version):
 <dependency>
   <groupId>org.scala-lang</groupId>
   <artifactId>scala-reflect</artifactId>
-  <version>2.13.3</version>
+  <version>2.13.5</version>
   <scope>provided</scope>
 </dependency>
 ```
