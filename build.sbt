@@ -2,6 +2,7 @@ ScalaModulePlugin.scalaModuleSettings
 ScalaModulePlugin.scalaModuleOsgiSettings
 
 name := "scala-async"
+scalaModuleAutomaticModuleName := Some("scala.async")
 
 libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value % "provided"
 libraryDependencies += "junit" % "junit" % "4.13.2" % Test
