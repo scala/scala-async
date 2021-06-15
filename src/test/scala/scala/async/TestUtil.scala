@@ -59,7 +59,7 @@ object TestUtil {
   }
 
   implicit class objectops(obj: Any) {
-    def mustBe(other: Any): Unit = assert(obj == other, obj + " is not " + other)
+    def mustBe(other: Any): Unit = assert(obj == other, s"$obj is not $other")
 
     def mustEqual(other: Any): Unit = mustBe(other)
   }
