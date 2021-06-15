@@ -95,14 +95,14 @@ class FutureSpec {
       val a = await(future0.mapTo[Int])  // returns 5
       val b = await(asyncInt(a))         // returns "10"
       val c = await(asyncInt(7))         // returns "14"
-      b + "-" + c
+      s"$b-$c"
     }
 
     val future2 = async {
       val a = await(future0.mapTo[Int])
       val b = await((Future { (a * 2).toString }).mapTo[Int])
       val c = await(Future { (7 * 2).toString })
-      b + "-" + c
+      s"$b-$c"
     }
 
     Await.result(future1, defaultTimeout) mustBe ("10-14")
@@ -123,13 +123,13 @@ class FutureSpec {
       Res(a: Int)    <- asyncReq(Req("Hello"))
       Res(b: String) <- asyncReq(Req(a))
       Res(c: String) <- asyncReq(Req(7))
-    } yield b + "-" + c
+    } yield s"$b-$c"
 
     val future2 = for {
       Res(a: Int) <- asyncReq(Req("Hello"))
       Res(b: Int) <- asyncReq(Req(a))
       Res(c: Int) <- asyncReq(Req(7))
-    } yield b + "-" + c
+    } yield s"$b-$c"
 
     Await.result(future1, defaultTimeout) mustBe ("10-14")
     intercept[NoSuchElementException] { Await.result(future2, defaultTimeout) }
