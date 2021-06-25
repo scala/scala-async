@@ -11,6 +11,7 @@ scala:
 env:
   - ADOPTOPENJDK=8
   - ADOPTOPENJDK=11
+  - ADOPTOPENJDK=17
 
 install:
   - git fetch --tags # get all tags for sbt-dynver
