@@ -1,18 +1,27 @@
-ScalaModulePlugin.scalaModuleSettings
-ScalaModulePlugin.scalaModuleOsgiSettings
+val sharedSettings = ScalaModulePlugin.scalaModuleSettings ++ ScalaModulePlugin.scalaModuleOsgiSettings ++ Seq(
+  name := "scala-async",
+  scalaModuleAutomaticModuleName := Some("scala.async"),
+  versionPolicyIntention := Compatibility.BinaryAndSourceCompatible,
 
-name := "scala-async"
-scalaModuleAutomaticModuleName := Some("scala.async")
-versionPolicyIntention := Compatibility.BinaryAndSourceCompatible
+  OsgiKeys.exportPackage := Seq(s"scala.async.*;version=${version.value}"),
 
-libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value % "provided"
-libraryDependencies += "junit" % "junit" % "4.13.2" % Test
-libraryDependencies += "com.novocode" % "junit-interface" % "0.11" % Test
+  libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value % "provided",
+  libraryDependencies += "junit" % "junit" % "4.13.2" % Test,
+  libraryDependencies += "com.novocode" % "junit-interface" % "0.11" % Test,
 
-ScalaModulePlugin.enableOptimizer
-testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v", "-s")
-Test / scalacOptions ++= Seq("-Yrangepos")
-scalacOptions ++= List("-deprecation" , "-Xasync")
+  ScalaModulePlugin.enableOptimizer,
+  testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v", "-s"),
+  Test / scalacOptions ++= Seq("-Yrangepos"),
+  scalacOptions ++= List("-deprecation" , "-Xasync")
+)
+
+lazy val proj = crossProject(JSPlatform, JVMPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(CrossType.Pure)
+  .in(file("."))
+  .settings(sharedSettings)
+
+lazy val root = project.in(file(".")).settings(sharedSettings)
 
 Global / parallelExecution := false
 
@@ -42,7 +51,6 @@ pomExtra := (
     </developer>
   </developers>
   )
-OsgiKeys.exportPackage := Seq(s"scala.async.*;version=${version.value}")
 
 commands += testDeterminism
 
