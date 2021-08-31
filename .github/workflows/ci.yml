@@ -1,0 +1,23 @@
+name: test
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        java: [8, 11, 17-ea]
+        scala: [2.12.14, 2.13.6]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: coursier/cache-action@v6
+    - uses: actions/setup-java@v2
+      with:
+        distribution: adopt
+        java-version: ${{matrix.java}}
+    - name: Test
+      run: sbt ++${{matrix.scala}} test proj/headerCheck package

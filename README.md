@@ -1,13 +1,8 @@
-# scala-async [![Build Status](https://travis-ci.org/scala/scala-async.svg?branch=master)](https://travis-ci.org/scala/scala-async) [<img src="https://img.shields.io/maven-central/v/org.scala-lang.modules/scala-async_2.12.svg?label=latest%20release%20for%202.12">](http://search.maven.org/#search%7Cga%7C1%7Cg%3Aorg.scala-lang.modules%20a%3Ascala-async_2.12) [<img src="https://img.shields.io/maven-central/v/org.scala-lang.modules/scala-async_2.13.svg?label=latest%20release%20for%202.13">](http://search.maven.org/#search%7Cga%7C1%7Cg%3Aorg.scala-lang.modules%20a%3Ascala-async_2.13)
+# scala-async [<img src="https://img.shields.io/maven-central/v/org.scala-lang.modules/scala-async_2.12.svg?label=latest%20release%20for%202.12">](http://search.maven.org/#search%7Cga%7C1%7Cg%3Aorg.scala-lang.modules%20a%3Ascala-async_2.12) [<img src="https://img.shields.io/maven-central/v/org.scala-lang.modules/scala-async_2.13.svg?label=latest%20release%20for%202.13">](http://search.maven.org/#search%7Cga%7C1%7Cg%3Aorg.scala-lang.modules%20a%3Ascala-async_2.13)
 
-A DSL to enable a direct style of programming with when composing values wrapped in Scala `Future`s. 
+A Scala DSL to enable a direct style of coding when composing `Future`s.
 
-## Quick start
-
-To include scala-async in an existing project use the library published on Maven Central.
-For sbt projects add the following to your build definition - build.sbt or project/Build.scala:
-
-### Use a modern Scala compiler
+## Usage
 
 As of scala-async 1.0, Scala 2.12.12+ or 2.13.3+ are required.
 
@@ -44,6 +39,7 @@ to match your project’s Scala binary version):
 Add the `-Xasync` to the Scala compiler options.
 
 #### SBT Example
+
 ```scala
 scalacOptions += "-Xasync"
 ```
@@ -133,7 +129,7 @@ def combined: Future[Int] = async {
 
 ### `await` must be directly in the control flow of the async expression
 
-The `await` cannot be nested under a local method, object, class or lambda:  
+The `await` cannot be nested under a local method, object, class or lambda:
 
 ```
 async {
