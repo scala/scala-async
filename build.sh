@@ -37,6 +37,7 @@ tagPat="^v$verPat(#$verPat)?$"
 
 if [[ "$TRAVIS_TAG" =~ $tagPat ]]; then
   releaseTask="ci-release"
+  versionCheckTask="versionCheck"
   tagScalaVer=$(echo $TRAVIS_TAG | sed s/[^#]*// | sed s/^#//)
   if [[ "$tagScalaVer" == "" ]]; then
     if ! isReleaseJob; then
@@ -62,4 +63,4 @@ export CI_SNAPSHOT_RELEASE="publish"
 # for now, until we're confident in the new release scripts, just close the staging repo.
 export CI_SONATYPE_RELEASE="; sonatypePrepare; sonatypeBundleUpload; sonatypeClose"
 
-sbt "$setTagScalaVersion" clean test publishLocal $releaseTask
+sbt "$setTagScalaVersion" clean test publishLocal $versionCheckTask $releaseTask

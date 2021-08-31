@@ -1,7 +1,7 @@
-
 val sharedSettings = ScalaModulePlugin.scalaModuleSettings ++ ScalaModulePlugin.scalaModuleOsgiSettings ++ Seq(
   name := "scala-async",
   scalaModuleAutomaticModuleName := Some("scala.async"),
+  versionPolicyIntention := Compatibility.BinaryAndSourceCompatible,
 
   OsgiKeys.exportPackage := Seq(s"scala.async.*;version=${version.value}"),
 
