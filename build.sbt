@@ -1,7 +1,6 @@
 val sharedSettings = ScalaModulePlugin.scalaModuleSettings ++ ScalaModulePlugin.scalaModuleOsgiSettings ++ Seq(
   name := "scala-async",
   scalaModuleAutomaticModuleName := Some("scala.async"),
-  versionPolicyIntention := Compatibility.BinaryAndSourceCompatible,
 
   OsgiKeys.exportPackage := Seq(s"scala.async.*;version=${version.value}"),
 
@@ -12,7 +11,7 @@ val sharedSettings = ScalaModulePlugin.scalaModuleSettings ++ ScalaModulePlugin.
   ScalaModulePlugin.enableOptimizer,
   testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v", "-s"),
   Test / scalacOptions ++= Seq("-Yrangepos"),
-  scalacOptions ++= List("-deprecation" , "-Xasync")
+  scalacOptions ++= List("-deprecation" , "-Xasync"),
 )
 
 lazy val proj = crossProject(JSPlatform, JVMPlatform)
@@ -20,8 +19,15 @@ lazy val proj = crossProject(JSPlatform, JVMPlatform)
   .crossType(CrossType.Pure)
   .in(file("."))
   .settings(sharedSettings)
+  // until we have actually published for Scala.js
+  .jvmSettings(versionPolicyIntention := Compatibility.BinaryAndSourceCompatible)
+  .jsSettings(versionPolicyIntention := Compatibility.None)
+  // override sbt-scala-module default (which is unsuitable for Scala.js)
+  .jsSettings(Test / fork := false)
 
-lazy val root = project.in(file(".")).settings(sharedSettings)
+lazy val root = project.in(file("."))
+  .settings(sharedSettings)
+  .aggregate(proj.jvm, proj.js)
 
 Global / parallelExecution := false
 
