@@ -13,7 +13,7 @@ jobs:
         with:
           distribution: adopt
           java-version: 8
-      - run: sbt versionCheck ci-release
+      - run: sbt proj/versionCheck ci-release
         env:
           PGP_PASSPHRASE: ${{secrets.PGP_PASSPHRASE}}
           PGP_SECRET: ${{secrets.PGP_SECRET}}
