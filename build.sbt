@@ -22,7 +22,8 @@ lazy val proj = crossProject(JSPlatform, JVMPlatform)
   .crossType(CrossType.Pure)
   .in(file("."))
   .settings(sharedSettings)
-  // until we have actually published for Scala.js
+  // until we have actually published for Scala.js. this is also why,
+  // for now, release.yml does just `proj/versionCheck` instead of `versionCheck`
   .jvmSettings(versionPolicyIntention := Compatibility.BinaryAndSourceCompatible)
   .jsSettings(versionPolicyIntention := Compatibility.None)
   // override sbt-scala-module default (which is unsuitable for Scala.js)
