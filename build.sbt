@@ -9,7 +9,7 @@ val sharedSettings = ScalaModulePlugin.scalaModuleSettings ++ ScalaModulePlugin.
 
   libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value % "provided",
   libraryDependencies += "junit" % "junit" % "4.13.2" % Test,
-  libraryDependencies += "com.novocode" % "junit-interface" % "0.11" % Test,
+  libraryDependencies += "com.github.sbt" % "junit-interface" % "0.13.2" % Test,
 
   ScalaModulePlugin.enableOptimizer,
   testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v", "-s"),
