@@ -11,7 +11,7 @@ As of scala-async 1.0, Scala 2.12.12+ or 2.13.3+ are required.
 #### SBT Example
 
 ```scala
-libraryDependencies += "org.scala-lang.modules" %% "scala-async" % "0.10.0"
+libraryDependencies += "org.scala-lang.modules" %% "scala-async" % "1.0.1"
 libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided
 ```
 
@@ -24,7 +24,7 @@ to match your project’s Scala binary version):
 <dependency>
   <groupId>org.scala-lang.modules</groupId>
   <artifactId>scala-async_2.13</artifactId>
-  <version>1.0.0</version>
+  <version>1.0.1</version>
 </dependency>
 <dependency>
   <groupId>org.scala-lang</groupId>
